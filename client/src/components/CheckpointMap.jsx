@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { cn } from '@/lib/utils.ts';
@@ -35,10 +35,39 @@ const pin = (fill, stroke, glyph) =>
     popupAnchor: [0, -32],
   });
 
+/**
+ * Three marker designs, because the three kinds of point mean different things
+ * to someone reading the map:
+ *
+ *   terminal — where a route starts or ends. Largest, with a filled centre.
+ *   stop     — you can board here. Standard pin.
+ *   landmark — timing point only, no boarding. Grey and hollow, so it never
+ *              looks like somewhere to wait.
+ */
 const ICONS = {
-  terminal: pin('#2563eb', '#1d4ed8', '<circle cx="14" cy="14" r="2.5" fill="#1d4ed8"/>'),
-  station: pin('#2563eb', '#1d4ed8'),
-  landmark: pin('#94a3b8', '#64748b'),
+  terminal: L.divIcon({
+    className: '',
+    html: `<svg width="34" height="42" viewBox="0 0 34 42" xmlns="http://www.w3.org/2000/svg">
+      <path d="M17 41C17 41 31 26 31 17A14 14 0 1 0 3 17c0 9 14 24 14 24z"
+            fill="#1d4ed8" stroke="#1e3a8a" stroke-width="2"/>
+      <circle cx="17" cy="17" r="7" fill="#fff"/>
+      <circle cx="17" cy="17" r="3.5" fill="#1d4ed8"/>
+    </svg>`,
+    iconSize: [34, 42],
+    iconAnchor: [17, 41],
+    popupAnchor: [0, -38],
+  }),
+  station: pin('#3b82f6', '#2563eb'),
+  landmark: L.divIcon({
+    className: '',
+    html: `<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="10" cy="10" r="6" fill="#fff" stroke="#94a3b8" stroke-width="2.5"
+              stroke-dasharray="3 2"/>
+    </svg>`,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+    popupAnchor: [0, -12],
+  }),
 };
 
 const youAreHere = L.divIcon({
@@ -51,6 +80,15 @@ const youAreHere = L.divIcon({
 
 const iconFor = (cp) =>
   cp.type === 'landmark' ? ICONS.landmark : cp.isTerminal ? ICONS.terminal : ICONS.station;
+
+/*
+ * There is deliberately no route line.
+ *
+ * A polyline between checkpoints draws a straight line where the road bends,
+ * so it would show buses cutting across Laguna de Bay and through mountains.
+ * Drawing the true road geometry would mean a routing call per route and a
+ * quota to manage, for decoration. The pins are what carry the information.
+ */
 
 /** Keep the viewport on whatever is worth looking at right now. */
 function FitTo({ points }) {
@@ -95,11 +133,6 @@ export function CheckpointMap({
 }) {
   const placed = useMemo(() => checkpoints.filter((c) => c.location), [checkpoints]);
 
-  const linePoints = useMemo(
-    () => routePath.filter((c) => c.location).map((c) => [c.location.lat, c.location.lng]),
-    [routePath]
-  );
-
   const fitPoints = useMemo(() => {
     const pts = placed.map((c) => [c.location.lat, c.location.lng]);
     if (you) pts.push([you.lat, you.lng]);
@@ -125,10 +158,6 @@ export function CheckpointMap({
 
         <FitTo points={fitPoints} />
         <ClickToPlace onPick={onPick} />
-
-        {linePoints.length > 1 && (
-          <Polyline positions={linePoints} pathOptions={{ color: '#2563eb', weight: 4, opacity: 0.7 }} />
-        )}
 
         {placed.map((cp) => (
           <Marker

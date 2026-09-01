@@ -22,6 +22,17 @@ export const DELAY_THRESHOLD_MINUTES = 5;
  */
 export const STALE_GRACE_RATIO = 0.5;
 
+/**
+ * How long a bus can plausibly be standing at a stop before "still boarding"
+ * stops being credible.
+ *
+ * Reporting the pull-out is optional — a conductor busy with fares should not
+ * owe the system a second tap — so its absence cannot be read as proof the bus
+ * is still there. Past this, the honest answer reverts to "on the road", marked
+ * as inferred rather than confirmed.
+ */
+export const STOP_DWELL_GRACE_MINUTES = 10;
+
 const MS_PER_MINUTE = 60000;
 
 const idOf = (value) => {
@@ -357,6 +368,27 @@ export function computeTripState({
  * an hour ago is worse than no number, because it looks just as confident — so
  * the board is told to stop trusting it rather than left to guess.
  */
+/**
+ * Turn the recorded position into what can honestly be shown right now.
+ *
+ * `computeTripState` works purely from logs and so reports `at_stop` until a
+ * pull-out is logged. Only the clock can say whether that is still believable.
+ */
+export function resolvePosition({ state, now = new Date(), graceMinutes = STOP_DWELL_GRACE_MINUTES }) {
+  if (state.position !== 'at_stop' || !state.lastConfirmedAt) {
+    return { position: state.position, inferred: false, minutesStanding: null };
+  }
+
+  const minutesStanding = Math.max(0, Math.round(minutesBetween(state.lastConfirmedAt, now)));
+  if (minutesStanding <= graceMinutes) {
+    return { position: 'at_stop', inferred: false, minutesStanding };
+  }
+
+  // Nobody said it left, but no bus boards for this long. Say it has probably
+  // gone, and be clear that is a guess rather than a confirmation.
+  return { position: 'between', inferred: true, minutesStanding };
+}
+
 export function evaluateStaleness({ plan, state, now = new Date(), trafficAdjustments = null }) {
   const quiet = {
     isStale: false,

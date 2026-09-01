@@ -259,7 +259,7 @@ export default function ConductorTripPage() {
               primary
               icon={LogOut}
               label={`Leaving ${standingAt.name}`}
-              sub="Tells passengers here that the bus has gone"
+              sub="Optional — skip it if you are busy, and it will be assumed"
               onClick={() =>
                 tap(
                   { type: 'left_checkpoint', checkpoint: standingAt.checkpointId },
@@ -288,7 +288,7 @@ export default function ConductorTripPage() {
               }
               sub={
                 nextStop?.type === 'landmark'
-                  ? 'Timing point — no boarding here'
+                  ? 'Only if safe — a missed timing point costs nothing'
                   : 'Shows this bus as boarding at this stop'
               }
               onClick={() =>

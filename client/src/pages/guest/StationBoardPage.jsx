@@ -192,13 +192,21 @@ function ArrivalRow({ arrival, now }) {
                       )}
                     </>
                   ) : (
-                    <>
-                      Left {arrival.lastConfirmedCheckpoint?.name} at{' '}
-                      {formatTime(arrival.leftLastCheckpointAt ?? arrival.lastConfirmedAt)}
-                      {arrival.minutesSinceLastConfirm !== null && (
-                        <> · {formatElapsed(arrival.minutesSinceLastConfirm)} ago</>
-                      )}
-                    </>
+                    arrival.positionInferred ? (
+                      <>
+                        Reached {arrival.lastConfirmedCheckpoint?.name} at{' '}
+                        {formatTime(arrival.lastConfirmedAt)} — assumed to have left, though the
+                        conductor has not confirmed it
+                      </>
+                    ) : (
+                      <>
+                        Left {arrival.lastConfirmedCheckpoint?.name} at{' '}
+                        {formatTime(arrival.leftLastCheckpointAt ?? arrival.lastConfirmedAt)}
+                        {arrival.minutesSinceLastConfirm !== null && (
+                          <> · {formatElapsed(arrival.minutesSinceLastConfirm)} ago</>
+                        )}
+                      </>
+                    )
                   )}
                 </div>
               )}

@@ -4,6 +4,7 @@ import {
   computeTripState,
   cumulativeBaseline,
   evaluateStaleness,
+  resolvePosition,
 } from './etaEngine.js';
 import { getAdjustments, getSegmentDetail } from './trafficProvider.js';
 
@@ -85,6 +86,8 @@ export function presentTrip(trip, { logs = [], now = new Date(), audience = 'pub
     trafficAdjustments,
   });
   const staleness = evaluateStaleness({ plan, state, now, trafficAdjustments });
+  // Standing at a stop is only credible for so long without a pull-out report.
+  const place = resolvePosition({ state, now });
 
   const etaByCheckpoint = new Map(
     state.computedETAs.map((e) => [String(e.checkpoint), e])
@@ -137,7 +140,10 @@ export function presentTrip(trip, { logs = [], now = new Date(), audience = 'pub
     lastConfirmedAt: state.lastConfirmedAt,
     // 'at_stop' (standing at a station, possibly boarding), 'between' (on the
     // road), or 'arrived'. The single most important thing for someone waiting.
-    position: state.position,
+    position: place.position,
+    // True when we are guessing the bus has moved on rather than being told.
+    positionInferred: place.inferred,
+    minutesAtStop: place.minutesStanding,
     leftLastCheckpointAt: state.leftLastCheckpointAt,
     nextCheckpoint: staleness.nextCheckpointName
       ? { checkpointId: String(staleness.nextCheckpoint), name: staleness.nextCheckpointName }

@@ -16,7 +16,9 @@ export function JourneyStrip({ journey }) {
   if (!journey?.length) return null;
 
   return (
-    <div className="overflow-x-auto pb-1">
+    // pt-1 gives the bus badge, which is taller than a plain dot, room inside
+    // the horizontal scroll container instead of being clipped by it.
+    <div className="overflow-x-auto pb-1 pt-1">
       <ol className="flex min-w-max items-start gap-0">
         {journey.map((stop, i) => {
           const done = stop.progress === 'passed' || stop.progress === 'skipped';

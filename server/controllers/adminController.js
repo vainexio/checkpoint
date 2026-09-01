@@ -204,6 +204,44 @@ export const deleteConductor = asyncHandler(async (req, res) => {
   res.status(204).end();
 });
 
+/* ---------------------------------------------------------------------- admins */
+
+export const listAdmins = asyncHandler(async (req, res) => {
+  res.json(await User.find({ role: 'admin' }).sort({ name: 1 }).lean());
+});
+
+/**
+ * One admin is a single point of failure — forget the password and nobody can
+ * help, because the setup route closes as soon as any account exists. So an
+ * admin can create another.
+ */
+export const createAdmin = asyncHandler(async (req, res) => {
+  const { name, username, password } = req.body;
+  if (!password || password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+  }
+  const admin = await User.create({
+    name,
+    username,
+    role: 'admin',
+    passwordHash: await User.hashPassword(password),
+  });
+  res.status(201).json(admin);
+});
+
+export const deleteAdmin = asyncHandler(async (req, res) => {
+  if (String(req.params.id) === String(req.user._id)) {
+    return res.status(409).json({ error: 'You cannot remove your own account.' });
+  }
+  // Never let the last one go: that would lock everybody out for good.
+  if ((await User.countDocuments({ role: 'admin' })) <= 1) {
+    return res.status(409).json({ error: 'This is the only admin account. Create another first.' });
+  }
+  const removed = await User.findOneAndDelete({ _id: req.params.id, role: 'admin' });
+  if (!removed) return res.status(404).json({ error: 'Admin not found.' });
+  res.status(204).end();
+});
+
 /* ----------------------------------------------------------------------- trips */
 
 export const listTrips = asyncHandler(async (req, res) => {

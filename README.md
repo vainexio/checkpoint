@@ -87,6 +87,21 @@ Two things that will otherwise bite:
 On the free plan the service sleeps after ~15 minutes idle and takes ~50s to wake, which looks
 like a broken board to anyone opening it cold.
 
+## Starting from an empty database
+
+The seed is demo data, not a dependency — everything in it can be created through the admin
+UI instead. But a fresh database has no account to sign in as, so:
+
+- Opening the app on an empty system offers **`/setup`**, which creates the first admin and
+  signs you straight in. It closes permanently the moment any account exists, so it can never
+  become a back door.
+- On a public deployment set **`SETUP_TOKEN`** so that the gap between going live and claiming
+  the system cannot be taken by whoever finds the URL first.
+- Admins can create other admins from inside the app, and the last one cannot be deleted —
+  one account is otherwise a single point of failure.
+- Locked out anyway? `npm run create-admin -- --username you --password ...` works against
+  whatever `MONGODB_URI` points at, and resets an existing account's password.
+
 ## How the ETA works
 
 All of it lives in [`server/services/etaEngine.js`](server/services/etaEngine.js) as pure

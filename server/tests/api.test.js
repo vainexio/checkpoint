@@ -548,3 +548,87 @@ test('a bus that finished long ago is not still on the stand', async () => {
     .expect(200);
   assert.equal(board.body.arrivals.length, 0);
 });
+
+/* ------------------------------------------------------------------- setup */
+
+test('a fresh system can create its first admin, once', async () => {
+  await Promise.all([Trip.deleteMany({}), User.deleteMany({})]);
+  delete process.env.SETUP_TOKEN;
+
+  const before = await request(app).get('/api/auth/setup-status').expect(200);
+  assert.equal(before.body.needsSetup, true);
+
+  const created = await request(app)
+    .post('/api/auth/setup')
+    .send({ name: 'First Admin', username: 'firstadmin', password: 'a-long-enough-pass' })
+    .expect(201);
+
+  // Signed in immediately — otherwise the next step is a login form for an
+  // account that was created a second ago, which is pointless friction.
+  assert.equal(created.body.user.role, 'admin');
+  assert.ok(created.body.token);
+
+  await request(app)
+    .get('/api/admin/dashboard')
+    .set('Authorization', `Bearer ${created.body.token}`)
+    .expect(200);
+
+  // And it closes behind itself, so it can never become a back door.
+  const after = await request(app).get('/api/auth/setup-status').expect(200);
+  assert.equal(after.body.needsSetup, false);
+
+  await request(app)
+    .post('/api/auth/setup')
+    .send({ name: 'Sneaky', username: 'sneaky', password: 'a-long-enough-pass' })
+    .expect(409);
+});
+
+test('a setup token is enforced when one is configured', async () => {
+  await Promise.all([Trip.deleteMany({}), User.deleteMany({})]);
+  process.env.SETUP_TOKEN = 'the-right-token';
+
+  const status = await request(app).get('/api/auth/setup-status').expect(200);
+  assert.equal(status.body.requiresToken, true);
+
+  await request(app)
+    .post('/api/auth/setup')
+    .send({ name: 'X', username: 'x', password: 'a-long-enough-pass', token: 'guess' })
+    .expect(403);
+
+  await request(app)
+    .post('/api/auth/setup')
+    .send({
+      name: 'Ops',
+      username: 'ops',
+      password: 'a-long-enough-pass',
+      token: 'the-right-token',
+    })
+    .expect(201);
+
+  delete process.env.SETUP_TOKEN;
+});
+
+test('admins can appoint a successor, and cannot delete the last one', async () => {
+  const { adminToken } = await setupWorld();
+  const asAdmin = (req) => req.set('Authorization', `Bearer ${adminToken}`);
+
+  const only = await asAdmin(request(app).get('/api/admin/admins')).expect(200);
+  assert.equal(only.body.length, 1);
+
+  // The lone admin cannot be removed — that would lock everyone out for good.
+  await asAdmin(request(app).delete(`/api/admin/admins/${only.body[0]._id}`)).expect(409);
+
+  const second = await asAdmin(request(app).post('/api/admin/admins'))
+    .send({ name: 'Second Admin', username: 'second', password: 'a-long-enough-pass' })
+    .expect(201);
+
+  // A second admin can genuinely sign in, so this is real succession.
+  const login = await request(app)
+    .post('/api/auth/login')
+    .send({ username: 'second', password: 'a-long-enough-pass' })
+    .expect(200);
+  assert.equal(login.body.user.role, 'admin');
+
+  // Now that a successor exists, the other can go — but never yourself.
+  await asAdmin(request(app).delete(`/api/admin/admins/${second.body._id}`)).expect(204);
+});

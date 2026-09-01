@@ -11,6 +11,10 @@ const router = Router();
 /* ------------------------------------------------------------------ auth */
 // One door for staff. The account's role decides which product they land in;
 // the role boundary itself is enforced per-route below.
+// Open only while the system has no accounts at all; refuses forever after.
+router.get('/auth/setup-status', auth.setupStatus);
+router.post('/auth/setup', auth.setupFirstAdmin);
+
 router.post('/auth/login', auth.login);
 router.get('/auth/me', requireAuth, auth.me);
 
@@ -60,6 +64,10 @@ router.get('/admin/buses', ...adminOnly, admin.listBuses);
 router.post('/admin/buses', ...adminOnly, admin.createBus);
 router.put('/admin/buses/:id', ...adminOnly, admin.updateBus);
 router.delete('/admin/buses/:id', ...adminOnly, admin.deleteBus);
+
+router.get('/admin/admins', ...adminOnly, admin.listAdmins);
+router.post('/admin/admins', ...adminOnly, admin.createAdmin);
+router.delete('/admin/admins/:id', ...adminOnly, admin.deleteAdmin);
 
 router.get('/admin/conductors', ...adminOnly, admin.listConductors);
 router.post('/admin/conductors', ...adminOnly, admin.createConductor);

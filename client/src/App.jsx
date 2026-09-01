@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button.tsx';
 import { AuthProvider, homeFor, useAuth } from '@/hooks/useAuth.jsx';
 
 import LoginPage from '@/pages/LoginPage.jsx';
+import SetupPage from '@/pages/SetupPage.jsx';
 
 import StationsPage from '@/pages/guest/StationsPage.jsx';
 import StationBoardPage from '@/pages/guest/StationBoardPage.jsx';
@@ -31,7 +32,8 @@ export default function App() {
   return (
     <AuthProvider>
       <Routes>
-        <Route path="/login" element={<LoginPage />} />
+        <Route path="/setup" element={<SetupRoute />} />
+        <Route path="/login" element={<LoginRoute />} />
         {/* Full-screen terminal board: no chrome, no navigation, no input. */}
         <Route path="/display/:stationId" element={<StationDisplayPage />} />
         <Route path="/conductor/*" element={<ConductorApp />} />
@@ -42,13 +44,33 @@ export default function App() {
   );
 }
 
+function SetupRoute() {
+  const { setup, completeSetup } = useAuth();
+  if (!setup) return <div className="min-h-[100dvh] bg-background" />;
+  return <SetupPage setup={setup} onDone={completeSetup} />;
+}
+
+/**
+ * A system with no accounts has nobody to sign in as, so the login form sends
+ * you to setup rather than asking for a password that cannot exist yet.
+ */
+function LoginRoute() {
+  const { setup } = useAuth();
+  if (!setup) return <div className="min-h-[100dvh] bg-background" />;
+  if (setup.needsSetup) return <Navigate to="/setup" replace />;
+  return <LoginPage />;
+}
+
 /** Send anyone without the right role somewhere they can actually go. */
 function RequireRole({ role, children }) {
-  const { user, checking } = useAuth();
+  const { user, checking, setup } = useAuth();
+  if (setup?.needsSetup) return <Navigate to="/setup" replace />;
   const location = useLocation();
 
   if (checking) return <div className="min-h-[100dvh] bg-background" />;
-  if (!user) return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+  }
   if (user.role !== role) return <Navigate to={homeFor(user)} replace />;
 
   return children;

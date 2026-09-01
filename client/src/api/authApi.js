@@ -10,5 +10,15 @@ export async function login(username, password) {
   return res.user;
 }
 
+/** Whether this deployment still has no accounts at all. */
+export const fetchSetupStatus = () => api.get('/auth/setup-status');
+
+/** Claim a brand-new system by creating its first admin. */
+export async function createFirstAdmin(body) {
+  const res = await api.post('/auth/setup', body);
+  setToken(res.token);
+  return res.user;
+}
+
 export const fetchMe = () => api.get('/auth/me', { auth: true });
 export const logout = () => setToken(null);

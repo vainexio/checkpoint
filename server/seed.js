@@ -137,6 +137,39 @@ const ROUTES = [
       },
     ],
   },
+  {
+    name: 'Baguio – Cubao',
+    checkpoints: [
+      { name: 'Baguio Terminal', type: 'station', isTerminal: true, area: 'Baguio, Benguet',
+        location: { lat: 16.4138341, lng: 120.5914077 }, baseline: 0 },
+      { name: 'TPLEX – Rosario Exit', type: 'landmark', area: 'Rosario, La Union',
+        location: { lat: 16.2299397, lng: 120.487704 }, baseline: 64 },
+      { name: 'Tarlac stop', type: 'station', area: 'Tarlac City, Tarlac',
+        location: { lat: 15.486869, lng: 120.5898647 }, baseline: 81 },
+      { name: 'Balintawak', type: 'station', area: 'Quezon City, Metro Manila',
+        location: { lat: 14.6574221, lng: 121.0038959 }, baseline: 138 },
+      { name: 'Cubao Terminal', type: 'station', isTerminal: true,
+        area: 'Quezon City, Metro Manila',
+        location: { lat: 14.6217, lng: 121.053 }, baseline: 20 },
+    ],
+  },
+  {
+    name: 'Lipa – PITX',
+    checkpoints: [
+      { name: 'Lipa City', type: 'station', isTerminal: true, area: 'Lipa, Batangas',
+        location: { lat: 13.9572279, lng: 121.1646223 }, baseline: 0 },
+      { name: 'Tanauan', type: 'station', area: 'Tanauan, Batangas',
+        location: { lat: 14.0865988, lng: 121.1258532 }, baseline: 26 },
+      { name: 'Santo Tomas', type: 'station', area: 'Santo Tomas, Batangas',
+        location: { lat: 14.110721, lng: 121.1423512 }, baseline: 18 },
+      { name: 'Calamba Crossing', type: 'station', area: 'Calamba, Laguna',
+        location: { lat: 14.1940522, lng: 121.1596881 }, baseline: 25 },
+      { name: 'Alabang', type: 'station', area: 'Muntinlupa, Metro Manila',
+        location: { lat: 14.4190326, lng: 121.044338 }, baseline: 39 },
+      { name: 'PITX', type: 'station', isTerminal: true, area: 'Parañaque, Metro Manila',
+        location: { lat: 14.5099649, lng: 120.9913732 }, baseline: 37 },
+    ],
+  },
 ];
 
 const BUSES = [
@@ -148,6 +181,8 @@ const BUSES = [
   { plateNumber: 'SBL 5629', operatorName: 'Southbound Lines' },
   { plateNumber: 'SBL 7742', operatorName: 'Southbound Lines' },
   { plateNumber: 'SBL 9015', operatorName: 'Southbound Lines' },
+  { plateNumber: 'SBL 4820', operatorName: 'Southbound Lines' },
+  { plateNumber: 'NRT 5507', operatorName: 'Northline Express' },
 ];
 
 /**
@@ -255,6 +290,39 @@ const TRIPS = [
     // Recent enough that it is still on the stand at Lipa.
     arrivedAgo: 18,
     note: 'just arrived — still on the stand at Lipa',
+  },
+
+  // ------------------------------------------------- the way back
+  // A terminal is not the end of the line, it is a turnaround. SBL 9015 has
+  // just got in from PITX and goes back out as the next southbound departure —
+  // the same physical bus, a separate trip on the reverse route.
+  {
+    route: 'Lipa – PITX',
+    bus: 'SBL 9015',
+    conductor: 'marlon',
+    scheduledInMinutes: 25,
+    note: 'turnaround — the bus that just arrived goes back to PITX',
+  },
+  {
+    route: 'Lipa – PITX',
+    bus: 'SBL 4820',
+    conductor: 'joel',
+    departedAgo: 95,
+    confirms: [
+      ['Tanauan', 68],
+      ['Santo Tomas', 49],
+      ['Calamba Crossing', 22],
+    ],
+    left: ['Calamba Crossing', 16],
+    load: ['few', 16],
+    note: 'northbound to PITX, past Calamba',
+  },
+  {
+    route: 'Baguio – Cubao',
+    bus: 'NRT 5507',
+    conductor: 'rey',
+    scheduledInMinutes: 40,
+    note: 'southbound departure from Baguio',
   },
 ];
 

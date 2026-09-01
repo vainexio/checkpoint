@@ -37,6 +37,20 @@ const ROUTES = {
     { query: 'Tanauan City Hall, Tanauan, Batangas', name: 'Tanauan', type: 'station' },
     { query: 'Lipa City Hall, Batangas', name: 'Lipa City', type: 'station', terminal: true },
   ],
+  'Lipa – PITX': [
+    { query: 'Lipa City Hall, Batangas', name: 'Lipa City', type: 'station', terminal: true },
+    { query: 'Tanauan City Hall, Tanauan, Batangas', name: 'Tanauan', type: 'station' },
+    { query: 'Santo Tomas City Hall, Batangas', name: 'Santo Tomas', type: 'station' },
+    { query: 'Calamba City Hall, Calamba, Laguna', name: 'Calamba Crossing', type: 'station' },
+    { query: 'Alabang, Muntinlupa', name: 'Alabang', type: 'station' },
+    { query: 'Parañaque Integrated Terminal Exchange', name: 'PITX', type: 'station', terminal: true },
+  ],
+  'Baguio – Cubao': [
+    { query: 'Baguio City Hall, Baguio', name: 'Baguio Terminal', type: 'station', terminal: true },
+    { query: 'Rosario, La Union', name: 'TPLEX – Rosario Exit', type: 'landmark' },
+    { query: 'Tarlac City Hall, Tarlac', name: 'Tarlac stop', type: 'station' },
+    { query: 'Balintawak, Quezon City', name: 'Balintawak', type: 'station' },
+  ],
   'Cubao – Baguio': [
     { query: 'Araneta City Bus Port, Cubao, Quezon City', name: 'Cubao Terminal', type: 'station', terminal: true },
     { query: 'Balintawak, Quezon City', name: 'Balintawak', type: 'station' },

@@ -1,41 +1,41 @@
+import { Badge } from '@/components/ui/badge.tsx';
+
 /**
  * One vocabulary for trip state, used identically on all three screens.
  *
  * Staleness outranks everything. A bus that has stopped reporting is not
- * "on time" and is not "delayed" — nobody knows what it is, and the badge has
- * to say that rather than pick the more flattering of the two.
+ * "on time" and is not "delayed" — nobody knows what it is, so it takes the
+ * muted variant rather than borrowing the colour of either.
  */
 const LABELS = {
-  scheduled: { text: 'Scheduled', tone: 'scheduled' },
-  in_transit: { text: 'On time', tone: 'ontime' },
-  delayed: { text: 'Delayed', tone: 'delayed' },
-  arrived: { text: 'Arrived', tone: 'arrived' },
-  cancelled: { text: 'Cancelled', tone: 'stale' },
+  scheduled: { text: 'Scheduled', variant: 'secondary' },
+  in_transit: { text: 'On time', variant: 'success' },
+  delayed: { text: 'Delayed', variant: 'warning' },
+  arrived: { text: 'Arrived', variant: 'muted' },
+  cancelled: { text: 'Cancelled', variant: 'destructive' },
 };
 
-export function StatusBadge({ status, isStale, varianceMinutes }) {
+export function StatusBadge({ status, isStale, varianceMinutes, className }) {
   if (isStale) {
     return (
-      <span className="badge badge--stale">
-        <span className="badge__dot" />
+      <Badge variant="muted" className={className}>
         Unconfirmed
-      </span>
+      </Badge>
     );
   }
 
-  const { text, tone } = LABELS[status] ?? LABELS.scheduled;
+  const { text, variant } = LABELS[status] ?? LABELS.scheduled;
   const suffix =
     status === 'delayed' && varianceMinutes > 0
       ? ` ${varianceMinutes} min`
       : status === 'in_transit' && varianceMinutes < 0
-        ? ` ${Math.abs(varianceMinutes)} min early`
+        ? ` · ${Math.abs(varianceMinutes)} min early`
         : '';
 
   return (
-    <span className={`badge badge--${tone}`}>
-      <span className="badge__dot" />
+    <Badge variant={variant} className={className}>
       {text}
       {suffix}
-    </span>
+    </Badge>
   );
 }

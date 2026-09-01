@@ -1,11 +1,29 @@
 import { useState } from 'react';
-import { useList } from '../../hooks/useList.js';
+import { AlertCircle, MapPin, Trash2 } from 'lucide-react';
+import { useList } from '@/hooks/useList.js';
+import { createCheckpoint, deleteCheckpoint, listCheckpoints } from '@/api/adminApi.js';
+import { PageHeader } from '@/components/layout/AppLayout.jsx';
+import { Button } from '@/components/ui/button.tsx';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.tsx';
+import { Input } from '@/components/ui/input.tsx';
+import { Label } from '@/components/ui/label.tsx';
+import { Badge } from '@/components/ui/badge.tsx';
+import { Alert, AlertDescription } from '@/components/ui/alert.tsx';
 import {
-  createCheckpoint,
-  deleteCheckpoint,
-  listCheckpoints,
-} from '../../api/adminApi.js';
-import './admin.css';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select.tsx';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table.tsx';
 
 /**
  * Checkpoints are the vocabulary the whole system is built from. Stations get a
@@ -41,106 +59,133 @@ export default function AdminCheckpointsPage() {
   };
 
   return (
-    <div className="shell">
-      <div className="pagehead">
-        <div>
-          <div className="eyebrow">Setup</div>
-          <h1 className="pagehead__title">Checkpoints</h1>
-          <p className="pagehead__sub">
-            The points a conductor can confirm. Encoded once, reused by every route
-            that passes them.
-          </p>
-        </div>
-      </div>
+    <>
+      <PageHeader
+        icon={MapPin}
+        title="Checkpoints"
+        description="The points a conductor can confirm. Encoded once, reused by every route that passes them."
+      />
 
-      {error && <div className="notice notice--error">{error.message}</div>}
+      {error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error.message}</AlertDescription>
+        </Alert>
+      )}
 
-      <div className="adminsplit">
-        <form className="card" onSubmit={submit}>
-          <div className="card__title">Add a checkpoint</div>
+      <div className="grid items-start gap-4 lg:grid-cols-[360px_1fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Add a checkpoint</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={submit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="cp-name">Name</Label>
+                <Input
+                  id="cp-name"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="e.g. Balintawak"
+                  required
+                />
+              </div>
 
-          <label className="field">
-            <span className="field__label">Name</span>
-            <input
-              className="input"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="e.g. Balintawak"
-              required
-            />
-          </label>
+              <div className="space-y-2">
+                <Label>Type</Label>
+                <Select
+                  value={form.type}
+                  onValueChange={(value) => setForm({ ...form, type: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="station">Station — gets a public board</SelectItem>
+                    <SelectItem value="landmark">Landmark — timing point only</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {form.type === 'station'
+                    ? 'Passengers can board here, and it gets its own arrivals board.'
+                    : 'Used only to take a timing reading. No public board.'}
+                </p>
+              </div>
 
-          <label className="field">
-            <span className="field__label">Type</span>
-            <select
-              className="input"
-              value={form.type}
-              onChange={(e) => setForm({ ...form, type: e.target.value })}
-            >
-              <option value="station">Station — passengers board, gets a public board</option>
-              <option value="landmark">Landmark — timing point only</option>
-            </select>
-          </label>
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-primary"
+                  checked={form.isTerminal}
+                  onChange={(e) => setForm({ ...form, isTerminal: e.target.checked })}
+                />
+                This is an official terminal
+              </label>
 
-          <label className="checkline">
-            <input
-              type="checkbox"
-              checked={form.isTerminal}
-              onChange={(e) => setForm({ ...form, isTerminal: e.target.checked })}
-            />
-            <span>This is an official terminal</span>
-          </label>
+              <Button type="submit" className="w-full" disabled={busy}>
+                {busy ? 'Adding…' : 'Add checkpoint'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
 
-          <button className="btn btn--primary btn--block" disabled={busy}>
-            {busy ? 'Adding…' : 'Add checkpoint'}
-          </button>
-        </form>
+        <Card>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
+            <CardTitle>All checkpoints</CardTitle>
+            <span className="font-mono text-xs text-muted-foreground">{items.length}</span>
+          </CardHeader>
+          <CardContent>
+            {loading && <div className="py-10 text-center text-muted-foreground">Loading…</div>}
 
-        <div className="card">
-          <div className="card__title">
-            All checkpoints
-            <span className="eyebrow">{items.length}</span>
-          </div>
+            {!loading && items.length === 0 && (
+              <div className="rounded-xl border border-dashed py-12 text-center text-muted-foreground">
+                No checkpoints yet. Add the first one.
+              </div>
+            )}
 
-          {loading && <div className="empty">Loading…</div>}
-
-          {!loading && items.length === 0 && (
-            <div className="empty">No checkpoints yet. Add the first one.</div>
-          )}
-
-          {items.length > 0 && (
-            <div className="table__scroll">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Type</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
+            {items.length > 0 && (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {items.map((cp) => (
-                    <tr key={cp._id}>
-                      <td>
+                    <TableRow key={cp._id}>
+                      <TableCell className="font-semibold">
                         {cp.name}
-                        {cp.isTerminal && <span className="pill">Terminal</span>}
-                      </td>
-                      <td>
-                        <span className={`typetag typetag--${cp.type}`}>{cp.type}</span>
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <button className="btn btn--sm btn--danger" onClick={() => remove(cp._id)}>
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
+                        {cp.isTerminal && (
+                          <Badge variant="outline" className="ml-2 text-[10px] uppercase">
+                            Terminal
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={cp.type === 'station' ? 'secondary' : 'muted'}>
+                          {cp.type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => remove(cp._id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
       </div>
-    </div>
+    </>
   );
 }

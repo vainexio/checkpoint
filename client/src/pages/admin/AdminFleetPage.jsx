@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useList } from '../../hooks/useList.js';
+import { AlertCircle, Bus, Trash2, Users } from 'lucide-react';
+import { useList } from '@/hooks/useList.js';
 import {
   createBus,
   createConductor,
@@ -7,8 +8,15 @@ import {
   deleteConductor,
   listBuses,
   listConductors,
-} from '../../api/adminApi.js';
-import './admin.css';
+} from '@/api/adminApi.js';
+import { PageHeader } from '@/components/layout/AppLayout.jsx';
+import { Button } from '@/components/ui/button.tsx';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.tsx';
+import { Input } from '@/components/ui/input.tsx';
+import { Label } from '@/components/ui/label.tsx';
+import { Alert, AlertDescription } from '@/components/ui/alert.tsx';
+import { Separator } from '@/components/ui/separator.tsx';
+import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table.tsx';
 
 /** Buses and the people on them — the two things a trip needs assigned to it. */
 export default function AdminFleetPage() {
@@ -17,23 +25,38 @@ export default function AdminFleetPage() {
   const [error, setError] = useState(null);
 
   return (
-    <div className="shell">
-      <div className="pagehead">
-        <div>
-          <div className="eyebrow">Setup</div>
-          <h1 className="pagehead__title">Fleet &amp; crew</h1>
-        </div>
-      </div>
+    <>
+      <PageHeader
+        icon={Users}
+        title="Fleet & crew"
+        description="Buses and conductor accounts available for scheduling."
+      />
 
-      {error && <div className="notice notice--error">{error.message}</div>}
+      {error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error.message}</AlertDescription>
+        </Alert>
+      )}
 
-      <div className="adminsplit adminsplit--even">
+      <div className="grid items-start gap-4 lg:grid-cols-2">
         <BusPanel buses={buses} onError={setError} />
         <ConductorPanel conductors={conductors} onError={setError} />
       </div>
-    </div>
+    </>
   );
 }
+
+const DeleteButton = ({ onClick }) => (
+  <Button
+    variant="ghost"
+    size="sm"
+    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+    onClick={onClick}
+  >
+    <Trash2 className="h-3.5 w-3.5" />
+  </Button>
+);
 
 function BusPanel({ buses, onError }) {
   const [form, setForm] = useState({ plateNumber: '', operatorName: '' });
@@ -54,70 +77,75 @@ function BusPanel({ buses, onError }) {
   };
 
   return (
-    <div className="card">
-      <div className="card__title">
-        Buses
-        <span className="eyebrow">{buses.items.length}</span>
-      </div>
+    <Card>
+      <CardHeader className="flex-row items-center justify-between space-y-0">
+        <CardTitle className="flex items-center gap-2">
+          <Bus className="h-4 w-4 text-primary" />
+          Buses
+        </CardTitle>
+        <span className="font-mono text-xs text-muted-foreground">{buses.items.length}</span>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={submit} className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="plate">Plate number</Label>
+              <Input
+                id="plate"
+                value={form.plateNumber}
+                onChange={(e) => setForm({ ...form, plateNumber: e.target.value })}
+                placeholder="NRT 8821"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="operator">Operator</Label>
+              <Input
+                id="operator"
+                value={form.operatorName}
+                onChange={(e) => setForm({ ...form, operatorName: e.target.value })}
+                placeholder="Northline Express"
+                required
+              />
+            </div>
+          </div>
+          <Button type="submit" size="sm" disabled={busy}>
+            {busy ? 'Adding…' : 'Add bus'}
+          </Button>
+        </form>
 
-      <form onSubmit={submit} className="inlineform">
-        <div className="formgrid">
-          <label className="field">
-            <span className="field__label">Plate number</span>
-            <input
-              className="input"
-              value={form.plateNumber}
-              onChange={(e) => setForm({ ...form, plateNumber: e.target.value })}
-              placeholder="NRT 8821"
-              required
-            />
-          </label>
-          <label className="field">
-            <span className="field__label">Operator</span>
-            <input
-              className="input"
-              value={form.operatorName}
-              onChange={(e) => setForm({ ...form, operatorName: e.target.value })}
-              placeholder="Northline Express"
-              required
-            />
-          </label>
-        </div>
-        <button className="btn btn--primary btn--sm" disabled={busy}>
-          {busy ? 'Adding…' : 'Add bus'}
-        </button>
-      </form>
+        <Separator className="my-5" />
 
-      {buses.items.length === 0 ? (
-        <div className="empty">No buses yet.</div>
-      ) : (
-        <table className="table">
-          <tbody>
-            {buses.items.map((bus) => (
-              <tr key={bus._id}>
-                <td className="mono">{bus.plateNumber}</td>
-                <td className="cell__sub">{bus.operatorName}</td>
-                <td style={{ textAlign: 'right' }}>
-                  <button
-                    className="btn btn--sm btn--danger"
-                    onClick={async () => {
-                      try {
-                        await deleteBus(bus._id);
-                        await buses.reload();
-                      } catch (err) {
-                        onError(err);
-                      }
-                    }}
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
+        {buses.items.length === 0 ? (
+          <div className="rounded-xl border border-dashed py-10 text-center text-muted-foreground">
+            No buses yet.
+          </div>
+        ) : (
+          <Table>
+            <TableBody>
+              {buses.items.map((bus) => (
+                <TableRow key={bus._id}>
+                  <TableCell className="font-mono font-medium">{bus.plateNumber}</TableCell>
+                  <TableCell className="text-muted-foreground">{bus.operatorName}</TableCell>
+                  <TableCell className="text-right">
+                    <DeleteButton
+                      onClick={async () => {
+                        try {
+                          await deleteBus(bus._id);
+                          await buses.reload();
+                        } catch (err) {
+                          onError(err);
+                        }
+                      }}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -140,81 +168,85 @@ function ConductorPanel({ conductors, onError }) {
   };
 
   return (
-    <div className="card">
-      <div className="card__title">
-        Conductors
-        <span className="eyebrow">{conductors.items.length}</span>
-      </div>
-
-      <form onSubmit={submit} className="inlineform">
-        <div className="formgrid">
-          <label className="field">
-            <span className="field__label">Name</span>
-            <input
-              className="input"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
+    <Card>
+      <CardHeader className="flex-row items-center justify-between space-y-0">
+        <CardTitle className="flex items-center gap-2">
+          <Users className="h-4 w-4 text-primary" />
+          Conductors
+        </CardTitle>
+        <span className="font-mono text-xs text-muted-foreground">{conductors.items.length}</span>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={submit} className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="c-name">Name</Label>
+              <Input
+                id="c-name"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="c-user">Username</Label>
+              <Input
+                id="c-user"
+                value={form.username}
+                onChange={(e) => setForm({ ...form, username: e.target.value })}
+                autoCapitalize="none"
+                required
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="c-pass">Temporary password (min 8 characters)</Label>
+            <Input
+              id="c-pass"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              minLength={8}
               required
             />
-          </label>
-          <label className="field">
-            <span className="field__label">Username</span>
-            <input
-              className="input"
-              value={form.username}
-              onChange={(e) => setForm({ ...form, username: e.target.value })}
-              autoCapitalize="none"
-              required
-            />
-          </label>
-        </div>
-        <label className="field">
-          <span className="field__label">Temporary password (min 8 characters)</span>
-          <input
-            className="input"
-            type="text"
-            value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
-            minLength={8}
-            required
-          />
-        </label>
-        <button className="btn btn--primary btn--sm" disabled={busy}>
-          {busy ? 'Creating…' : 'Create account'}
-        </button>
-      </form>
+          </div>
+          <Button type="submit" size="sm" disabled={busy}>
+            {busy ? 'Creating…' : 'Create account'}
+          </Button>
+        </form>
 
-      {conductors.items.length === 0 ? (
-        <div className="empty">No conductor accounts yet.</div>
-      ) : (
-        <table className="table">
-          <tbody>
-            {conductors.items.map((c) => (
-              <tr key={c._id}>
-                <td>
-                  {c.name}
-                  <div className="cell__sub mono">{c.username}</div>
-                </td>
-                <td style={{ textAlign: 'right' }}>
-                  <button
-                    className="btn btn--sm btn--danger"
-                    onClick={async () => {
-                      try {
-                        await deleteConductor(c._id);
-                        await conductors.reload();
-                      } catch (err) {
-                        onError(err);
-                      }
-                    }}
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
+        <Separator className="my-5" />
+
+        {conductors.items.length === 0 ? (
+          <div className="rounded-xl border border-dashed py-10 text-center text-muted-foreground">
+            No conductor accounts yet.
+          </div>
+        ) : (
+          <Table>
+            <TableBody>
+              {conductors.items.map((c) => (
+                <TableRow key={c._id}>
+                  <TableCell>
+                    <div className="font-semibold">{c.name}</div>
+                    <div className="font-mono text-xs text-muted-foreground">{c.username}</div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DeleteButton
+                      onClick={async () => {
+                        try {
+                          await deleteConductor(c._id);
+                          await conductors.reload();
+                        } catch (err) {
+                          onError(err);
+                        }
+                      }}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
   );
 }

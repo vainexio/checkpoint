@@ -1,0 +1,153 @@
+import { Link, NavLink, useLocation } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
+import { MapPin } from 'lucide-react';
+import { cn } from '@/lib/utils.ts';
+import { formatTime } from '@/utils/time.js';
+
+/**
+ * SCOUT's application shell, adopted wholesale: glass navbar, ambient blob
+ * background, animated page transitions, and the PageHeader pattern.
+ *
+ * The one CHECKPOINT-specific move is `dark` — the public arrivals board runs
+ * in SCOUT's dark palette because it is a *display* surface read across a
+ * terminal hall, while the conductor and admin tools stay light, since they are
+ * working surfaces used in daylight and across long shifts.
+ */
+
+export function BrandMark({ className = '' }) {
+  return (
+    <span
+      className={cn(
+        'grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-sm',
+        className
+      )}
+      aria-hidden
+    >
+      <MapPin className="h-[18px] w-[18px]" strokeWidth={2.5} />
+    </span>
+  );
+}
+
+export function Navbar({ home = '/', links = [], right = null }) {
+  return (
+    <header className="sticky top-0 z-50 w-full glass-panel">
+      <div className="container mx-auto flex h-[68px] max-w-7xl items-center gap-6 px-4 sm:px-6">
+        <Link to={home} className="group flex shrink-0 items-center gap-2.5">
+          <BrandMark />
+          <span className="text-[15px] font-extrabold tracking-[0.16em]">CHECKPOINT</span>
+        </Link>
+
+        <nav className="flex flex-1 items-center gap-1 overflow-x-auto">
+          {links.map((link) => (
+            <NavLink
+              key={link.to}
+              to={link.to}
+              end={link.end}
+              className={({ isActive }) =>
+                cn(
+                  'relative whitespace-nowrap px-2 py-4 text-[14px] font-semibold transition-colors hover:text-foreground',
+                  isActive ? 'text-foreground' : 'text-muted-foreground'
+                )
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  {link.label}
+                  {isActive && (
+                    <motion.div
+                      layoutId="navbar-active-pill"
+                      className="absolute -bottom-px left-0 right-0 h-[3px] rounded-t-full bg-primary"
+                      initial={false}
+                      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                    />
+                  )}
+                </>
+              )}
+            </NavLink>
+          ))}
+        </nav>
+
+        {right && <div className="flex shrink-0 items-center gap-3">{right}</div>}
+      </div>
+    </header>
+  );
+}
+
+export function AppLayout({ children, dark = false, navbar }) {
+  const location = useLocation();
+
+  return (
+    <div
+      className={cn(
+        'relative flex min-h-[100dvh] flex-col bg-background text-foreground selection:bg-primary/20',
+        dark && 'dark'
+      )}
+    >
+      <div className="pointer-events-none fixed inset-0 bg-blobs" aria-hidden />
+
+      {navbar}
+
+      <main className="relative z-10 mx-auto w-full max-w-7xl flex-1 px-4 py-10 sm:px-6">
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            className="h-full w-full"
+          >
+            {children}
+          </motion.div>
+        </AnimatePresence>
+      </main>
+    </div>
+  );
+}
+
+export function PageHeader({ title, description, actions, icon: Icon }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
+      className="relative mb-10 flex flex-col justify-between gap-6 border-b border-border/60 pb-6 sm:flex-row sm:items-end"
+    >
+      <div className="absolute bottom-0 left-0 h-px w-24 bg-gradient-to-r from-primary to-transparent" />
+
+      <div className="flex min-w-0 max-w-2xl items-start gap-4">
+        {Icon && (
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/15 to-accent/15 text-primary shadow-sm">
+            <Icon className="h-6 w-6" />
+          </div>
+        )}
+        <div className="min-w-0">
+          <h1 className="text-3xl font-black tracking-tight text-foreground sm:text-[34px]">
+            {title}
+          </h1>
+          {description && (
+            <div className="mt-2 text-[15px] font-medium text-muted-foreground">{description}</div>
+          )}
+        </div>
+      </div>
+      {actions && <div className="flex shrink-0 items-center gap-3">{actions}</div>}
+    </motion.div>
+  );
+}
+
+/**
+ * Updates arrive when a conductor taps, not on a ticker — but a board that
+ * never visibly moves reads as broken. This says plainly when the screen last
+ * checked, which is the truthful version of "live".
+ */
+export function LiveIndicator({ lastUpdated }) {
+  return (
+    <span className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
+      <span className="relative flex h-2 w-2">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />
+        <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+      </span>
+      {lastUpdated ? `Updated ${formatTime(lastUpdated)}` : 'Connecting…'}
+    </span>
+  );
+}

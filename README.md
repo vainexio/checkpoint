@@ -106,11 +106,15 @@ Editing a route later changes what future trips inherit — it cannot retroactiv
 yardstick a bus already in motion is being measured against, and it leaves completed trips'
 actual-vs-baseline records meaningful as recalibration input later.
 
-Two grounds, one product: the public board is dark because it is a *display* surface read
-across a terminal hall; the conductor and admin apps are light because they are *working*
-surfaces used in daylight and across long shifts. IBM Plex Sans carries the language, IBM
-Plex Mono carries every time and number, because tabular figures are what keep a departure
-board legible at a glance.
+The frontend uses the **SCOUT design system** — Tailwind v4 with SCOUT's token set, its
+shadcn/ui (new-york) primitives copied in unmodified, Plus Jakarta Sans and JetBrains Mono,
+and its `glass-panel` navbar, `bg-blobs` ambient background and `PageHeader` pattern.
+
+Two grounds, one product: the public board runs in the dark palette because it is a *display*
+surface read across a terminal hall; the conductor and admin apps stay light because they are
+*working* surfaces used in daylight and across long shifts. Every time and number is set in
+JetBrains Mono with tabular figures, because that is what keeps a departure board legible at a
+glance and stops the ETA twitching as digits change.
 
 All timestamps are stored in UTC and displayed in `Asia/Manila` explicitly, never by trusting
 the viewer's device clock.
@@ -135,10 +139,12 @@ server/
   middleware/   JWT auth, role checks, error handling
   seed.js       Cubao – Baguio demo data
 client/
-  src/pages/    guest/ · conductor/ · admin/
-  src/hooks/    usePolling · useOfflineQueue · useAuth
-  src/api/      one module per audience
-  src/styles/   design tokens and shared UI
+  src/pages/          guest/ · conductor/ · admin/
+  src/components/ui/  shadcn primitives, copied from SCOUT
+  src/components/     StatusBadge · StaleNotice · Timeline · layout/AppLayout
+  src/hooks/          usePolling · useOfflineQueue · useAuth
+  src/api/            one module per audience
+  src/index.css       SCOUT design tokens
 ```
 
 ## Not built yet (deliberately)

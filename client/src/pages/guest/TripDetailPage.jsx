@@ -1,12 +1,16 @@
 import { Link, useParams } from 'react-router-dom';
-import { usePolling, useNow } from '../../hooks/usePolling.js';
-import { fetchTrip } from '../../api/publicApi.js';
-import { StatusBadge } from '../../components/StatusBadge.jsx';
-import { StaleNotice } from '../../components/StaleNotice.jsx';
-import { Timeline } from '../../components/Timeline.jsx';
-import { LiveIndicator } from '../../components/Masthead.jsx';
-import { formatCountdown, formatDay, formatTime, formatVariance } from '../../utils/time.js';
-import './guest.css';
+import { AlertCircle, ArrowLeft, Bus, CircleDot } from 'lucide-react';
+import { usePolling, useNow } from '@/hooks/usePolling.js';
+import { fetchTrip } from '@/api/publicApi.js';
+import { StatusBadge } from '@/components/StatusBadge.jsx';
+import { StaleNotice } from '@/components/StaleNotice.jsx';
+import { Timeline } from '@/components/Timeline.jsx';
+import { PageHeader, LiveIndicator } from '@/components/layout/AppLayout.jsx';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.tsx';
+import { Alert, AlertDescription } from '@/components/ui/alert.tsx';
+import { Skeleton } from '@/components/ui/skeleton.tsx';
+import { cn } from '@/lib/utils.ts';
+import { formatCountdown, formatDay, formatTime, formatVariance } from '@/utils/time.js';
 
 const DELAY_TEXT = {
   traffic: 'heavy traffic',
@@ -33,23 +37,34 @@ export default function TripDetailPage() {
 
   const trip = data?.trip;
 
+  const back = (
+    <Link
+      to="/"
+      className="mb-6 inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+    >
+      <ArrowLeft className="h-4 w-4" />
+      All stops
+    </Link>
+  );
+
   if (error) {
     return (
-      <div className="shell shell--narrow">
-        <div className="pagehead">
-          <Link to="/" className="backlink">
-            ← All stops
-          </Link>
-        </div>
-        <div className="notice notice--error">Could not load this trip. {error.message}</div>
+      <div className="mx-auto max-w-3xl">
+        {back}
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>Could not load this trip. {error.message}</AlertDescription>
+        </Alert>
       </div>
     );
   }
 
   if (loading && !trip) {
     return (
-      <div className="shell shell--narrow">
-        <div className="empty">Loading trip…</div>
+      <div className="mx-auto max-w-3xl space-y-4">
+        {back}
+        <Skeleton className="h-32 rounded-xl" />
+        <Skeleton className="h-64 rounded-xl" />
       </div>
     );
   }
@@ -60,24 +75,22 @@ export default function TripDetailPage() {
     destination?.actualArrival ?? destination?.projectedArrival ?? destination?.scheduledArrival;
 
   return (
-    <div className="shell shell--narrow">
-      <div className="pagehead">
-        <div>
-          <Link to="/" className="backlink">
-            ← All stops
-          </Link>
-          <div className="eyebrow" style={{ marginTop: 12 }}>
-            {formatDay(trip.scheduledDeparture)}
-          </div>
-          <h1 className="pagehead__title">{trip.route.name}</h1>
-          <p className="pagehead__sub">
-            {trip.bus ? `${trip.bus.plateNumber} · ${trip.bus.operatorName}` : 'Bus to be assigned'}
-          </p>
-        </div>
-        <LiveIndicator lastUpdated={lastUpdated} />
-      </div>
+    <div className="mx-auto max-w-3xl">
+      {back}
 
-      <div className="stack">
+      <PageHeader
+        icon={Bus}
+        title={trip.route.name}
+        description={
+          <>
+            {formatDay(trip.scheduledDeparture)} ·{' '}
+            {trip.bus ? `${trip.bus.plateNumber} · ${trip.bus.operatorName}` : 'Bus to be assigned'}
+          </>
+        }
+        actions={<LiveIndicator lastUpdated={lastUpdated} />}
+      />
+
+      <div className="space-y-4">
         {trip.isStale && (
           <StaleNotice
             minutesSinceLastConfirm={trip.minutesSinceLastConfirm}
@@ -86,78 +99,93 @@ export default function TripDetailPage() {
         )}
 
         {trip.latestDelay && !trip.isStale && (
-          <div className="notice notice--delay">
-            <span aria-hidden="true">●</span>
-            <span>
+          <Alert className="border-warning/40 bg-warning/10">
+            <CircleDot className="h-4 w-4 text-warning" />
+            <AlertDescription>
               Conductor reported {DELAY_TEXT[trip.latestDelay.reason] ?? 'a delay'}
               {trip.latestDelay.nearCheckpoint && <> near {trip.latestDelay.nearCheckpoint}</>}, at{' '}
               {formatTime(trip.latestDelay.reportedAt)}. The arrival time below still reflects the
               last confirmed checkpoint.
-            </span>
-          </div>
+            </AlertDescription>
+          </Alert>
         )}
 
-        <div className="triphero">
-          <div>
-            <div className="triphero__label">
-              {trip.status === 'arrived' ? 'Arrived at' : 'Arriving at'} {destination?.name}
+        <Card>
+          <CardContent className="flex flex-col gap-5 p-6 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <div className="mb-2 text-sm text-muted-foreground">
+                {trip.status === 'arrived' ? 'Arrived at' : 'Arriving at'} {destination?.name}
+              </div>
+              <StatusBadge
+                status={trip.status}
+                isStale={trip.isStale}
+                varianceMinutes={trip.varianceMinutes}
+              />
             </div>
-            <StatusBadge
-              status={trip.status}
-              isStale={trip.isStale}
-              varianceMinutes={trip.varianceMinutes}
+            <div className="sm:text-right">
+              <div
+                className={cn(
+                  'font-mono tabular text-[44px] font-bold leading-none tracking-tight sm:text-[56px]',
+                  (trip.isStale || notDepartedYet) && 'text-muted-foreground'
+                )}
+              >
+                {formatTime(arrivalTime)}
+              </div>
+              {trip.status !== 'arrived' && (
+                <div className="mt-2 text-[13px] font-medium text-muted-foreground">
+                  {notDepartedYet
+                    ? 'scheduled — not departed yet'
+                    : formatCountdown(arrivalTime, now)}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="grid grid-cols-2 gap-5 p-6 sm:grid-cols-4">
+            <Fact label="Scheduled departure" mono value={formatTime(trip.scheduledDeparture)} />
+            <Fact
+              label="Actual departure"
+              mono
+              value={trip.actualDeparture ? formatTime(trip.actualDeparture) : 'Not yet'}
             />
-          </div>
-          <div className="triphero__eta">
-            <div className={`eta eta--hero ${trip.isStale || notDepartedYet ? 'eta--stale' : ''}`}>
-              {formatTime(arrivalTime)}
-            </div>
-            {trip.status !== 'arrived' && (
-              <div className="relative-time">
-                {notDepartedYet ? 'scheduled — not departed yet' : formatCountdown(arrivalTime, now)}
-              </div>
-            )}
-          </div>
-        </div>
+            <Fact label="Running" value={formatVariance(trip.varianceMinutes)} />
+            <Fact
+              label="Last confirmed"
+              value={trip.lastConfirmedCheckpoint?.name ?? 'Not departed'}
+            />
+          </CardContent>
+        </Card>
 
-        <div className="card">
-          <div className="factgrid">
-            <div>
-              <div className="fact__label">Scheduled departure</div>
-              <div className="fact__value mono">{formatTime(trip.scheduledDeparture)}</div>
-            </div>
-            <div>
-              <div className="fact__label">Actual departure</div>
-              <div className="fact__value mono">
-                {trip.actualDeparture ? formatTime(trip.actualDeparture) : 'Not yet'}
-              </div>
-            </div>
-            <div>
-              <div className="fact__label">Running</div>
-              <div className="fact__value">{formatVariance(trip.varianceMinutes)}</div>
-            </div>
-            <div>
-              <div className="fact__label">Last confirmed</div>
-              <div className="fact__value">
-                {trip.lastConfirmedCheckpoint?.name ?? 'Not departed'}
-              </div>
-            </div>
-          </div>
-        </div>
+        <Card>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
+            <CardTitle>Checkpoints</CardTitle>
+            <span className="font-mono text-xs text-muted-foreground">
+              {trip.stops.length} points
+            </span>
+          </CardHeader>
+          <CardContent>
+            <Timeline stops={trip.stops} lastConfirmedName={trip.lastConfirmedCheckpoint?.name} />
+          </CardContent>
+        </Card>
 
-        <div className="card">
-          <div className="card__title">
-            Checkpoints
-            <span className="eyebrow">{trip.stops.length} points</span>
-          </div>
-          <Timeline stops={trip.stops} lastConfirmedName={trip.lastConfirmedCheckpoint?.name} />
-        </div>
-
-        <p className="arrival__confirm" style={{ textAlign: 'center' }}>
-          Times are estimates based on confirmed checkpoints and this route's usual
-          segment times. Shown in Manila time.
+        <p className="pb-4 text-center text-[13px] text-muted-foreground">
+          Times are estimates based on confirmed checkpoints and this route's usual segment
+          times. Shown in Manila time.
         </p>
       </div>
+    </div>
+  );
+}
+
+function Fact({ label, value, mono }) {
+  return (
+    <div>
+      <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+        {label}
+      </div>
+      <div className={cn('font-semibold', mono && 'font-mono tabular')}>{value}</div>
     </div>
   );
 }

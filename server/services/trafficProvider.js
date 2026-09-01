@@ -69,7 +69,10 @@ export class TomTomTrafficProvider {
     const url =
       `https://api.tomtom.com/routing/1/calculateRoute/` +
       `${from.lat},${from.lng}:${to.lat},${to.lng}/json` +
-      `?key=${encodeURIComponent(this.apiKey)}&traffic=true&travelMode=bus&routeType=fastest`;
+      `?key=${encodeURIComponent(this.apiKey)}&traffic=true&travelMode=bus&routeType=fastest` +
+      // Without this TomTom returns only the live figure and the breakdown
+      // fields come back undefined.
+      `&computeTravelTimeFor=all`;
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);

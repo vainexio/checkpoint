@@ -4,11 +4,18 @@
  * time, running late, running early, gone quiet, not yet departed, and finished.
  *
  * The coordinates and baselines here are measured, not invented. Places come
- * from OpenStreetMap and each leg's baseline is TomTom's free-flow driving time
- * for a bus, plus a few minutes of dwell where passengers board. Free-flow is
- * the right basis for a baseline: a baseline is what a leg normally costs, and
- * the live traffic layer exists precisely to say how today differs from that.
- * See scripts/measureRoute.js, which produced these numbers.
+ * from OpenStreetMap, and each leg's baseline is TomTom's *historic* driving
+ * time for a bus — what the leg typically takes — plus a few minutes of dwell
+ * where passengers board.
+ *
+ * Typical, not free-flow: free-flow is what an empty road costs, which a bus in
+ * Metro Manila never achieves, so using it would leave every trip permanently
+ * "late" and make the delayed status meaningless. Against a typical baseline,
+ * variance reads as "worse than usual", which is the thing worth knowing.
+ *
+ * Caveat: one static number cannot represent both 9pm and the 6pm crawl. These
+ * were measured off-peak, so peak departures will read late until baselines
+ * become time-of-day aware. See scripts/measureRoute.js.
  *
  * Run with:  npm run seed        (add --fresh to wipe first)
  */
@@ -62,14 +69,14 @@ const ROUTES = [
         type: 'station',
         area: 'Tarlac City, Tarlac',
         location: { lat: 15.486869, lng: 120.5898647 },
-        baseline: 157,
+        baseline: 122,
       },
       {
         name: 'TPLEX – Rosario Exit',
         type: 'landmark',
         area: 'Rosario, La Union',
         location: { lat: 16.2299397, lng: 120.487704 },
-        baseline: 90,
+        baseline: 77,
       },
       {
         name: 'Baguio Terminal',
@@ -77,7 +84,7 @@ const ROUTES = [
         isTerminal: true,
         area: 'Baguio, Benguet',
         location: { lat: 16.4138341, lng: 120.5914077 },
-        baseline: 84,
+        baseline: 74,
       },
     ],
   },
@@ -97,28 +104,28 @@ const ROUTES = [
         type: 'station',
         area: 'Muntinlupa, Metro Manila',
         location: { lat: 14.4190326, lng: 121.044338 },
-        baseline: 40,
+        baseline: 36,
       },
       {
         name: 'Calamba Crossing',
         type: 'station',
         area: 'Calamba, Laguna',
         location: { lat: 14.1940522, lng: 121.1596881 },
-        baseline: 47,
+        baseline: 39,
       },
       {
         name: 'Santo Tomas',
         type: 'station',
         area: 'Santo Tomas, Batangas',
         location: { lat: 14.110721, lng: 121.1423512 },
-        baseline: 40,
+        baseline: 27,
       },
       {
         name: 'Tanauan',
         type: 'station',
         area: 'Tanauan, Batangas',
         location: { lat: 14.0865988, lng: 121.1258532 },
-        baseline: 23,
+        baseline: 19,
       },
       {
         name: 'Lipa City',
@@ -126,7 +133,7 @@ const ROUTES = [
         isTerminal: true,
         area: 'Lipa, Batangas',
         location: { lat: 13.9572279, lng: 121.1646223 },
-        baseline: 34,
+        baseline: 27,
       },
     ],
   },

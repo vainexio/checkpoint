@@ -50,16 +50,32 @@ async function freeFlowMinutes(from, to) {
   const url =
     `https://api.tomtom.com/routing/1/calculateRoute/` +
     `${from.lat},${from.lng}:${to.lat},${to.lng}/json` +
-    `?key=${process.env.TRAFFIC_API_KEY}&traffic=true&travelMode=bus&routeType=fastest`;
+    `?key=${process.env.TRAFFIC_API_KEY}&traffic=true&travelMode=bus&routeType=fastest` +
+    // Without this TomTom returns only the live time, and the breakdown fields
+    // come back undefined.
+    `&computeTravelTimeFor=all`;
 
   const res = await fetch(url);
   if (!res.ok) throw new Error(`TomTom ${res.status}`);
 
   const summary = (await res.json()).routes?.[0]?.summary;
+  if (summary.historicTrafficTravelTimeInSeconds == null) {
+    throw new Error('TomTom returned no historic time — is computeTravelTimeFor=all set?');
+  }
+
   return {
-    // What the road costs when it is clear — the baseline.
-    freeFlow: (summary.noTrafficTravelTimeInSeconds ?? summary.travelTimeInSeconds) / 60,
-    withTraffic: summary.travelTimeInSeconds / 60,
+    /**
+     * The baseline is the *typical* time, not the best possible one.
+     *
+     * Free-flow is what an empty road costs, which a bus in Metro Manila never
+     * achieves — using it would leave every trip permanently "late" and make
+     * the delayed status meaningless. Historic is what this leg normally takes,
+     * so variance reads as "worse than usual", which is the thing anyone
+     * actually wants to know.
+     */
+    typical: summary.historicTrafficTravelTimeInSeconds / 60,
+    freeFlow: summary.noTrafficTravelTimeInSeconds / 60,
+    live: summary.travelTimeInSeconds / 60,
     km: summary.lengthInMeters / 1000,
   };
 }
@@ -87,12 +103,13 @@ for (const [routeName, places] of Object.entries(ROUTES)) {
     }
     const leg = await freeFlowMinutes(located[i - 1].location, located[i].location);
     const dwell = DWELL_MINUTES[located[i].type] ?? 0;
-    const baseline = Math.round(leg.freeFlow + dwell);
+    const baseline = Math.round(leg.typical + dwell);
 
     console.log(
       `  ${located[i - 1].name} → ${located[i].name}: ` +
-        `${leg.km.toFixed(1)} km · free-flow ${leg.freeFlow.toFixed(0)}m ` +
-        `(+${dwell} dwell) = ${baseline}m · with traffic right now ${leg.withTraffic.toFixed(0)}m`
+        `${leg.km.toFixed(1)} km · typical ${leg.typical.toFixed(0)}m ` +
+        `(+${dwell} dwell) = ${baseline}m · free-flow ${leg.freeFlow.toFixed(0)}m ` +
+        `· live now ${leg.live.toFixed(0)}m`
     );
     rows.push({ ...located[i], baseline });
   }

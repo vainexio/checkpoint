@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { syncLogs } from '../api/conductorApi.js';
+import { syncLogs, undoLog } from '../api/conductorApi.js';
 
 /**
  * The conductor's write-ahead log.
@@ -132,5 +132,35 @@ export function useOfflineQueue(tripId, { onSynced } = {}) {
     };
   }, [flush]);
 
-  return { queue, enqueue, flush, isOnline, isSyncing, lastError, pendingCount: queue.length };
+  /**
+   * Take back a tap.
+   *
+   * If it is still sitting in the queue it never left the phone, so dropping it
+   * locally is the whole job. If it already synced, the server deletes the log
+   * and replays the trip without it.
+   */
+  const undo = useCallback(
+    async (clientLogId) => {
+      const stillQueued = queueRef.current.some((l) => l.clientLogId === clientLogId);
+      if (stillQueued) {
+        persist(queueRef.current.filter((l) => l.clientLogId !== clientLogId));
+        return { local: true };
+      }
+      const res = await undoLog(tripId, clientLogId);
+      onSyncedRef.current?.(res.trip);
+      return res;
+    },
+    [tripId, persist]
+  );
+
+  return {
+    queue,
+    enqueue,
+    undo,
+    flush,
+    isOnline,
+    isSyncing,
+    lastError,
+    pendingCount: queue.length,
+  };
 }

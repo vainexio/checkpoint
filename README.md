@@ -167,6 +167,16 @@ Connectivity on provincial routes is unreliable, so a tap must never fail for wa
 The ETA engine reads `reportedAt` only. When a log actually reached the server is recorded as
 `syncedAt` for diagnostics and never enters the arithmetic.
 
+### Undo
+
+A wrong button on a moving bus is a matter of when, not if, so every tap can be taken back for
+five minutes. If the update is still queued it never left the phone and is simply dropped; if
+it already synced, the server deletes that log and replays the trip without it.
+
+This is only safe because trip state *is* the replay — there is no accumulated state to unwind,
+so a trip can never be left half-corrected. After five minutes undo is refused, since by then
+passengers have been reading the number.
+
 ## Design notes
 
 A trip **freezes its route's checkpoints and baselines onto itself** when it is created.
@@ -197,10 +207,10 @@ the viewer's device clock.
 cd server && npm test
 ```
 
-34 tests: the engine's arithmetic (variance, re-projection, skipped checkpoints, out-of-order
+37 tests: the engine's arithmetic (variance, re-projection, skipped checkpoints, out-of-order
 replay, staleness thresholds, and traffic applying forward-only without touching a measured
 variance) plus API integration against an in-memory MongoDB covering the shared login and its
-role boundary, the frozen plan, offline sync, and the public board.
+role boundary, the frozen plan, offline sync, undo and its limits, and the public board.
 
 ## Project layout
 

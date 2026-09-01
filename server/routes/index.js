@@ -32,6 +32,11 @@ router.get('/conductor/trips', ...conductorOnly, conductor.myTrips);
 router.get('/conductor/trips/:tripId', ...conductorOnly, conductor.myTrip);
 router.post('/conductor/trips/:tripId/checkpoint-logs', ...conductorOnly, conductor.logUpdate);
 router.post('/conductor/trips/:tripId/checkpoint-logs/sync', ...conductorOnly, conductor.syncQueue);
+router.delete(
+  '/conductor/trips/:tripId/checkpoint-logs/:clientLogId',
+  ...conductorOnly,
+  conductor.undoLog
+);
 
 /* ----------------------------------------------------------------- admin */
 const adminOnly = [requireAuth, requireRole('admin')];

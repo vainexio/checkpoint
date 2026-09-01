@@ -357,3 +357,80 @@ test('arriving closes the trip and clears it from the board', async () => {
     .expect(200);
   assert.equal(board.body.arrivals.length, 0);
 });
+
+test('a conductor can take back a mistaken tap, and the trip recomputes', async () => {
+  const { conductorToken, cps, trip } = await setupWorld();
+  const asConductor = (req) => req.set('Authorization', `Bearer ${conductorToken}`);
+
+  await asConductor(request(app).post(`/api/conductor/trips/${trip.id}/checkpoint-logs`))
+    .send({ type: 'departed', reportedAt: minutesAgo(35), clientLogId: 'u1' })
+    .expect(201);
+
+  // The wrong button: confirms a checkpoint the bus has not reached.
+  const wrong = await asConductor(
+    request(app).post(`/api/conductor/trips/${trip.id}/checkpoint-logs`)
+  )
+    .send({
+      type: 'passed_checkpoint',
+      checkpoint: byName(cps, 'Tarlac stop'),
+      reportedAt: minutesAgo(0),
+      clientLogId: 'u2',
+    })
+    .expect(201);
+  assert.equal(wrong.body.trip.lastConfirmedCheckpoint.name, 'Tarlac stop');
+
+  const undone = await asConductor(
+    request(app).delete(`/api/conductor/trips/${trip.id}/checkpoint-logs/u2`)
+  ).expect(200);
+
+  // Replaying without that log must leave no trace of it: not in the position,
+  // not in the variance, not in the skipped-checkpoint marks.
+  assert.equal(undone.body.trip.lastConfirmedCheckpoint.name, 'Cubao Terminal');
+  assert.equal(undone.body.trip.varianceMinutes, 0);
+  assert.equal(undone.body.trip.stops.every((s) => s.progress !== 'skipped'), true);
+
+  // Gone for good — a second undo has nothing to remove.
+  await asConductor(
+    request(app).delete(`/api/conductor/trips/${trip.id}/checkpoint-logs/u2`)
+  ).expect(404);
+});
+
+test('undo is refused once the update is no longer recent', async () => {
+  const { conductorToken, trip } = await setupWorld();
+  const asConductor = (req) => req.set('Authorization', `Bearer ${conductorToken}`);
+
+  await asConductor(request(app).post(`/api/conductor/trips/${trip.id}/checkpoint-logs/sync`))
+    .send({ logs: [{ type: 'departed', reportedAt: minutesAgo(90), clientLogId: 'old1' }] })
+    .expect(200);
+
+  // Passengers have been reading this for an hour and a half; it is history now.
+  const res = await asConductor(
+    request(app).delete(`/api/conductor/trips/${trip.id}/checkpoint-logs/old1`)
+  ).expect(409);
+  assert.match(res.body.error, /within 5 minutes/);
+});
+
+test('one conductor cannot undo another conductor trip update', async () => {
+  const { adminToken, conductorToken, trip } = await setupWorld();
+  const asConductor = (req) => req.set('Authorization', `Bearer ${conductorToken}`);
+
+  await asConductor(request(app).post(`/api/conductor/trips/${trip.id}/checkpoint-logs`))
+    .send({ type: 'departed', reportedAt: minutesAgo(2), clientLogId: 'mine' })
+    .expect(201);
+
+  await request(app)
+    .post('/api/admin/conductors')
+    .set('Authorization', `Bearer ${adminToken}`)
+    .send({ name: 'Marlon Cruz', username: 'marlon', password: 'checkpoint123' })
+    .expect(201);
+
+  const other = await request(app)
+    .post('/api/auth/login')
+    .send({ username: 'marlon', password: 'checkpoint123' })
+    .expect(200);
+
+  await request(app)
+    .delete(`/api/conductor/trips/${trip.id}/checkpoint-logs/mine`)
+    .set('Authorization', `Bearer ${other.body.token}`)
+    .expect(404);
+});

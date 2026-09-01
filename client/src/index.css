@@ -186,3 +186,21 @@
     @apply shadow-md border-border/80;
   }
 }
+
+@layer base {
+  /*
+   * Browsers give <button> the default arrow cursor, which on a desktop makes
+   * a perfectly good button look like decoration. Every interactive control
+   * should say so on hover.
+   */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  label[for],
+  summary {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+}

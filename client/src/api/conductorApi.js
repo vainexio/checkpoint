@@ -12,3 +12,7 @@ export const fetchMyTrip = (tripId) => api.get(`/conductor/trips/${tripId}`, opt
  */
 export const syncLogs = (tripId, logs) =>
   api.post(`/conductor/trips/${tripId}/checkpoint-logs/sync`, { logs }, opts);
+
+/** Take back a tap that has already reached the server. */
+export const undoLog = (tripId, clientLogId) =>
+  api.del(`/conductor/trips/${tripId}/checkpoint-logs/${clientLogId}`, opts);

@@ -1,7 +1,13 @@
 import crypto from 'node:crypto';
 import { CheckpointLog, Trip } from '../models/index.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
-import { presentTrip, presentTrips, recordLogs, TRIP_POPULATE } from '../services/tripService.js';
+import {
+  presentTrip,
+  presentTrips,
+  recomputeTrip,
+  recordLogs,
+  TRIP_POPULATE,
+} from '../services/tripService.js';
 
 /**
  * The conductor's whole world: their own trips, and four taps.
@@ -95,6 +101,48 @@ export const logUpdate = asyncHandler(async (req, res) => {
     accepted: 1,
     trip: presentTrip(populated, { logs, audience: 'conductor' }),
   });
+});
+
+/**
+ * How long a conductor has to take back a tap.
+ *
+ * Long enough to notice a wrong button on a moving bus, short enough that the
+ * board is never rewriting history a passenger already acted on.
+ */
+const UNDO_WINDOW_MINUTES = 5;
+
+/**
+ * Undo a recent update.
+ *
+ * The whole trip is a replay of its logs, so undoing is genuinely just
+ * deleting one and recomputing — there is no accumulated state to unwind and
+ * no chance of the trip being left in a half-corrected condition. That is what
+ * makes it safe to offer a conductor an undo at all.
+ */
+export const undoLog = asyncHandler(async (req, res) => {
+  const trip = await loadOwnTrip(req);
+
+  const log = await CheckpointLog.findOne({
+    trip: trip._id,
+    clientLogId: req.params.clientLogId,
+  });
+
+  if (!log) return res.status(404).json({ error: 'That update no longer exists.' });
+
+  const ageMinutes = (Date.now() - new Date(log.reportedAt).getTime()) / 60000;
+  if (ageMinutes > UNDO_WINDOW_MINUTES) {
+    return res.status(409).json({
+      error: `Updates can only be undone within ${UNDO_WINDOW_MINUTES} minutes. Ask your dispatcher to correct this one.`,
+    });
+  }
+
+  await CheckpointLog.deleteOne({ _id: log._id });
+
+  const { trip: updated } = await recomputeTrip(trip._id);
+  const logs = await CheckpointLog.find({ trip: trip._id }).sort({ reportedAt: 1 }).lean();
+  const populated = await Trip.findById(updated._id).populate(TRIP_POPULATE).lean();
+
+  res.json({ undone: log.type, trip: presentTrip(populated, { logs, audience: 'conductor' }) });
 });
 
 /**

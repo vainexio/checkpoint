@@ -1,0 +1,53 @@
+# Render blueprint. Point Render at this repo with "New > Blueprint" and it
+# creates both services; then fill in the values marked sync:false in the
+# dashboard (they are secrets and must not live in git).
+#
+# The two services need to know about each other:
+#   API   CLIENT_ORIGIN       = the static site's URL   (for CORS)
+#   Web   VITE_API_BASE_URL   = the API's URL + /api    (baked in at build time)
+# Render cannot resolve that circularity on first deploy, so set both after the
+# URLs exist and redeploy the static site.
+
+services:
+  - type: web
+    name: checkpoint-api
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 20.11.1
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 12h
+      - key: CLIENT_ORIGIN
+        sync: false
+      - key: TRAFFIC_PROVIDER
+        value: tomtom
+      - key: TRAFFIC_API_KEY
+        sync: false
+
+  - type: web
+    name: checkpoint-web
+    runtime: static
+    rootDir: client
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: NODE_VERSION
+        value: 20.11.1
+      - key: VITE_API_BASE_URL
+        sync: false
+    routes:
+      # The client routes /stations/:id and /trips/:id itself. Without this,
+      # a deep link or a refresh on any page but "/" returns a 404 from the
+      # static host before React ever loads.
+      - type: rewrite
+        source: /*
+        destination: /index.html

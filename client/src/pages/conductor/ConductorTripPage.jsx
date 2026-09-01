@@ -8,6 +8,7 @@ import {
   ChevronDown,
   CloudOff,
   Flag,
+  LogOut,
   MapPin,
   RefreshCw,
   RotateCcw,
@@ -77,12 +78,16 @@ export default function ConductorTripPage() {
 
   const trip = data?.trip;
 
-  const { nextStop, laterStops, destination, atFinalLeg } = useMemo(() => {
+  const { nextStop, laterStops, destination, atFinalLeg, standingAt } = useMemo(() => {
     const stops = trip?.stops ?? [];
     const firstPending = stops.findIndex((s) => s.progress === 'pending');
     const dest = stops.at(-1) ?? null;
     const next = firstPending === -1 ? null : stops[firstPending];
+    const lastPassed = stops.reduce((acc, s, i) => (s.progress === 'passed' ? i : acc), -1);
     return {
+      // The stop the bus is standing at, if the conductor has confirmed
+      // reaching it but not yet leaving.
+      standingAt: trip?.position === 'at_stop' && lastPassed >= 0 ? stops[lastPassed] : null,
       nextStop: next,
       // Everything ahead except the next one and the destination — the "I missed
       // one" case, which should never be as easy to hit as the normal case.
@@ -228,7 +233,11 @@ export default function ConductorTripPage() {
         <div className="mb-6">
           {/* ------------------------------------------------ the one action */}
           <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-            {notDeparted ? 'When you leave the terminal' : 'Tap when you reach this point'}
+            {notDeparted
+              ? 'When you leave the terminal'
+              : standingAt
+                ? 'You are at a stop — tap when you pull out'
+                : 'Tap when you reach this point'}
           </p>
 
           {notDeparted ? (
@@ -238,6 +247,25 @@ export default function ConductorTripPage() {
               label="We have departed"
               sub={`Leaving ${trip.stops[0]?.name}. Starts the clock for this trip.`}
               onClick={() => tap({ type: 'departed' }, 'Departure recorded')}
+            />
+          ) : standingAt ? (
+            /*
+              * A stop is two events, not one. Until the conductor reports
+              * pulling out, the board tells waiting passengers the bus is
+              * still here with its doors open — which is the difference
+              * between them running for it and giving up on it.
+              */
+            <TapButton
+              primary
+              icon={LogOut}
+              label={`Leaving ${standingAt.name}`}
+              sub="Tells passengers here that the bus has gone"
+              onClick={() =>
+                tap(
+                  { type: 'left_checkpoint', checkpoint: standingAt.checkpointId },
+                  `Departure from ${standingAt.name} recorded`
+                )
+              }
             />
           ) : atFinalLeg ? (
             // The only remaining point *is* the destination, so arriving is now
@@ -253,12 +281,22 @@ export default function ConductorTripPage() {
             <TapButton
               primary
               icon={MapPin}
-              label={nextStop?.name}
-              sub="The next point on your route"
+              label={
+                nextStop?.type === 'landmark'
+                  ? `Passed ${nextStop.name}`
+                  : `Arrived at ${nextStop?.name}`
+              }
+              sub={
+                nextStop?.type === 'landmark'
+                  ? 'Timing point — no boarding here'
+                  : 'Shows this bus as boarding at this stop'
+              }
               onClick={() =>
                 tap(
                   { type: 'passed_checkpoint', checkpoint: nextStop.checkpointId },
-                  `Passed ${nextStop.name}`
+                  nextStop?.type === 'landmark'
+                    ? `Passed ${nextStop.name}`
+                    : `Arrival at ${nextStop.name} recorded`
                 )
               }
             />
@@ -359,7 +397,11 @@ export default function ConductorTripPage() {
           <CardTitle>Route</CardTitle>
         </CardHeader>
         <CardContent>
-          <Timeline stops={trip.stops} isArrived={trip.status === 'arrived'} />
+          <Timeline
+            stops={trip.stops}
+            isArrived={trip.status === 'arrived'}
+            position={trip.position}
+          />
         </CardContent>
       </Card>
     </div>

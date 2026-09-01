@@ -117,17 +117,28 @@ still settles on exactly the state it would have reached live.
 
 ### Where a bus is, honestly
 
-A checkpoint confirmation records that a bus went *past* a place at a time. It never means the
-bus is still there — so nothing in the UI ever marks a bus as being *at* a checkpoint while it
-is running.
+A bus does two separate things at a stop where passengers board: it pulls in, and later it
+pulls out. Those are opposite instructions for someone standing there — run, or settle in — so
+a station is modelled as **two events**, not one:
 
-The bus marker is drawn on the **leg between** two points, the board reads "Between Tarlac stop
-and TPLEX – Rosario Exit", and a confirmed point says "Confirmed — bus has since left here".
-Pinning the marker to the last confirmed dot would tell a passenger the bus is sitting at
-Tarlac when it left forty minutes ago, which is exactly the wrong conclusion to invite.
+| Event | Means |
+|---|---|
+| `passed_checkpoint` | reached this point. At a station: standing there, possibly boarding. |
+| `left_checkpoint` | pulled out. Now on the road to the next point. |
 
-Only three states are genuinely "at" somewhere: not yet departed (at the origin), and arrived
-(at the destination).
+A **landmark** is genuinely instantaneous — nobody boards at a toll exit — so it takes one tap
+and the bus is immediately "between".
+
+This gives three honest positions, and the UI never shows anything else: `at_stop`, `between`,
+`arrived`. The bus marker sits *on* a stop only while it is standing there, and moves onto the
+leg the moment the pull-out is reported. A bus at a stop also stays on **that stop's own
+board**, ranked first and highlighted — dropping it because the checkpoint is technically
+"passed" would hide it from the one person who can still catch it.
+
+Dwell needs no special case in the arithmetic. A leg's baseline already includes the dwell at
+the stop it ends on, so the same variance formula measures "how late it is *leaving*", and a
+bus that arrives on time then sits for twenty minutes is twenty minutes late immediately —
+rather than that only being discovered at the next checkpoint.
 
 ### Staleness matters as much as the number
 
@@ -221,10 +232,10 @@ the viewer's device clock.
 cd server && npm test
 ```
 
-37 tests: the engine's arithmetic (variance, re-projection, skipped checkpoints, out-of-order
+45 tests: the engine's arithmetic (variance, re-projection, skipped checkpoints, out-of-order
 replay, staleness thresholds, and traffic applying forward-only without touching a measured
 variance) plus API integration against an in-memory MongoDB covering the shared login and its
-role boundary, the frozen plan, offline sync, undo and its limits, and the public board.
+role boundary, the frozen plan, offline sync, undo and its limits, at-stop versus on-the-road position, and the public board.
 
 ## Project layout
 

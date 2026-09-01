@@ -135,6 +135,10 @@ export function presentTrip(trip, { logs = [], now = new Date(), audience = 'pub
       ? { checkpointId: String(lastConfirmed.checkpoint), name: lastConfirmed.name }
       : null,
     lastConfirmedAt: state.lastConfirmedAt,
+    // 'at_stop' (standing at a station, possibly boarding), 'between' (on the
+    // road), or 'arrived'. The single most important thing for someone waiting.
+    position: state.position,
+    leftLastCheckpointAt: state.leftLastCheckpointAt,
     nextCheckpoint: staleness.nextCheckpointName
       ? { checkpointId: String(staleness.nextCheckpoint), name: staleness.nextCheckpointName }
       : null,

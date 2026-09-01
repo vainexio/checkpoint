@@ -8,12 +8,13 @@ import { formatTime } from '@/utils/time.js';
  * checkpoint-not-coordinates idea becomes legible — you can see exactly which
  * observations the ETA is built from.
  *
- * The bus marker sits on the line *between* two checkpoints, never on one. A
- * confirmation records that the bus went past a place; it says nothing about
- * the bus still being there, and drawing it on the dot would tell a passenger
- * the bus is at a stop it left half an hour ago.
+ * The bus marker sits on a checkpoint only while the conductor has confirmed
+ * reaching it and not yet confirmed leaving — at a station that means the doors
+ * may still be open. Once they report pulling out, the marker moves onto the
+ * line between two points, because that is all a checkpoint system can honestly
+ * say about a bus in motion.
  */
-export function Timeline({ stops, isArrived = false }) {
+export function Timeline({ stops, isArrived = false, position = 'between' }) {
   const lastPassed = stops.reduce((acc, s, i) => (s.progress === 'passed' ? i : acc), -1);
 
   return (
@@ -25,7 +26,13 @@ export function Timeline({ stops, isArrived = false }) {
 
         // The leg into this checkpoint is the one the bus is currently on.
         const busInbound =
-          !isArrived && lastPassed >= 0 && index === lastPassed + 1 && stop.progress === 'pending';
+          !isArrived &&
+          position === 'between' &&
+          lastPassed >= 0 &&
+          index === lastPassed + 1 &&
+          stop.progress === 'pending';
+        // Standing at this stop right now, doors possibly still open.
+        const busHere = !isArrived && position === 'at_stop' && index === lastPassed;
 
         return (
           <li key={stop.checkpointId} className="grid grid-cols-[28px_1fr_auto] items-start gap-3 py-3">
@@ -44,14 +51,20 @@ export function Timeline({ stops, isArrived = false }) {
                 </span>
               )}
 
-              <span
-                className={cn(
-                  'relative mt-1.5 h-3 w-3 rounded-full border-2 bg-background',
-                  stop.progress === 'passed' && 'border-success bg-success',
-                  stop.progress === 'skipped' && 'border-dashed border-muted-foreground',
-                  stop.progress === 'pending' && 'border-border'
-                )}
-              />
+              {busHere ? (
+                <span className="relative mt-0.5 grid h-5 w-5 place-items-center rounded-full bg-success text-white shadow-sm ring-2 ring-background">
+                  <Bus className="h-3 w-3" />
+                </span>
+              ) : (
+                <span
+                  className={cn(
+                    'relative mt-1.5 h-3 w-3 rounded-full border-2 bg-background',
+                    stop.progress === 'passed' && 'border-success bg-success',
+                    stop.progress === 'skipped' && 'border-dashed border-muted-foreground',
+                    stop.progress === 'pending' && 'border-border'
+                  )}
+                />
+              )}
             </div>
 
             <div className="min-w-0">
@@ -70,9 +83,11 @@ export function Timeline({ stops, isArrived = false }) {
               </div>
               <div className="mt-0.5 text-[13px] text-muted-foreground">
                 {stop.progress === 'passed' &&
-                  (index === lastPassed && !isArrived
-                    ? 'Confirmed — bus has since left here'
-                    : 'Confirmed')}
+                  (busHere
+                    ? 'Bus is here now — boarding'
+                    : index === lastPassed && !isArrived
+                      ? 'Confirmed — bus has since left here'
+                      : 'Confirmed')}
                 {stop.progress === 'skipped' && 'Passed without a confirmation'}
                 {stop.progress === 'pending' &&
                   (busInbound

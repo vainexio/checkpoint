@@ -107,7 +107,9 @@ function ArrivalRow({ arrival, now }) {
   const dimmed = arrival.isStale || notDepartedYet;
 
   return (
-    <Card className="overflow-hidden">
+    <Card
+      className={cn('overflow-hidden', arrival.isHereNow && 'border-success/60 bg-success/[0.04]')}
+    >
       <CardContent className="p-5 sm:p-6">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
@@ -137,10 +139,9 @@ function ArrivalRow({ arrival, now }) {
             {/* Plain answers to "where is it" and "does it go where I want". */}
             <div className="mt-3 space-y-1 text-[13px] leading-relaxed">
               {/*
-                * A confirmation says the bus went *past* a point, not that it
-                * is still standing there. Naming both ends of the leg it is
-                * driving stops a passenger reading "Tarlac stop" and assuming
-                * the bus has not left yet.
+                * Three genuinely different situations, and a passenger acts
+                * differently on each. Standing at a stop means the doors may
+                * still be open; on the road means settle in.
                 */}
               <div className="text-muted-foreground">
                 {notDepartedYet ? (
@@ -148,9 +149,13 @@ function ArrivalRow({ arrival, now }) {
                     Still at <span className="font-semibold text-foreground">{arrival.origin}</span>{' '}
                     · leaves {formatTime(arrival.scheduledDeparture)}
                   </>
+                ) : arrival.position === 'at_stop' && arrival.lastConfirmedCheckpoint ? (
+                  <span className="font-semibold text-success">
+                    At {arrival.lastConfirmedCheckpoint.name} now — boarding
+                  </span>
                 ) : arrival.lastConfirmedCheckpoint && arrival.nextCheckpoint ? (
                   <>
-                    Between{' '}
+                    On the road between{' '}
                     <span className="font-semibold text-foreground">
                       {arrival.lastConfirmedCheckpoint.name}
                     </span>{' '}
@@ -179,10 +184,21 @@ function ArrivalRow({ arrival, now }) {
 
               {arrival.lastConfirmedAt && !notDepartedYet && (
                 <div className="text-muted-foreground">
-                  Passed {arrival.lastConfirmedCheckpoint?.name} at{' '}
-                  {formatTime(arrival.lastConfirmedAt)}
-                  {arrival.minutesSinceLastConfirm !== null && (
-                    <> · {formatElapsed(arrival.minutesSinceLastConfirm)} ago</>
+                  {arrival.position === 'at_stop' ? (
+                    <>
+                      Pulled in at {formatTime(arrival.lastConfirmedAt)}
+                      {arrival.minutesSinceLastConfirm !== null && (
+                        <> · {formatElapsed(arrival.minutesSinceLastConfirm)} ago</>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      Left {arrival.lastConfirmedCheckpoint?.name} at{' '}
+                      {formatTime(arrival.leftLastCheckpointAt ?? arrival.lastConfirmedAt)}
+                      {arrival.minutesSinceLastConfirm !== null && (
+                        <> · {formatElapsed(arrival.minutesSinceLastConfirm)} ago</>
+                      )}
+                    </>
                   )}
                 </div>
               )}
@@ -222,25 +238,42 @@ function ArrivalRow({ arrival, now }) {
           </div>
 
           <div className="shrink-0 text-left sm:min-w-[160px] sm:text-right">
-            <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-              {notDepartedYet ? 'Scheduled arrival' : 'Expected arrival'}
+            <div
+              className={cn(
+                'mb-1 text-[11px] font-bold uppercase tracking-[0.12em]',
+                arrival.isHereNow ? 'text-success' : 'text-muted-foreground'
+              )}
+            >
+              {arrival.isHereNow
+                ? 'At this stop now'
+                : notDepartedYet
+                  ? 'Scheduled arrival'
+                  : 'Expected arrival'}
             </div>
             <div
               className={cn(
                 'font-mono tabular text-[44px] font-bold leading-none tracking-tight sm:text-[56px]',
-                dimmed && 'text-muted-foreground'
+                arrival.isHereNow && 'text-success',
+                dimmed && !arrival.isHereNow && 'text-muted-foreground'
               )}
             >
               {formatTime(notDepartedYet ? arrival.scheduledEta : arrival.eta)}
             </div>
-            <div className="mt-2 text-[13px] font-medium text-muted-foreground">
-              {notDepartedYet
-                ? 'if it leaves on time'
-                : arrival.isStale
-                  ? 'rough estimate'
-                  : minutesAway !== null && minutesAway > 1
-                    ? formatCountdown(arrival.eta, now)
-                    : 'arriving now'}
+            <div
+              className={cn(
+                'mt-2 text-[13px] font-medium',
+                arrival.isHereNow ? 'font-bold text-success' : 'text-muted-foreground'
+              )}
+            >
+              {arrival.isHereNow
+                ? 'boarding — pulled in at this time'
+                : notDepartedYet
+                  ? 'if it leaves on time'
+                  : arrival.isStale
+                    ? 'rough estimate'
+                    : minutesAway !== null && minutesAway > 1
+                      ? formatCountdown(arrival.eta, now)
+                      : 'arriving now'}
             </div>
           </div>
         </div>

@@ -4,13 +4,13 @@ import { formatTime } from '@/utils/time.js';
 
 /**
  * The whole route as one horizontal strip, with the stop being viewed marked
- * and the bus drawn *between* two points rather than on one.
+ * and the bus shown in one of two genuinely different situations.
  *
- * That distinction is the whole system in miniature. A checkpoint confirmation
- * tells you a bus went past a place at a time — it does not tell you the bus is
- * still there. Putting the marker on a dot would claim the bus is sitting at
- * Tarlac when it left forty minutes ago, so the marker rides the leg it is
- * actually driving.
+ * A bus standing at a stop with its doors open and a bus already on the highway
+ * mean opposite things to someone waiting there — run, or settle in. So the
+ * marker sits *on* a stop only while the conductor has confirmed arriving and
+ * not yet confirmed leaving; the moment they report pulling out, it moves onto
+ * the leg the bus is actually driving.
  */
 export function JourneyStrip({ journey }) {
   if (!journey?.length) return null;
@@ -23,19 +23,26 @@ export function JourneyStrip({ journey }) {
           const isLast = i === journey.length - 1;
           // The bus is on the leg leading into the next unconfirmed point.
           const busOnLegAfter = !isLast && journey[i + 1].isHeadingHere;
+          const busAtThisStop = stop.isBusHere;
 
           return (
             <li key={`${stop.name}-${i}`} className="flex items-start">
               <div className="flex w-[86px] flex-col items-center text-center">
                 <span className="relative flex h-4 items-center">
-                  <span
-                    className={cn(
-                      'h-3 w-3 rounded-full border-2 bg-background',
-                      done && 'border-success bg-success',
-                      !done && 'border-border',
-                      stop.isYourStop && 'h-4 w-4 border-primary bg-primary ring-4 ring-primary/20'
-                    )}
-                  />
+                  {busAtThisStop ? (
+                    <span className="grid h-5 w-5 place-items-center rounded-full bg-success text-white shadow-sm ring-2 ring-background">
+                      <Bus className="h-3 w-3" />
+                    </span>
+                  ) : (
+                    <span
+                      className={cn(
+                        'h-3 w-3 rounded-full border-2 bg-background',
+                        done && 'border-success bg-success',
+                        !done && 'border-border',
+                        stop.isYourStop && 'h-4 w-4 border-primary bg-primary ring-4 ring-primary/20'
+                      )}
+                    />
+                  )}
                 </span>
 
                 <span
@@ -52,9 +59,14 @@ export function JourneyStrip({ journey }) {
                   {formatTime(stop.eta)}
                 </span>
 
-                {stop.isLastConfirmed && (
+                {busAtThisStop && (
+                  <span className="mt-1 rounded-full bg-success px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-white">
+                    boarding
+                  </span>
+                )}
+                {stop.isLastConfirmed && !busAtThisStop && (
                   <span className="mt-1 rounded-full bg-success/15 px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-success">
-                    passed
+                    left
                   </span>
                 )}
                 {stop.isYourStop && (

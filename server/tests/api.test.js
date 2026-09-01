@@ -223,11 +223,13 @@ test('end to end: depart, confirm a checkpoint late, and see it on the board', a
   assert.equal(arrival.lastConfirmedCheckpoint.name, 'Balintawak');
   assert.ok(arrival.eta, 'the board must carry an ETA');
 
-  // A station already confirmed passed drops off its own board.
+  // Confirming a station means the bus has *reached* it, so it is standing
+  // there and must stay on that station's own board until it reports leaving.
   const balintawakBoard = await request(app)
     .get(`/api/public/stations/${byName(cps, 'Balintawak')}/board`)
     .expect(200);
-  assert.equal(balintawakBoard.body.arrivals.length, 0);
+  assert.equal(balintawakBoard.body.arrivals.length, 1);
+  assert.equal(balintawakBoard.body.arrivals[0].isHereNow, true);
 });
 
 test('a queue drained out of order lands on the correct state', async () => {
@@ -433,4 +435,54 @@ test('one conductor cannot undo another conductor trip update', async () => {
     .delete(`/api/conductor/trips/${trip.id}/checkpoint-logs/mine`)
     .set('Authorization', `Bearer ${other.body.token}`)
     .expect(404);
+});
+
+test('a bus standing at a stop stays on that stop board, first', async () => {
+  const { conductorToken, cps, trip } = await setupWorld();
+  const asConductor = (req) => req.set('Authorization', `Bearer ${conductorToken}`);
+
+  await asConductor(request(app).post(`/api/conductor/trips/${trip.id}/checkpoint-logs/sync`))
+    .send({
+      logs: [
+        { type: 'departed', reportedAt: minutesAgo(35), clientLogId: 'p1' },
+        {
+          type: 'passed_checkpoint',
+          checkpoint: byName(cps, 'Balintawak'),
+          reportedAt: minutesAgo(3),
+          clientLogId: 'p2',
+        },
+      ],
+    })
+    .expect(200);
+
+  // Someone waiting at Balintawak must still see the bus that is sitting there.
+  const here = await request(app)
+    .get(`/api/public/stations/${byName(cps, 'Balintawak')}/board`)
+    .expect(200);
+
+  assert.equal(here.body.arrivals.length, 1);
+  assert.equal(here.body.arrivals[0].isHereNow, true);
+  assert.equal(here.body.arrivals[0].position, 'at_stop');
+
+  // Once the conductor reports pulling out, it leaves that board.
+  await asConductor(request(app).post(`/api/conductor/trips/${trip.id}/checkpoint-logs`))
+    .send({
+      type: 'left_checkpoint',
+      checkpoint: byName(cps, 'Balintawak'),
+      reportedAt: minutesAgo(0),
+      clientLogId: 'p3',
+    })
+    .expect(201);
+
+  const gone = await request(app)
+    .get(`/api/public/stations/${byName(cps, 'Balintawak')}/board`)
+    .expect(200);
+  assert.equal(gone.body.arrivals.length, 0);
+
+  // And downstream it now reads as on the road, not parked.
+  const ahead = await request(app)
+    .get(`/api/public/stations/${byName(cps, 'Baguio Terminal')}/board`)
+    .expect(200);
+  assert.equal(ahead.body.arrivals[0].position, 'between');
+  assert.equal(ahead.body.arrivals[0].isHereNow, false);
 });

@@ -17,9 +17,22 @@ const checkpointLogSchema = new mongoose.Schema(
       default: null,
     },
 
+    /**
+     * A bus does two separate things at a stop where passengers board: it pulls
+     * in, and later it pulls out. Collapsing those into one event makes it
+     * impossible to tell a passenger standing there whether to run for the door
+     * or give up — so a station gets both, and a landmark, which is genuinely
+     * instantaneous, gets only the pass.
+     *
+     *   departed            — left the origin, trip is under way
+     *   passed_checkpoint   — reached this point (a station: now boarding)
+     *   left_checkpoint     — pulled out of this point, now on the road again
+     *   delayed             — ad-hoc note, changes no arithmetic
+     *   arrived             — reached the destination, trip over
+     */
     type: {
       type: String,
-      enum: ['departed', 'passed_checkpoint', 'delayed', 'arrived'],
+      enum: ['departed', 'passed_checkpoint', 'left_checkpoint', 'delayed', 'arrived'],
       required: true,
     },
 

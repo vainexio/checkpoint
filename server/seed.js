@@ -167,8 +167,9 @@ const TRIPS = [
       ['Balintawak', 183],
       ['Tarlac stop', 15],
     ],
+    left: ['Tarlac stop', 6],
     delay: ['traffic', 40],
-    note: 'past Tarlac, running late',
+    note: 'left Tarlac, on the road, running late',
   },
   {
     route: 'Cubao – Baguio',
@@ -185,7 +186,9 @@ const TRIPS = [
     conductor: 'dennis',
     departedAgo: 55,
     confirms: [['Alabang', 13]], // 42 min in, against a 40 min baseline
-    note: 'between Alabang and Calamba, on time',
+    // No pull-out reported yet: this bus is standing at Alabang boarding, and
+    // the board should tell anyone waiting there to hurry.
+    note: 'AT Alabang, boarding right now',
   },
   {
     route: 'PITX – Lipa',
@@ -196,8 +199,9 @@ const TRIPS = [
       ['Alabang', 75],
       ['Calamba Crossing', 25],
     ],
+    left: ['Calamba Crossing', 19],
     delay: ['loading', 18],
-    note: 'past Calamba, running late',
+    note: 'left Calamba, on the road, running late',
   },
   {
     route: 'PITX – Lipa',
@@ -210,7 +214,8 @@ const TRIPS = [
       ['Santo Tomas', 42],
       ['Tanauan', 22],
     ],
-    note: 'approaching Lipa, running early',
+    left: ['Tanauan', 17],
+    note: 'left Tanauan, approaching Lipa, running early',
   },
   {
     route: 'PITX – Lipa',
@@ -388,6 +393,9 @@ async function seed() {
       push('departed', minutesAgo(spec.departedAgo));
       for (const [name, ago] of spec.confirms ?? []) {
         push('passed_checkpoint', minutesAgo(ago), { checkpoint: idFor(name) });
+      }
+      if (spec.left) {
+        push('left_checkpoint', minutesAgo(spec.left[1]), { checkpoint: idFor(spec.left[0]) });
       }
       if (spec.delay) push('delayed', minutesAgo(spec.delay[1]), { delayReason: spec.delay[0] });
       if (spec.arrivedAgo) push('arrived', minutesAgo(spec.arrivedAgo));

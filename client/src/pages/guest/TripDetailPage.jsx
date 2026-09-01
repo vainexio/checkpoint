@@ -166,7 +166,11 @@ export default function TripDetailPage() {
             </span>
           </CardHeader>
           <CardContent>
-            <Timeline stops={trip.stops} isArrived={trip.status === 'arrived'} />
+            <Timeline
+            stops={trip.stops}
+            isArrived={trip.status === 'arrived'}
+            position={trip.position}
+          />
           </CardContent>
         </Card>
 

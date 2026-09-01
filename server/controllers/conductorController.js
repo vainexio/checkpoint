@@ -16,7 +16,7 @@ import {
  * way a courier scans a parcel — by asserting they are at a known point.
  */
 
-const LOG_TYPES = ['departed', 'passed_checkpoint', 'delayed', 'arrived'];
+const LOG_TYPES = ['departed', 'passed_checkpoint', 'left_checkpoint', 'delayed', 'arrived'];
 const DELAY_REASONS = ['traffic', 'loading', 'breakdown', 'inspection', 'weather', 'other'];
 
 /** A conductor may only ever touch a trip assigned to them. */
@@ -67,7 +67,7 @@ function normaliseLog(raw, tripId) {
     throw Object.assign(new Error('reportedAt is not a valid timestamp.'), { status: 400 });
   }
 
-  if (raw.type === 'passed_checkpoint' && !raw.checkpoint) {
+  if ((raw.type === 'passed_checkpoint' || raw.type === 'left_checkpoint') && !raw.checkpoint) {
     throw Object.assign(new Error('A checkpoint update must name a checkpoint.'), { status: 400 });
   }
 
@@ -78,7 +78,8 @@ function normaliseLog(raw, tripId) {
   return {
     trip: tripId,
     type: raw.type,
-    checkpoint: raw.type === 'passed_checkpoint' ? raw.checkpoint : null,
+    checkpoint:
+      raw.type === 'passed_checkpoint' || raw.type === 'left_checkpoint' ? raw.checkpoint : null,
     delayReason: raw.type === 'delayed' ? (raw.delayReason ?? 'other') : null,
     reportedAt,
     syncedAt: new Date(),

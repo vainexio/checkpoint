@@ -77,8 +77,15 @@ const planIndexOf = (plan, checkpointId) => {
 };
 
 // Logs sharing a timestamp still have a sensible order: you departed before you
-// passed anything, and you passed things before you arrived.
-const TYPE_RANK = { departed: 0, passed_checkpoint: 1, arrived: 2, delayed: 3 };
+// passed anything, you leave a stop after reaching it, and you pass things
+// before you arrive.
+const TYPE_RANK = {
+  departed: 0,
+  passed_checkpoint: 1,
+  left_checkpoint: 2,
+  arrived: 3,
+  delayed: 4,
+};
 
 const sortLogs = (logs) =>
   [...logs].sort((a, b) => {
@@ -118,6 +125,9 @@ export function computeTripState({
   let lastConfirmedAt = null;
   let exactVariance = 0;
   let latestDelay = null;
+  // When the bus pulled out of the checkpoint it most recently reached. Null
+  // while it is still standing there.
+  let leftLastCheckpointAt = null;
   const ignored = [];
 
   const skip = (log, reason) =>
@@ -138,6 +148,8 @@ export function computeTripState({
     progress[index].actualArrival = toDate(reportedAt);
     lastConfirmedIndex = index;
     lastConfirmedAt = toDate(reportedAt);
+    // Reaching a new point means the bus is no longer standing at the old one.
+    leftLastCheckpointAt = null;
     exactVariance = varianceAt(index, reportedAt);
   };
 
@@ -179,6 +191,36 @@ export function computeTripState({
         advanceTo(index, log.reportedAt);
         // Passing the final checkpoint is an arrival.
         if (index === lastIndex) actualArrival = toDate(log.reportedAt);
+        break;
+      }
+
+      case 'left_checkpoint': {
+        if (lastConfirmedIndex < 0) {
+          skip(log, 'no_checkpoint_to_leave');
+          break;
+        }
+        if (actualArrival) {
+          skip(log, 'after_arrival');
+          break;
+        }
+        // Only the point the bus is currently standing at can be left.
+        const index = planIndexOf(plan, log.checkpoint);
+        if (index !== -1 && index !== lastConfirmedIndex) {
+          skip(log, 'not_the_current_checkpoint');
+          break;
+        }
+
+        leftLastCheckpointAt = toDate(log.reportedAt);
+
+        /**
+         * Dwell that has already happened is elapsed time like any other, and
+         * a leg's baseline includes the dwell at the stop it ends on — so the
+         * same variance formula measures "how late it is *leaving*" without
+         * any special case. A bus that arrives on time and then sits for
+         * twenty minutes is twenty minutes late from here on, and the board
+         * says so immediately instead of waiting for the next checkpoint.
+         */
+        exactVariance = varianceAt(lastConfirmedIndex, log.reportedAt);
         break;
       }
 
@@ -266,6 +308,27 @@ export function computeTripState({
   else if (!actualDeparture) status = 'scheduled';
   else status = exactVariance > DELAY_THRESHOLD_MINUTES ? 'delayed' : 'in_transit';
 
+  /**
+   * Where the bus is, in the only two forms this system can honestly report.
+   *
+   *   at_stop  — reached a station and has not reported leaving it, so it is
+   *              standing there and may still be boarding
+   *   between  — on the road between the last confirmed point and the next
+   *
+   * A landmark is never "at": it is a timing point a bus drives past, so the
+   * conductor logs one event and the bus is immediately between.
+   */
+  const lastEntry = lastConfirmedIndex >= 0 ? plan[lastConfirmedIndex] : null;
+  const standingAtStop =
+    !!lastEntry &&
+    lastEntry.type !== 'landmark' &&
+    !leftLastCheckpointAt &&
+    !actualArrival &&
+    !!actualDeparture &&
+    // The origin before departure is handled by the scheduled state, and the
+    // final stop is an arrival, not a dwell.
+    lastConfirmedIndex < lastIndex;
+
   return {
     status,
     actualDeparture,
@@ -274,6 +337,8 @@ export function computeTripState({
     lastConfirmedCheckpoint:
       lastConfirmedIndex >= 0 ? plan[lastConfirmedIndex].checkpoint : null,
     lastConfirmedAt,
+    position: actualArrival ? 'arrived' : standingAtStop ? 'at_stop' : 'between',
+    leftLastCheckpointAt,
     // Rounded for storage and display; the projections above use the exact
     // value so the clock stays honest.
     cumulativeVarianceMinutes: Math.round(exactVariance),
@@ -305,7 +370,9 @@ export function evaluateStaleness({ plan, state, now = new Date(), trafficAdjust
   if (!plan || !plan.length || !state) return quiet;
   if (state.status !== 'in_transit' && state.status !== 'delayed') return quiet;
 
-  const anchor = state.lastConfirmedAt ?? state.actualDeparture;
+  // Leaving a stop is newer information than reaching it, so the silence is
+  // measured from whichever the bus reported last.
+  const anchor = state.leftLastCheckpointAt ?? state.lastConfirmedAt ?? state.actualDeparture;
   if (!anchor) return quiet;
 
   const nextIndex = state.lastConfirmedIndex + 1;

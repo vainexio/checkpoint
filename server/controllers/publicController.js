@@ -156,8 +156,20 @@ export const stationBoard = asyncHandler(async (req, res) => {
       const index = trip.stops.findIndex((s) => s.checkpointId === String(station._id));
       return { trip, stop, index };
     })
-    // Already confirmed past this station, or skipped it — no longer inbound.
-    .filter(({ stop }) => stop && stop.progress === 'pending')
+    /**
+     * Still worth showing if the stop is ahead of the bus — or if the bus is
+     * standing at this very stop right now. That second case is the single most
+     * useful row on the board: the bus is here, the doors may still be open,
+     * and dropping it because the checkpoint is technically "passed" would hide
+     * it from exactly the person who can still catch it.
+     */
+    .filter(
+      ({ trip, stop, index }) =>
+        stop &&
+        (stop.progress === 'pending' ||
+          (trip.position === 'at_stop' &&
+            trip.lastConfirmedCheckpoint?.checkpointId === stop.checkpointId))
+    )
     .map(({ trip, stop, index }) => {
       const lastPassed = trip.stops.reduce(
         (acc, s, i) => (s.progress === 'passed' ? i : acc),
@@ -179,25 +191,31 @@ export const stationBoard = asyncHandler(async (req, res) => {
         latestDelay: trip.latestDelay,
         // The number the whole screen exists to show. Before departure there is
         // no projection to give, only what the timetable says.
-        eta: stop.projectedArrival,
+        eta: stop.actualArrival ?? stop.projectedArrival,
         scheduledEta: stop.scheduledArrival,
         stopsAway: lastPassed >= 0 ? index - lastPassed : null,
         isOrigin: index === 0,
         traffic: trip.traffic,
 
-        // Where the bus actually is: past one point, not yet at the next.
+        // Where the bus actually is: standing at a stop, or on the road.
         nextCheckpoint: trip.nextCheckpoint,
+        position: trip.position,
+        leftLastCheckpointAt: trip.leftLastCheckpointAt,
+        // Standing at *this* stop, not merely somewhere on the route.
+        isHereNow:
+          trip.position === 'at_stop' &&
+          trip.lastConfirmedCheckpoint?.checkpointId === stop.checkpointId,
 
         /**
          * Enough of the route to answer the two questions someone who does not
          * know the area actually has: where is this bus now, and is it going
          * anywhere useful to me?
          *
-         * A checkpoint system never knows a bus is *at* a place — only that it
-         * passed one and has not yet reached the next. So the position is
-         * carried as `isHeadingHere` on the checkpoint being approached, which
-         * lets the board draw the bus on the leg between two points rather than
-         * parked on a dot it left half an hour ago.
+         * The bus is carried as either `isBusHere` (standing at a stop, doors
+         * possibly open) or `isHeadingHere` (on the leg into the next point).
+         * Those are genuinely different situations for someone waiting: one
+         * means run, the other means settle in — so the strip never has to
+         * guess which it is showing.
          */
         journey: trip.stops.map((s, i) => ({
           name: s.name,
@@ -205,8 +223,14 @@ export const stationBoard = asyncHandler(async (req, res) => {
           progress: s.progress,
           eta: s.projectedArrival ?? s.scheduledArrival,
           isLastConfirmed: i === lastPassed,
+          // The bus is standing at this one right now.
+          isBusHere: i === lastPassed && trip.position === 'at_stop',
+          // The bus is on the road heading into this one.
           isHeadingHere:
-            i === lastPassed + 1 && !!trip.actualDeparture && trip.status !== 'arrived',
+            i === lastPassed + 1 &&
+            trip.position === 'between' &&
+            !!trip.actualDeparture &&
+            trip.status !== 'arrived',
           isYourStop: i === index,
         })),
         continuesTo: trip.stops
@@ -216,6 +240,8 @@ export const stationBoard = asyncHandler(async (req, res) => {
       };
     })
     .sort((a, b) => {
+      // A bus at the stop right now beats anything still on its way.
+      if (a.isHereNow !== b.isHereNow) return a.isHereNow ? -1 : 1;
       if (!a.eta) return 1;
       if (!b.eta) return -1;
       return new Date(a.eta) - new Date(b.eta);

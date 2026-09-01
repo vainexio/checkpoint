@@ -342,3 +342,91 @@ test('with no traffic provider the engine behaves exactly as before', () => {
     a.computedETAs.map((e) => e.projectedArrival?.getTime())
   );
 });
+
+/* --------------------------------------------- at a stop vs on the road */
+
+const left = (checkpoint, minutes) => log('left_checkpoint', minutes, { checkpoint });
+
+test('reaching a station means the bus is at it, not past it', () => {
+  const state = computeTripState({ plan, logs: [departed(), passed(CP.balintawak, 20)] });
+
+  // A passenger at Balintawak needs to know the doors may still be open.
+  assert.equal(state.position, 'at_stop');
+  assert.equal(state.leftLastCheckpointAt, null);
+});
+
+test('reporting the pull-out moves the bus onto the road', () => {
+  const state = computeTripState({
+    plan,
+    logs: [departed(), passed(CP.balintawak, 20), left(CP.balintawak, 26)],
+  });
+
+  assert.equal(state.position, 'between');
+  assert.equal(minutesFromDeparture(state.leftLastCheckpointAt), 26);
+  // Still the last confirmed point — leaving does not advance position.
+  assert.equal(state.lastConfirmedCheckpoint, CP.balintawak);
+});
+
+test('a landmark is never "at" — it is passed and immediately behind', () => {
+  // TPLEX is a timing point; a bus does not stand at a toll exit.
+  const state = computeTripState({
+    plan,
+    logs: [departed(), passed(CP.balintawak, 20), passed(CP.tarlac, 100), passed(CP.tplex, 140)],
+  });
+
+  assert.equal(state.position, 'between');
+});
+
+test('dwelling too long at a stop shows as lateness the moment it is reported', () => {
+  // Arrives Balintawak dead on baseline, then sits for 25 minutes.
+  const onTime = computeTripState({ plan, logs: [departed(), passed(CP.balintawak, 20)] });
+  assert.equal(onTime.cumulativeVarianceMinutes, 0);
+
+  const dwelt = computeTripState({
+    plan,
+    logs: [departed(), passed(CP.balintawak, 20), left(CP.balintawak, 45)],
+  });
+
+  // The overrun is real elapsed time, so it lands immediately rather than
+  // waiting to be discovered at the next checkpoint.
+  assert.equal(dwelt.cumulativeVarianceMinutes, 25);
+  assert.equal(minutesFromDeparture(etaFor(dwelt, CP.baguio)), 210); // 185 + 25
+});
+
+test('a bus standing at a stop is not accused of going quiet', () => {
+  const state = computeTripState({
+    plan,
+    logs: [departed(), passed(CP.balintawak, 20), left(CP.balintawak, 100)],
+  });
+
+  // Silence is measured from the pull-out, which is the newer report.
+  const staleness = evaluateStaleness({ plan, state, now: addMinutes(DEPARTURE, 110) });
+  assert.equal(staleness.minutesSinceLastConfirm, 10);
+  assert.equal(staleness.isStale, false);
+});
+
+test('leaving a checkpoint the bus is not at is rejected', () => {
+  const state = computeTripState({
+    plan,
+    logs: [departed(), passed(CP.balintawak, 20), left(CP.tarlac, 30)],
+  });
+
+  assert.equal(state.position, 'at_stop');
+  assert.equal(state.ignoredLogs[0].reason, 'not_the_current_checkpoint');
+});
+
+test('arriving at the next stop clears the standing state', () => {
+  const state = computeTripState({
+    plan,
+    logs: [
+      departed(),
+      passed(CP.balintawak, 20),
+      left(CP.balintawak, 26),
+      passed(CP.tarlac, 100),
+    ],
+  });
+
+  assert.equal(state.position, 'at_stop');
+  assert.equal(state.lastConfirmedCheckpoint, CP.tarlac);
+  assert.equal(state.leftLastCheckpointAt, null);
+});

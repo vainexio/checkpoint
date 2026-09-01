@@ -138,40 +138,55 @@ export default function StationDisplayPage() {
  * has got to, and whether you can board it.
  */
 function DisplayRow({ arrival, now }) {
-  const notDeparted = arrival.status === 'scheduled';
   const isFull = arrival.load === 'full';
-  const minutesAway = relativeMinutes(arrival.eta, now);
   const seats = loadLevel(arrival.load);
+  const minutesAway = relativeMinutes(arrival.boardTime, now);
+
+  // The same trip is a departure at its origin and an arrival everywhere else.
+  const kind =
+    arrival.boardKind === 'departure'
+      ? { label: 'Departs', tone: 'text-primary' }
+      : arrival.boardKind === 'arrived'
+        ? { label: 'Arrived', tone: 'text-muted-foreground' }
+        : { label: 'Arrives', tone: 'text-muted-foreground' };
 
   return (
     <div
       className={cn(
-        'grid grid-cols-[200px_1fr_auto] items-center gap-6 border-b border-border py-4',
-        isFull && 'opacity-70'
+        'grid grid-cols-[210px_1fr_auto] items-center gap-6 border-b border-border py-4',
+        isFull && 'opacity-70',
+        arrival.boardKind === 'arrived' && 'opacity-60'
       )}
       style={{ height: ROW_HEIGHT }}
     >
-      {/* The number the screen exists for. */}
+      {/* The number the screen exists for, and what kind of number it is. */}
       <div>
+        <div className={cn('text-[13px] font-bold uppercase tracking-[0.16em]', kind.tone)}>
+          {kind.label}
+        </div>
         <div
           className={cn(
-            'font-mono tabular text-[40px] font-bold leading-none tracking-tight',
+            'mt-0.5 font-mono tabular text-[40px] font-bold leading-none tracking-tight',
             arrival.isHereNow && 'text-success',
-            (arrival.isStale || notDeparted) && !arrival.isHereNow && 'text-muted-foreground'
+            (arrival.isStale || arrival.boardKind !== 'arrival') &&
+              !arrival.isHereNow &&
+              'text-muted-foreground'
           )}
         >
-          {formatTime(notDeparted ? arrival.scheduledEta : arrival.eta)}
+          {formatTime(arrival.boardTime)}
         </div>
-        <div className="mt-1.5 text-[15px] font-semibold text-muted-foreground">
+        <div className="mt-1 text-[15px] font-semibold text-muted-foreground">
           {arrival.isHereNow
-            ? 'Here now'
-            : arrival.isStale
-              ? 'estimate'
-              : notDeparted
-                ? 'scheduled'
+            ? 'At the stand'
+            : arrival.boardKind === 'arrived'
+              ? 'On the stand'
+              : arrival.isStale
+                ? 'estimate'
                 : minutesAway > 1
-                  ? formatCountdown(arrival.eta, now)
-                  : 'arriving'}
+                  ? formatCountdown(arrival.boardTime, now)
+                  : arrival.boardKind === 'departure'
+                    ? 'boarding'
+                    : 'arriving'}
         </div>
       </div>
 
@@ -187,8 +202,10 @@ function DisplayRow({ arrival, now }) {
         <div className="mt-1 truncate text-[17px] text-muted-foreground">
           {arrival.isHereNow ? (
             <span className="font-bold text-success">At this stop — boarding</span>
-          ) : notDeparted ? (
-            <>Departs {arrival.origin} at {formatTime(arrival.scheduledDeparture)}</>
+          ) : arrival.boardKind === 'arrived' ? (
+            <>Completed from {arrival.origin}</>
+          ) : arrival.boardKind === 'departure' ? (
+            <>To {arrival.destination} · now boarding here</>
           ) : arrival.isStale ? (
             <>No update in {formatElapsed(arrival.minutesSinceLastConfirm)}</>
           ) : arrival.position === 'at_stop' ? (
@@ -223,7 +240,13 @@ function DisplayRow({ arrival, now }) {
           </span>
         ) : (
           <span className="text-[17px] font-semibold text-muted-foreground">
-            {arrival.isStale ? 'Unconfirmed' : arrival.status === 'delayed' ? 'Delayed' : ''}
+            {arrival.boardKind === 'arrived'
+              ? 'Arrived'
+              : arrival.isStale
+                ? 'Unconfirmed'
+                : arrival.status === 'delayed'
+                  ? 'Delayed'
+                  : ''}
           </span>
         )}
       </div>

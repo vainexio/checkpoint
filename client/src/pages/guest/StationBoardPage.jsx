@@ -131,9 +131,11 @@ export default function StationBoardPage() {
 
 function ArrivalRow({ arrival, now }) {
   const [open, setOpen] = useState(false);
-  const minutesAway = relativeMinutes(arrival.eta, now);
+  const minutesAway = relativeMinutes(arrival.boardTime, now);
   const notDepartedYet = arrival.status === 'scheduled';
-  const dimmed = arrival.isStale || notDepartedYet;
+  const isDeparture = arrival.boardKind === 'departure';
+  const hasArrived = arrival.boardKind === 'arrived';
+  const dimmed = arrival.isStale || notDepartedYet || hasArrived;
   const isFull = arrival.load === 'full';
 
   return (
@@ -141,6 +143,8 @@ function ArrivalRow({ arrival, now }) {
       className={cn(
         'overflow-hidden',
         arrival.isHereNow && 'border-success/60 bg-success/[0.04]',
+        isDeparture && 'border-primary/50 bg-primary/[0.03]',
+        hasArrived && 'opacity-70',
         // The whole value of a "full" report is telling someone not to wait, so
         // the row has to stop looking like something to wait for.
         isFull && 'border-destructive/40 bg-destructive/[0.03] opacity-90'
@@ -188,7 +192,16 @@ function ArrivalRow({ arrival, now }) {
                 * still be open; on the road means settle in.
                 */}
               <div className="text-muted-foreground">
-                {notDepartedYet ? (
+                {hasArrived ? (
+                  <>
+                    Completed · arrived from{' '}
+                    <span className="font-semibold text-foreground">{arrival.origin}</span>
+                  </>
+                ) : isDeparture ? (
+                  <span className="font-semibold text-primary">
+                    Waiting here · departs for {arrival.destination}
+                  </span>
+                ) : notDepartedYet ? (
                   <>
                     Still at <span className="font-semibold text-foreground">{arrival.origin}</span>{' '}
                     · leaves {formatTime(arrival.scheduledDeparture)}
@@ -267,9 +280,11 @@ function ArrivalRow({ arrival, now }) {
             >
               {arrival.isHereNow
                 ? 'At this stop now'
-                : notDepartedYet
-                  ? 'Scheduled arrival'
-                  : 'Expected arrival'}
+                : hasArrived
+                  ? 'Arrived'
+                  : isDeparture
+                    ? 'Departs from here'
+                    : 'Expected arrival'}
             </div>
             <div
               className={cn(
@@ -278,7 +293,7 @@ function ArrivalRow({ arrival, now }) {
                 dimmed && !arrival.isHereNow && 'text-muted-foreground'
               )}
             >
-              {formatTime(notDepartedYet ? arrival.scheduledEta : arrival.eta)}
+              {formatTime(arrival.boardTime)}
             </div>
             <div
               className={cn(
@@ -288,13 +303,15 @@ function ArrivalRow({ arrival, now }) {
             >
               {arrival.isHereNow
                 ? 'boarding — pulled in at this time'
-                : notDepartedYet
-                  ? 'if it leaves on time'
-                  : arrival.isStale
-                    ? 'rough estimate'
-                    : minutesAway !== null && minutesAway > 1
-                      ? formatCountdown(arrival.eta, now)
-                      : 'arriving now'}
+                : hasArrived
+                  ? 'trip complete'
+                  : isDeparture
+                    ? 'scheduled departure'
+                    : arrival.isStale
+                      ? 'rough estimate'
+                      : minutesAway !== null && minutesAway > 1
+                        ? formatCountdown(arrival.boardTime, now)
+                        : 'arriving now'}
             </div>
           </div>
         </div>

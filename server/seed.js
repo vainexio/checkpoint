@@ -238,15 +238,16 @@ const TRIPS = [
     route: 'PITX – Lipa',
     bus: 'SBL 9015',
     conductor: 'marlon',
-    departedAgo: 300,
+    departedAgo: 205,
     confirms: [
-      ['Alabang', 258],
-      ['Calamba Crossing', 212],
-      ['Santo Tomas', 170],
-      ['Tanauan', 148],
+      ['Alabang', 163],
+      ['Calamba Crossing', 117],
+      ['Santo Tomas', 75],
+      ['Tanauan', 53],
     ],
-    arrivedAgo: 112,
-    note: 'completed run',
+    // Recent enough that it is still on the stand at Lipa.
+    arrivedAgo: 18,
+    note: 'just arrived — still on the stand at Lipa',
   },
 ];
 

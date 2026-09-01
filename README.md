@@ -148,6 +148,11 @@ must work through every bus on its own.
 
 - **Crucial only.** When, which bus, where it has got to, and whether you can board. Everything
   else is dropped.
+- **All three things a terminal has to answer**, each labelled: what is *departing* from here,
+  what is *arriving*, and what has just *arrived* and is still on the stand. The same trip is a
+  departure at its origin and an arrival everywhere else, so the row says which — an "expected
+  arrival" for a bus parked at its own starting terminal is simply the wrong sentence. A
+  finished bus stays up for 45 minutes, the way an airport board keeps landed flights.
 - **Pages rather than scrolls.** A moving board is hard to read and people arrive mid-cycle, so
   it turns the page every 9 seconds, fitting as many rows as the screen actually has.
 - **The page is derived from the clock, not advanced by a timer.** A screen like this runs for

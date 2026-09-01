@@ -354,10 +354,19 @@ test('arriving closes the trip and clears it from the board', async () => {
   assert.equal(detail.body.trip.varianceMinutes, 5); // 190 actual vs 185 baseline
   assert.equal(detail.body.trip.isStale, false);
 
+  // It has just got in, so it stays on the destination board as arrived —
+  // it is still on the stand, and someone meeting it needs to see that.
   const board = await request(app)
     .get(`/api/public/stations/${byName(cps, 'Baguio Terminal')}/board`)
     .expect(200);
-  assert.equal(board.body.arrivals.length, 0);
+  assert.equal(board.body.arrivals.length, 1);
+  assert.equal(board.body.arrivals[0].boardKind, 'arrived');
+
+  // But it is no longer inbound anywhere it has already been.
+  const behind = await request(app)
+    .get(`/api/public/stations/${byName(cps, 'Balintawak')}/board`)
+    .expect(200);
+  assert.equal(behind.body.arrivals.length, 0);
 });
 
 test('a conductor can take back a mistaken tap, and the trip recomputes', async () => {
@@ -485,4 +494,57 @@ test('a bus standing at a stop stays on that stop board, first', async () => {
     .expect(200);
   assert.equal(ahead.body.arrivals[0].position, 'between');
   assert.equal(ahead.body.arrivals[0].isHereNow, false);
+});
+
+test('a terminal board shows what is leaving, what is coming, and what just got in', async () => {
+  const { adminToken, conductorToken, cps, trip, route } = await setupWorld();
+  const asConductor = (req) => req.set('Authorization', `Bearer ${conductorToken}`);
+  const cubao = byName(cps, 'Cubao Terminal');
+  const baguio = byName(cps, 'Baguio Terminal');
+
+  // The seeded trip has not departed, so at its origin it is a departure —
+  // not an "arrival" at the terminal it is parked in.
+  const origin = await request(app).get(`/api/public/stations/${cubao}/board`).expect(200);
+  assert.equal(origin.body.arrivals.length, 1);
+  assert.equal(origin.body.arrivals[0].boardKind, 'departure');
+
+  // Run it to completion.
+  await asConductor(request(app).post(`/api/conductor/trips/${trip.id}/checkpoint-logs/sync`))
+    .send({
+      logs: [
+        { type: 'departed', reportedAt: minutesAgo(190), clientLogId: 'k1' },
+        { type: 'arrived', reportedAt: minutesAgo(4), clientLogId: 'k2' },
+      ],
+    })
+    .expect(200);
+
+  // It is parked at Baguio, and someone meeting it needs to see that.
+  const dest = await request(app).get(`/api/public/stations/${baguio}/board`).expect(200);
+  assert.equal(dest.body.arrivals.length, 1);
+  assert.equal(dest.body.arrivals[0].boardKind, 'arrived');
+  assert.ok(dest.body.arrivals[0].boardTime, 'an arrived bus still needs a time');
+
+  // It no longer counts as inbound at a stop it never reaches again.
+  const origin2 = await request(app).get(`/api/public/stations/${cubao}/board`).expect(200);
+  assert.equal(origin2.body.arrivals.length, 0);
+});
+
+test('a bus that finished long ago is not still on the stand', async () => {
+  const { conductorToken, cps, trip } = await setupWorld();
+  const asConductor = (req) => req.set('Authorization', `Bearer ${conductorToken}`);
+
+  await asConductor(request(app).post(`/api/conductor/trips/${trip.id}/checkpoint-logs/sync`))
+    .send({
+      logs: [
+        { type: 'departed', reportedAt: minutesAgo(400), clientLogId: 'o1' },
+        // Over the 45-minute window: long gone from the terminal.
+        { type: 'arrived', reportedAt: minutesAgo(120), clientLogId: 'o2' },
+      ],
+    })
+    .expect(200);
+
+  const board = await request(app)
+    .get(`/api/public/stations/${byName(cps, 'Baguio Terminal')}/board`)
+    .expect(200);
+  assert.equal(board.body.arrivals.length, 0);
 });

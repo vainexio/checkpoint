@@ -10,6 +10,15 @@ import { presentTrip, presentTrips, TRIP_POPULATE } from '../services/tripServic
 
 const ACTIVE_STATUSES = ['scheduled', 'in_transit', 'delayed'];
 
+/**
+ * How long a finished bus stays on its destination board.
+ *
+ * It is still physically parked there, and someone meeting a passenger needs
+ * to see that it landed — the same reason an airport board keeps arrived
+ * flights up for a while rather than erasing them on touchdown.
+ */
+const RECENTLY_ARRIVED_MINUTES = 45;
+
 /** Stations only. Landmarks are timing points; they get no board. */
 export const listStations = asyncHandler(async (req, res) => {
   const stations = await Checkpoint.find({ type: 'station' }).sort({ name: 1 }).lean();
@@ -142,7 +151,7 @@ export const stationBoard = asyncHandler(async (req, res) => {
   }
 
   const trips = await Trip.find({
-    status: { $in: ACTIVE_STATUSES },
+    status: { $in: [...ACTIVE_STATUSES, 'arrived'] },
     'plan.checkpoint': station._id,
   })
     .populate(TRIP_POPULATE)
@@ -157,27 +166,67 @@ export const stationBoard = asyncHandler(async (req, res) => {
       return { trip, stop, index };
     })
     /**
-     * Still worth showing if the stop is ahead of the bus — or if the bus is
-     * standing at this very stop right now. That second case is the single most
-     * useful row on the board: the bus is here, the doors may still be open,
-     * and dropping it because the checkpoint is technically "passed" would hide
-     * it from exactly the person who can still catch it.
+     * A terminal board has to answer three questions, not one: what is coming,
+     * what is sitting here, and what has just got in. Showing only the first
+     * leaves a bus parked at the stand invisible to the people standing next
+     * to it.
      */
-    .filter(
-      ({ trip, stop, index }) =>
-        stop &&
-        (stop.progress === 'pending' ||
-          (trip.position === 'at_stop' &&
-            trip.lastConfirmedCheckpoint?.checkpointId === stop.checkpointId))
-    )
+    .filter(({ trip, stop, index }) => {
+      if (!stop) return false;
+
+      if (trip.status === 'arrived') {
+        // Only at the end of its own route, and only while it is plausibly
+        // still on the stand.
+        const isDestination = index === trip.stops.length - 1;
+        const minutesSince = trip.actualArrival
+          ? (Date.now() - new Date(trip.actualArrival).getTime()) / 60000
+          : Infinity;
+        return isDestination && minutesSince <= RECENTLY_ARRIVED_MINUTES;
+      }
+
+      // Still ahead of the bus, or the bus is standing at this very stop —
+      // dropping that second case would hide it from the one person who can
+      // still catch it.
+      return (
+        stop.progress === 'pending' ||
+        (trip.position === 'at_stop' &&
+          trip.lastConfirmedCheckpoint?.checkpointId === stop.checkpointId)
+      );
+    })
     .map(({ trip, stop, index }) => {
       const lastPassed = trip.stops.reduce(
         (acc, s, i) => (s.progress === 'passed' ? i : acc),
         -1
       );
+      const isDeparture = index === 0 && !trip.actualDeparture;
+      const hasArrived = trip.status === 'arrived';
+      const isHereNow =
+        trip.position === 'at_stop' &&
+        trip.lastConfirmedCheckpoint?.checkpointId === stop.checkpointId;
+
+      /**
+       * What this row *is* from this stop's point of view. The same trip is a
+       * departure at its origin and an arrival everywhere else, and showing an
+       * "expected arrival" for a bus parked at its own starting terminal is
+       * simply the wrong sentence.
+       */
+      const boardKind = hasArrived
+        ? 'arrived'
+        : isDeparture
+          ? 'departure'
+          : 'arrival';
+
+      const boardTime = hasArrived
+        ? stop.actualArrival
+        : isDeparture
+          ? trip.scheduledDeparture
+          : (stop.actualArrival ?? stop.projectedArrival ?? stop.scheduledArrival);
+
       return {
         tripId: trip.id,
         route: trip.route.name,
+        boardKind,
+        boardTime,
         origin: trip.stops[0]?.name ?? null,
         destination: trip.stops.at(-1)?.name ?? null,
         bus: trip.bus,
@@ -205,9 +254,7 @@ export const stationBoard = asyncHandler(async (req, res) => {
         loadReportedAt: trip.loadReportedAt,
         loadReportedAtName: trip.loadReportedAtName,
         // Standing at *this* stop, not merely somewhere on the route.
-        isHereNow:
-          trip.position === 'at_stop' &&
-          trip.lastConfirmedCheckpoint?.checkpointId === stop.checkpointId,
+        isHereNow,
 
         /**
          * Enough of the route to answer the two questions someone who does not
@@ -243,11 +290,14 @@ export const stationBoard = asyncHandler(async (req, res) => {
       };
     })
     .sort((a, b) => {
-      // A bus at the stop right now beats anything still on its way.
-      if (a.isHereNow !== b.isHereNow) return a.isHereNow ? -1 : 1;
-      if (!a.eta) return 1;
-      if (!b.eta) return -1;
-      return new Date(a.eta) - new Date(b.eta);
+      // Here now, then everything due, then what has already got in.
+      const rank = (x) => (x.isHereNow ? 0 : x.boardKind === 'arrived' ? 2 : 1);
+      if (rank(a) !== rank(b)) return rank(a) - rank(b);
+      if (!a.boardTime) return 1;
+      if (!b.boardTime) return -1;
+      // Arrived buses read newest first; everything else soonest first.
+      const dir = a.boardKind === 'arrived' ? -1 : 1;
+      return dir * (new Date(a.boardTime) - new Date(b.boardTime));
     });
 
   res.json({

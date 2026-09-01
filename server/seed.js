@@ -1,8 +1,14 @@
 /**
- * Seed the demo dataset: the Cubao – Baguio route from §7, buses, accounts, and
- * three trips staged so every state on the public board is visible immediately —
- * one running roughly on time, one gone quiet long enough to be flagged stale,
- * and one still waiting to depart.
+ * Seed a demonstrable dataset: two real Philippine corridors, and trips staged
+ * so every state the board can show is visible the moment you open it — on
+ * time, running late, running early, gone quiet, not yet departed, and finished.
+ *
+ * The coordinates and baselines here are measured, not invented. Places come
+ * from OpenStreetMap and each leg's baseline is TomTom's free-flow driving time
+ * for a bus, plus a few minutes of dwell where passengers board. Free-flow is
+ * the right basis for a baseline: a baseline is what a leg normally costs, and
+ * the live traffic layer exists precisely to say how today differs from that.
+ * See scripts/measureRoute.js, which produced these numbers.
  *
  * Run with:  npm run seed        (add --fresh to wipe first)
  */
@@ -10,10 +16,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 
-// Load server/.env by its own path, not the working directory's — so the app
-// starts the same whether you run `node server.js` from here or
-// `node server/server.js` from the repo root (which is what Render does).
+// Load server/.env by its own path, not the working directory's.
 dotenv.config({ path: path.join(path.dirname(fileURLToPath(import.meta.url)), '.env') });
+
 import mongoose from 'mongoose';
 
 import { Bus, Checkpoint, CheckpointLog, Route, Trip, User } from './models/index.js';
@@ -28,55 +33,213 @@ const ADMIN = { name: 'Ops Admin', username: 'admin', password: 'checkpoint123' 
 const CONDUCTORS = [
   { name: 'Rey Santiago', username: 'rey', password: 'checkpoint123' },
   { name: 'Marlon Cruz', username: 'marlon', password: 'checkpoint123' },
+  { name: 'Dennis Aguilar', username: 'dennis', password: 'checkpoint123' },
+  { name: 'Joel Ramirez', username: 'joel', password: 'checkpoint123' },
 ];
 
-// Approximate real-world coordinates, good enough to place a pin and to give
-// the traffic provider genuine segment endpoints along NLEX/TPLEX and Kennon.
-const CHECKPOINTS = [
+/** `baseline` is minutes from the previous checkpoint on this route. */
+const ROUTES = [
   {
-    name: 'Cubao Terminal',
-    type: 'station',
-    isTerminal: true,
-    area: 'Quezon City, Metro Manila',
-    location: { lat: 14.6217, lng: 121.053 },
+    name: 'Cubao – Baguio',
+    checkpoints: [
+      {
+        name: 'Cubao Terminal',
+        type: 'station',
+        isTerminal: true,
+        area: 'Quezon City, Metro Manila',
+        location: { lat: 14.6217, lng: 121.053 },
+        baseline: 0,
+      },
+      {
+        name: 'Balintawak',
+        type: 'station',
+        area: 'Quezon City, Metro Manila',
+        location: { lat: 14.6574221, lng: 121.0038959 },
+        baseline: 20,
+      },
+      {
+        name: 'Tarlac stop',
+        type: 'station',
+        area: 'Tarlac City, Tarlac',
+        location: { lat: 15.486869, lng: 120.5898647 },
+        baseline: 157,
+      },
+      {
+        name: 'TPLEX – Rosario Exit',
+        type: 'landmark',
+        area: 'Rosario, La Union',
+        location: { lat: 16.2299397, lng: 120.487704 },
+        baseline: 90,
+      },
+      {
+        name: 'Baguio Terminal',
+        type: 'station',
+        isTerminal: true,
+        area: 'Baguio, Benguet',
+        location: { lat: 16.4138341, lng: 120.5914077 },
+        baseline: 84,
+      },
+    ],
   },
   {
-    name: 'Balintawak',
-    type: 'station',
-    isTerminal: false,
-    area: 'Quezon City, Metro Manila',
-    location: { lat: 14.657, lng: 121.003 },
-  },
-  {
-    name: 'Tarlac stop',
-    type: 'station',
-    isTerminal: false,
-    area: 'Tarlac City, Tarlac',
-    location: { lat: 15.4802, lng: 120.5979 },
-  },
-  {
-    name: 'TPLEX – Rosario Exit',
-    type: 'landmark',
-    isTerminal: false,
-    area: 'Rosario, La Union',
-    location: { lat: 16.229, lng: 120.49 },
-  },
-  {
-    name: 'Baguio Terminal',
-    type: 'station',
-    isTerminal: true,
-    area: 'Governor Pack Road, Baguio City',
-    location: { lat: 16.4103, lng: 120.596 },
+    name: 'PITX – Lipa',
+    checkpoints: [
+      {
+        name: 'PITX',
+        type: 'station',
+        isTerminal: true,
+        area: 'Parañaque, Metro Manila',
+        location: { lat: 14.5099649, lng: 120.9913732 },
+        baseline: 0,
+      },
+      {
+        name: 'Alabang',
+        type: 'station',
+        area: 'Muntinlupa, Metro Manila',
+        location: { lat: 14.4190326, lng: 121.044338 },
+        baseline: 40,
+      },
+      {
+        name: 'Calamba Crossing',
+        type: 'station',
+        area: 'Calamba, Laguna',
+        location: { lat: 14.1940522, lng: 121.1596881 },
+        baseline: 47,
+      },
+      {
+        name: 'Santo Tomas',
+        type: 'station',
+        area: 'Santo Tomas, Batangas',
+        location: { lat: 14.110721, lng: 121.1423512 },
+        baseline: 40,
+      },
+      {
+        name: 'Tanauan',
+        type: 'station',
+        area: 'Tanauan, Batangas',
+        location: { lat: 14.0865988, lng: 121.1258532 },
+        baseline: 23,
+      },
+      {
+        name: 'Lipa City',
+        type: 'station',
+        isTerminal: true,
+        area: 'Lipa, Batangas',
+        location: { lat: 13.9572279, lng: 121.1646223 },
+        baseline: 34,
+      },
+    ],
   },
 ];
-
-// Baseline minutes from the previous checkpoint. 185 minutes end to end.
-const BASELINES = [0, 20, 80, 40, 45];
 
 const BUSES = [
   { plateNumber: 'NRT 8821', operatorName: 'Northline Express' },
   { plateNumber: 'NRT 4416', operatorName: 'Northline Express' },
   { plateNumber: 'NRT 2093', operatorName: 'Northline Express' },
+  { plateNumber: 'SBL 1174', operatorName: 'Southbound Lines' },
+  { plateNumber: 'SBL 3308', operatorName: 'Southbound Lines' },
+  { plateNumber: 'SBL 5629', operatorName: 'Southbound Lines' },
+  { plateNumber: 'SBL 7742', operatorName: 'Southbound Lines' },
+  { plateNumber: 'SBL 9015', operatorName: 'Southbound Lines' },
+];
+
+/**
+ * Trips described by what the board should show, not by raw timestamps. Each
+ * confirm is [checkpoint, minutes ago]; the engine works out whether that adds
+ * up to early, late or quiet.
+ */
+const TRIPS = [
+  // ---------------------------------------------------------- Cubao – Baguio
+  {
+    route: 'Cubao – Baguio',
+    bus: 'NRT 8821',
+    conductor: 'rey',
+    departedAgo: 60,
+    confirms: [['Balintawak', 38]], // 22 min in, against a 20 min baseline
+    note: 'past Balintawak, near enough on time',
+  },
+  {
+    route: 'Cubao – Baguio',
+    bus: 'NRT 4416',
+    conductor: 'marlon',
+    departedAgo: 205,
+    confirms: [
+      ['Balintawak', 183],
+      ['Tarlac stop', 15],
+    ],
+    delay: ['traffic', 40],
+    note: 'past Tarlac, running late',
+  },
+  {
+    route: 'Cubao – Baguio',
+    bus: 'NRT 2093',
+    conductor: 'rey',
+    scheduledInMinutes: 45,
+    note: 'still at Cubao',
+  },
+
+  // ------------------------------------------------------------- PITX – Lipa
+  {
+    route: 'PITX – Lipa',
+    bus: 'SBL 1174',
+    conductor: 'dennis',
+    departedAgo: 55,
+    confirms: [['Alabang', 13]], // 42 min in, against a 40 min baseline
+    note: 'between Alabang and Calamba, on time',
+  },
+  {
+    route: 'PITX – Lipa',
+    bus: 'SBL 3308',
+    conductor: 'joel',
+    departedAgo: 120,
+    confirms: [
+      ['Alabang', 75],
+      ['Calamba Crossing', 25],
+    ],
+    delay: ['loading', 18],
+    note: 'past Calamba, running late',
+  },
+  {
+    route: 'PITX – Lipa',
+    bus: 'SBL 5629',
+    conductor: 'dennis',
+    departedAgo: 160,
+    confirms: [
+      ['Alabang', 123],
+      ['Calamba Crossing', 79],
+      ['Santo Tomas', 42],
+      ['Tanauan', 22],
+    ],
+    note: 'approaching Lipa, running early',
+  },
+  {
+    route: 'PITX – Lipa',
+    bus: 'SBL 7742',
+    conductor: 'joel',
+    // Confirmed Santo Tomas and nothing since. The next leg is 23 minutes, so
+    // this is far past its grace window and must be flagged, not guessed at.
+    departedAgo: 240,
+    confirms: [
+      ['Alabang', 197],
+      ['Calamba Crossing', 148],
+      ['Santo Tomas', 105],
+    ],
+    note: 'quiet since Santo Tomas — should read as unconfirmed',
+  },
+  {
+    route: 'PITX – Lipa',
+    bus: 'SBL 9015',
+    conductor: 'marlon',
+    departedAgo: 300,
+    confirms: [
+      ['Alabang', 258],
+      ['Calamba Crossing', 212],
+      ['Santo Tomas', 170],
+      ['Tanauan', 148],
+    ],
+    arrivedAgo: 112,
+    note: 'completed run',
+  },
 ];
 
 const minutesAgo = (m) => new Date(Date.now() - m * 60_000);
@@ -89,7 +252,7 @@ async function seed() {
   }
 
   await mongoose.connect(process.env.MONGODB_URI);
-  console.log('Connected to MongoDB.');
+  console.log('Connected to MongoDB.\n');
 
   if (FRESH) {
     await Promise.all([
@@ -100,38 +263,49 @@ async function seed() {
       Bus.deleteMany({}),
       User.deleteMany({}),
     ]);
-    console.log('Cleared existing data (--fresh).');
+    console.log('Cleared existing data (--fresh).\n');
   }
 
-  /* ------------------------------------------------------------ checkpoints */
-  const checkpoints = [];
-  for (const spec of CHECKPOINTS) {
-    const cp = await Checkpoint.findOneAndUpdate({ name: spec.name }, spec, {
-      upsert: true,
-      new: true,
-      setDefaultsOnInsert: true,
-    });
-    checkpoints.push(cp);
+  /* ------------------------------------------------- checkpoints and routes */
+  const routeByName = new Map();
+
+  for (const spec of ROUTES) {
+    const entries = [];
+
+    for (const cp of spec.checkpoints) {
+      const doc = await Checkpoint.findOneAndUpdate(
+        { name: cp.name },
+        {
+          name: cp.name,
+          type: cp.type,
+          isTerminal: !!cp.isTerminal,
+          area: cp.area,
+          location: cp.location,
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+      entries.push({ checkpoint: doc._id, baselineMinutesFromPrevious: cp.baseline });
+    }
+
+    let route = await Route.findOne({ name: spec.name });
+    if (!route) route = new Route({ name: spec.name });
+    route.checkpoints = entries;
+    route.isActive = true;
+    await route.save();
+    routeByName.set(spec.name, route);
+
+    const total = spec.checkpoints.reduce((s, c) => s + c.baseline, 0);
+    console.log(
+      `Route  ${spec.name.padEnd(16)} ${spec.checkpoints.length} checkpoints · ` +
+        `${Math.floor(total / 60)}h ${String(total % 60).padStart(2, '0')}m baseline`
+    );
   }
-  console.log(`Checkpoints ready: ${checkpoints.map((c) => c.name).join(' → ')}`);
 
-  /* ----------------------------------------------------------------- route */
-  const routeCheckpoints = checkpoints.map((cp, i) => ({
-    checkpoint: cp._id,
-    baselineMinutesFromPrevious: BASELINES[i],
-  }));
-
-  let route = await Route.findOne({ name: 'Cubao – Baguio' });
-  if (!route) route = new Route({ name: 'Cubao – Baguio' });
-  route.checkpoints = routeCheckpoints;
-  route.isActive = true;
-  await route.save();
-  console.log(`Route ready: ${route.name} (${BASELINES.reduce((a, b) => a + b, 0)} min baseline)`);
-
-  /* ------------------------------------------------------------------ buses */
-  const buses = [];
+  /* ------------------------------------------------------------------ fleet */
+  const busByPlate = new Map();
   for (const spec of BUSES) {
-    buses.push(
+    busByPlate.set(
+      spec.plateNumber,
       await Bus.findOneAndUpdate({ plateNumber: spec.plateNumber }, spec, {
         upsert: true,
         new: true,
@@ -139,7 +313,8 @@ async function seed() {
       })
     );
   }
-  console.log(`Buses ready: ${buses.map((b) => b.plateNumber).join(', ')}`);
+  const operators = new Set(BUSES.map((b) => b.operatorName));
+  console.log(`\nBuses  ${BUSES.length} across ${operators.size} operators`);
 
   /* --------------------------------------------------------------- accounts */
   const upsertUser = async ({ name, username, password }, role) => {
@@ -154,96 +329,89 @@ async function seed() {
   };
 
   const admin = await upsertUser(ADMIN, 'admin');
-  const conductors = [];
-  for (const c of CONDUCTORS) conductors.push(await upsertUser(c, 'conductor'));
-  console.log(`Accounts ready: ${admin.username} (admin), ${conductors.map((c) => c.username).join(', ')} (conductors)`);
+  const conductorByUsername = new Map();
+  for (const c of CONDUCTORS) {
+    conductorByUsername.set(c.username, await upsertUser(c, 'conductor'));
+  }
+  console.log(`Users  ${admin.username} (admin) + ${CONDUCTORS.length} conductors`);
 
   /* ------------------------------------------------------------------ trips */
-  // Rebuild demo trips every run so their timings stay relative to "now".
-  const existing = await Trip.find({ route: route._id }).select('_id').lean();
+  // Rebuilt every run so their timings stay relative to "now".
+  const existing = await Trip.find({}).select('_id').lean();
   if (existing.length) {
     await CheckpointLog.deleteMany({ trip: { $in: existing.map((t) => t._id) } });
-    await Trip.deleteMany({ _id: { $in: existing.map((t) => t._id) } });
+    await Trip.deleteMany({});
   }
 
-  const populatedRoute = await Route.findById(route._id).populate(
-    'checkpoints.checkpoint',
-    'name type'
-  );
-  const plan = buildPlan(populatedRoute);
-  const idFor = (name) => plan.find((p) => p.name === name).checkpoint;
+  const plans = new Map();
+  for (const [name, route] of routeByName) {
+    const populated = await Route.findById(route._id).populate(
+      'checkpoints.checkpoint',
+      'name type'
+    );
+    plans.set(name, buildPlan(populated));
+  }
 
   let logSeq = 0;
-  const makeLog = (trip, type, reportedAt, extra = {}) => {
-    logSeq += 1;
-    return {
-      trip: trip._id,
-      type,
-      reportedAt,
-      syncedAt: reportedAt,
-      clientLogId: `seed-${trip._id}-${logSeq}`,
-      checkpoint: null,
-      delayReason: null,
-      ...extra,
-    };
-  };
 
-  const createTrip = async ({ bus, conductor, scheduledDeparture }) =>
-    Trip.create({
-      route: route._id,
-      bus: bus._id,
-      conductor: conductor._id,
+  for (const spec of TRIPS) {
+    const plan = plans.get(spec.route);
+    const idFor = (name) => plan.find((p) => p.name === name).checkpoint;
+
+    const trip = await Trip.create({
+      route: routeByName.get(spec.route)._id,
+      bus: busByPlate.get(spec.bus)._id,
+      conductor: conductorByUsername.get(spec.conductor)._id,
       plan,
-      scheduledDeparture,
+      scheduledDeparture: spec.scheduledInMinutes
+        ? minutesFromNow(spec.scheduledInMinutes)
+        : minutesAgo(spec.departedAgo),
       status: 'scheduled',
     });
 
-  // Trip 1 — left 95 minutes ago, confirmed Balintawak 8 minutes behind
-  // baseline. Reporting normally; the board should show a live ETA.
-  const trip1 = await createTrip({
-    bus: buses[0],
-    conductor: conductors[0],
-    scheduledDeparture: minutesAgo(95),
-  });
-  await CheckpointLog.insertMany([
-    makeLog(trip1, 'departed', minutesAgo(95)),
-    makeLog(trip1, 'passed_checkpoint', minutesAgo(67), { checkpoint: idFor('Balintawak') }),
-    makeLog(trip1, 'delayed', minutesAgo(40), { delayReason: 'traffic' }),
-  ]);
+    const logs = [];
+    const push = (type, reportedAt, extra = {}) => {
+      logSeq += 1;
+      logs.push({
+        trip: trip._id,
+        type,
+        reportedAt,
+        syncedAt: reportedAt,
+        clientLogId: `seed-${trip._id}-${logSeq}`,
+        checkpoint: null,
+        delayReason: null,
+        ...extra,
+      });
+    };
 
-  // Trip 2 — confirmed Tarlac 95 minutes ago and nothing since. The next
-  // segment is only 40 minutes, so this trip is well past its grace window and
-  // the board must say so rather than keep showing a confident number.
-  const trip2 = await createTrip({
-    bus: buses[1],
-    conductor: conductors[1],
-    scheduledDeparture: minutesAgo(200),
-  });
-  await CheckpointLog.insertMany([
-    makeLog(trip2, 'departed', minutesAgo(200)),
-    makeLog(trip2, 'passed_checkpoint', minutesAgo(180), { checkpoint: idFor('Balintawak') }),
-    makeLog(trip2, 'passed_checkpoint', minutesAgo(95), { checkpoint: idFor('Tarlac stop') }),
-  ]);
+    if (!spec.scheduledInMinutes) {
+      push('departed', minutesAgo(spec.departedAgo));
+      for (const [name, ago] of spec.confirms ?? []) {
+        push('passed_checkpoint', minutesAgo(ago), { checkpoint: idFor(name) });
+      }
+      if (spec.delay) push('delayed', minutesAgo(spec.delay[1]), { delayReason: spec.delay[0] });
+      if (spec.arrivedAgo) push('arrived', minutesAgo(spec.arrivedAgo));
+    }
 
-  // Trip 3 — still at the terminal, leaving in 45 minutes.
-  const trip3 = await createTrip({
-    bus: buses[2],
-    conductor: conductors[0],
-    scheduledDeparture: minutesFromNow(45),
-  });
+    if (logs.length) await CheckpointLog.insertMany(logs);
+    await recomputeTrip(trip._id);
+  }
 
-  for (const t of [trip1, trip2, trip3]) await recomputeTrip(t._id);
-
-  const summary = await Trip.find({ route: route._id })
+  /* ---------------------------------------------------------------- summary */
+  const summary = await Trip.find({})
     .populate('bus', 'plateNumber')
-    .select('status cumulativeVarianceMinutes bus')
+    .populate('route', 'name')
     .lean();
 
-  console.log('\nDemo trips:');
-  for (const t of summary) {
-    const variance = t.cumulativeVarianceMinutes;
-    const label = variance === 0 ? 'on baseline' : `${variance > 0 ? '+' : ''}${variance} min`;
-    console.log(`  ${t.bus.plateNumber}  ${t.status.padEnd(11)} ${label}`);
+  console.log(`\nTrips  ${summary.length}`);
+  for (const spec of TRIPS) {
+    const t = summary.find((s) => s.bus.plateNumber === spec.bus);
+    const v = t.cumulativeVarianceMinutes;
+    const variance = t.actualDeparture ? (v === 0 ? 'on baseline' : `${v > 0 ? '+' : ''}${v} min`) : '—';
+    console.log(
+      `  ${spec.bus.padEnd(9)} ${t.route.name.padEnd(15)} ${t.status.padEnd(11)} ` +
+        `${variance.padEnd(12)} ${spec.note}`
+    );
   }
 
   console.log('\nSign in with:');

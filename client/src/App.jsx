@@ -9,6 +9,7 @@ import LoginPage from '@/pages/LoginPage.jsx';
 
 import StationsPage from '@/pages/guest/StationsPage.jsx';
 import StationBoardPage from '@/pages/guest/StationBoardPage.jsx';
+import StationDisplayPage from '@/pages/guest/StationDisplayPage.jsx';
 import TripDetailPage from '@/pages/guest/TripDetailPage.jsx';
 
 import ConductorTripsPage from '@/pages/conductor/ConductorTripsPage.jsx';
@@ -31,6 +32,8 @@ export default function App() {
     <AuthProvider>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        {/* Full-screen terminal board: no chrome, no navigation, no input. */}
+        <Route path="/display/:stationId" element={<StationDisplayPage />} />
         <Route path="/conductor/*" element={<ConductorApp />} />
         <Route path="/admin/*" element={<AdminApp />} />
         <Route path="/*" element={<GuestApp />} />

@@ -8,6 +8,7 @@ import {
   ChevronDown,
   Footprints,
   MapPin,
+  MonitorPlay,
   TrafficCone,
 } from 'lucide-react';
 import { usePolling, useNow } from '@/hooks/usePolling.js';
@@ -69,6 +70,15 @@ export default function StationBoardPage() {
         actions={
           <div className="flex flex-col items-end gap-2">
             <LiveIndicator lastUpdated={lastUpdated} />
+            <a
+              href={`/display/${stationId}`}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+            >
+              <MonitorPlay className="h-3.5 w-3.5" />
+              Terminal display
+            </a>
             {data?.station?.location && (
               <a
                 href={directionsUrl(data.station.location)}
@@ -142,25 +152,22 @@ function ArrivalRow({ arrival, now }) {
           Not picking up passengers — don't wait for this one
         </div>
       )}
-      <CardContent className="p-5 sm:p-6">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+      <CardContent className="p-4 sm:p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
             {/* The plate is how you pick this bus out of five at a curb, so it
                 is set as an identifier, not as metadata. */}
             {arrival.bus && (
-              <div className="mb-2 inline-flex items-center gap-2 rounded-lg border-2 border-foreground/15 bg-muted/60 px-3 py-1.5">
-                <span className="font-mono text-[19px] font-bold tracking-[0.08em]">
+              <div className="mb-1.5 inline-flex items-center gap-2 rounded-lg border-2 border-foreground/15 bg-muted/60 px-2.5 py-1">
+                <span className="font-mono text-[17px] font-bold tracking-[0.08em]">
                   {arrival.bus.plateNumber}
                 </span>
               </div>
             )}
 
             <div className="text-[17px] font-extrabold tracking-tight">{arrival.route}</div>
-            <div className="mt-0.5 text-sm text-muted-foreground">
-              {arrival.bus?.operatorName}
-            </div>
 
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="mt-2 flex flex-wrap items-center gap-2">
               <StatusBadge
                 status={arrival.status}
                 isStale={arrival.isStale}
@@ -173,8 +180,8 @@ function ArrivalRow({ arrival, now }) {
               />
             </div>
 
-            {/* Plain answers to "where is it" and "does it go where I want". */}
-            <div className="mt-3 space-y-1 text-[13px] leading-relaxed">
+            {/* One line on where it is. Everything else is behind "details". */}
+            <div className="mt-2 space-y-1 text-[13px] leading-relaxed">
               {/*
                 * Three genuinely different situations, and a passenger acts
                 * differently on each. Standing at a stop means the doors may
@@ -248,38 +255,7 @@ function ArrivalRow({ arrival, now }) {
                 </div>
               )}
 
-              {arrival.continuesTo?.length > 0 && (
-                <div className="text-muted-foreground">
-                  After this stop, continues to{' '}
-                  <span className="font-semibold text-foreground">
-                    {arrival.continuesTo.join(' → ')}
-                  </span>
-                </div>
-              )}
             </div>
-
-            {arrival.traffic && (
-              <div className="mt-3 flex items-start gap-2.5 rounded-lg border border-warning/50 bg-warning/15 px-3 py-2.5 text-[13px] text-foreground">
-                <TrafficCone className="mt-0.5 h-4 w-4 shrink-0 text-warning-strong" />
-                <span>
-                  <strong className="font-bold">
-                    Traffic {arrival.traffic.adjustmentMinutes > 0 ? '+' : ''}
-                    {arrival.traffic.adjustmentMinutes} min
-                  </strong>{' '}
-                  on {arrival.traffic.segment}, already included in the time shown.
-                </span>
-              </div>
-            )}
-
-            {arrival.latestDelay && !arrival.isStale && (
-              <div className="mt-2 text-[13px] font-medium text-warning-strong">
-                Conductor reported {DELAY_TEXT[arrival.latestDelay.reason] ?? 'a delay'}
-                {arrival.latestDelay.nearCheckpoint && (
-                  <> near {arrival.latestDelay.nearCheckpoint}</>
-                )}
-                , {formatTime(arrival.latestDelay.reportedAt)}
-              </div>
-            )}
           </div>
 
           <div className="shrink-0 text-left sm:min-w-[160px] sm:text-right">
@@ -297,7 +273,7 @@ function ArrivalRow({ arrival, now }) {
             </div>
             <div
               className={cn(
-                'font-mono tabular text-[44px] font-bold leading-none tracking-tight sm:text-[56px]',
+                'font-mono tabular text-[38px] font-bold leading-none tracking-tight sm:text-[46px]',
                 arrival.isHereNow && 'text-success',
                 dimmed && !arrival.isHereNow && 'text-muted-foreground'
               )}
@@ -333,7 +309,7 @@ function ArrivalRow({ arrival, now }) {
           </div>
         )}
 
-        <div className="mt-4 border-t border-border pt-3">
+        <div className="mt-3 border-t border-border pt-2">
           <Button
             variant="ghost"
             size="sm"
@@ -343,15 +319,64 @@ function ArrivalRow({ arrival, now }) {
             <ChevronDown
               className={cn('mr-1.5 h-3.5 w-3.5 transition-transform', open && 'rotate-180')}
             />
-            {open ? 'Hide full route' : 'See the full route'}
+            {open ? 'Less' : 'Details & full route'}
           </Button>
 
           {open && (
-            <div className="mt-3 space-y-3">
+            <div className="mt-3 space-y-3 text-[13px] leading-relaxed">
+              <div className="text-muted-foreground">
+                {arrival.bus?.operatorName}
+                {arrival.lastConfirmedAt && !notDepartedYet && (
+                  <>
+                    {' · '}
+                    {arrival.position === 'at_stop'
+                      ? `pulled in ${formatTime(arrival.lastConfirmedAt)}`
+                      : `left ${arrival.lastConfirmedCheckpoint?.name} ${formatTime(
+                          arrival.leftLastCheckpointAt ?? arrival.lastConfirmedAt
+                        )}`}
+                    {arrival.minutesSinceLastConfirm !== null && (
+                      <> · {formatElapsed(arrival.minutesSinceLastConfirm)} ago</>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {arrival.continuesTo?.length > 0 && (
+                <div className="text-muted-foreground">
+                  After this stop, continues to{' '}
+                  <span className="font-semibold text-foreground">
+                    {arrival.continuesTo.join(' → ')}
+                  </span>
+                </div>
+              )}
+
+              {arrival.traffic && (
+                <div className="flex items-start gap-2.5 rounded-lg border border-warning/50 bg-warning/15 px-3 py-2 text-foreground">
+                  <TrafficCone className="mt-0.5 h-4 w-4 shrink-0 text-warning-strong" />
+                  <span>
+                    <strong className="font-bold">
+                      Traffic {arrival.traffic.adjustmentMinutes > 0 ? '+' : ''}
+                      {arrival.traffic.adjustmentMinutes} min
+                    </strong>{' '}
+                    on {arrival.traffic.segment}, already included in the time shown.
+                  </span>
+                </div>
+              )}
+
+              {arrival.latestDelay && !arrival.isStale && (
+                <div className="font-medium text-warning-strong">
+                  Conductor reported {DELAY_TEXT[arrival.latestDelay.reason] ?? 'a delay'}
+                  {arrival.latestDelay.nearCheckpoint && (
+                    <> near {arrival.latestDelay.nearCheckpoint}</>
+                  )}
+                  , {formatTime(arrival.latestDelay.reportedAt)}
+                </div>
+              )}
+
               <JourneyStrip journey={arrival.journey} />
               <Link
                 to={`/trips/${arrival.tripId}`}
-                className="inline-block text-[13px] font-semibold text-primary underline-offset-4 hover:underline"
+                className="inline-block font-semibold text-primary underline-offset-4 hover:underline"
               >
                 Full trip details →
               </Link>

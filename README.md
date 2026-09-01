@@ -140,6 +140,24 @@ the stop it ends on, so the same variance formula measures "how late it is *leav
 bus that arrives on time then sits for twenty minutes is twenty minutes late immediately —
 rather than that only being discovered at the next checkpoint.
 
+### The terminal display
+
+`/display/:stationId` is the wall screen — a different product from the phone board despite
+the same data. Nobody touches it: it hangs above a concourse, is read from metres away, and
+must work through every bus on its own.
+
+- **Crucial only.** When, which bus, where it has got to, and whether you can board. Everything
+  else is dropped.
+- **Pages rather than scrolls.** A moving board is hard to read and people arrive mid-cycle, so
+  it turns the page every 9 seconds, fitting as many rows as the screen actually has.
+- **The page is derived from the clock, not advanced by a timer.** A screen like this runs for
+  weeks unattended, where an interval can drift, be throttled while backgrounded, or be lost on
+  a re-render. Reading the page off the wall clock cannot get stuck.
+- `?dark=1` for a dark hall, `&rows=N` to override the fit.
+
+The passenger board is compact for the same reason — plate, route, status, seats, position and
+the time. Traffic, delay notes, onward stops and the route strip sit behind "Details".
+
 ### Seat availability
 
 The other question a passenger has, after "when": *will I get on?* On a provincial route with

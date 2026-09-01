@@ -1,3 +1,4 @@
+import { Bus } from 'lucide-react';
 import { cn } from '@/lib/utils.ts';
 import { formatTime } from '@/utils/time.js';
 
@@ -6,15 +7,25 @@ import { formatTime } from '@/utils/time.js';
  * without a tap, and what is still projected ahead. This is where the
  * checkpoint-not-coordinates idea becomes legible — you can see exactly which
  * observations the ETA is built from.
+ *
+ * The bus marker sits on the line *between* two checkpoints, never on one. A
+ * confirmation records that the bus went past a place; it says nothing about
+ * the bus still being there, and drawing it on the dot would tell a passenger
+ * the bus is at a stop it left half an hour ago.
  */
-export function Timeline({ stops, lastConfirmedName }) {
+export function Timeline({ stops, isArrived = false }) {
+  const lastPassed = stops.reduce((acc, s, i) => (s.progress === 'passed' ? i : acc), -1);
+
   return (
     <ol className="relative">
       {stops.map((stop, index) => {
         const isLandmark = stop.type === 'landmark';
-        const isCurrent = stop.name === lastConfirmedName;
         const isFirst = index === 0;
         const isLast = index === stops.length - 1;
+
+        // The leg into this checkpoint is the one the bus is currently on.
+        const busInbound =
+          !isArrived && lastPassed >= 0 && index === lastPassed + 1 && stop.progress === 'pending';
 
         return (
           <li key={stop.checkpointId} className="grid grid-cols-[28px_1fr_auto] items-start gap-3 py-3">
@@ -26,13 +37,19 @@ export function Timeline({ stops, lastConfirmedName }) {
                   isLast ? 'bottom-[calc(100%-0.75rem)]' : '-bottom-3'
                 )}
               />
+
+              {busInbound && (
+                <span className="absolute -top-6 grid h-5 w-5 place-items-center rounded-full bg-success text-white shadow-sm ring-2 ring-background">
+                  <Bus className="h-3 w-3" />
+                </span>
+              )}
+
               <span
                 className={cn(
-                  'relative mt-1.5 h-3 w-3 rounded-full border-2 bg-background transition-shadow',
+                  'relative mt-1.5 h-3 w-3 rounded-full border-2 bg-background',
                   stop.progress === 'passed' && 'border-success bg-success',
                   stop.progress === 'skipped' && 'border-dashed border-muted-foreground',
-                  stop.progress === 'pending' && 'border-border',
-                  isCurrent && 'ring-4 ring-success/20'
+                  stop.progress === 'pending' && 'border-border'
                 )}
               />
             </div>
@@ -52,12 +69,17 @@ export function Timeline({ stops, lastConfirmedName }) {
                 )}
               </div>
               <div className="mt-0.5 text-[13px] text-muted-foreground">
-                {stop.progress === 'passed' && 'Confirmed'}
+                {stop.progress === 'passed' &&
+                  (index === lastPassed && !isArrived
+                    ? 'Confirmed — bus has since left here'
+                    : 'Confirmed')}
                 {stop.progress === 'skipped' && 'Passed without a confirmation'}
                 {stop.progress === 'pending' &&
-                  (stop.baselineMinutesFromPrevious
-                    ? `${stop.baselineMinutesFromPrevious} min from previous`
-                    : 'Origin')}
+                  (busInbound
+                    ? 'On the way here now'
+                    : stop.baselineMinutesFromPrevious
+                      ? `${stop.baselineMinutesFromPrevious} min from previous`
+                      : 'Origin')}
               </div>
             </div>
 

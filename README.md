@@ -115,6 +115,20 @@ rides alongside the ETA as context ("conductor reported heavy traffic near Balin
 offline sync work: a batch of taps that reaches the server in the wrong order, hours late,
 still settles on exactly the state it would have reached live.
 
+### Where a bus is, honestly
+
+A checkpoint confirmation records that a bus went *past* a place at a time. It never means the
+bus is still there — so nothing in the UI ever marks a bus as being *at* a checkpoint while it
+is running.
+
+The bus marker is drawn on the **leg between** two points, the board reads "Between Tarlac stop
+and TPLEX – Rosario Exit", and a confirmed point says "Confirmed — bus has since left here".
+Pinning the marker to the last confirmed dot would tell a passenger the bus is sitting at
+Tarlac when it left forty minutes ago, which is exactly the wrong conclusion to invite.
+
+Only three states are genuinely "at" somewhere: not yet departed (at the origin), and arrived
+(at the destination).
+
 ### Staleness matters as much as the number
 
 An ETA that stopped updating an hour ago is worse than no ETA, because it looks just as

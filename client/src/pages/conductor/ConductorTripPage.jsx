@@ -212,7 +212,7 @@ export default function ConductorTripPage() {
           </div>
           <div className="text-right">
             <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-              Last confirmed
+              Last passed
             </div>
             <div className="mt-1 font-semibold">{trip.lastConfirmedCheckpoint?.name ?? '—'}</div>
             {trip.lastConfirmedAt && (
@@ -359,7 +359,7 @@ export default function ConductorTripPage() {
           <CardTitle>Route</CardTitle>
         </CardHeader>
         <CardContent>
-          <Timeline stops={trip.stops} lastConfirmedName={trip.lastConfirmedCheckpoint?.name} />
+          <Timeline stops={trip.stops} isArrived={trip.status === 'arrived'} />
         </CardContent>
       </Card>
     </div>

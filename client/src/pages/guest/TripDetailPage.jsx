@@ -152,7 +152,7 @@ export default function TripDetailPage() {
             />
             <Fact label="Running" value={formatVariance(trip.varianceMinutes)} />
             <Fact
-              label="Last confirmed"
+              label={trip.status === 'arrived' ? 'Finished at' : 'Last passed'}
               value={trip.lastConfirmedCheckpoint?.name ?? 'Not departed'}
             />
           </CardContent>
@@ -166,7 +166,7 @@ export default function TripDetailPage() {
             </span>
           </CardHeader>
           <CardContent>
-            <Timeline stops={trip.stops} lastConfirmedName={trip.lastConfirmedCheckpoint?.name} />
+            <Timeline stops={trip.stops} isArrived={trip.status === 'arrived'} />
           </CardContent>
         </Card>
 

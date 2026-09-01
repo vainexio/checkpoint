@@ -136,17 +136,27 @@ function ArrivalRow({ arrival, now }) {
 
             {/* Plain answers to "where is it" and "does it go where I want". */}
             <div className="mt-3 space-y-1 text-[13px] leading-relaxed">
+              {/*
+                * A confirmation says the bus went *past* a point, not that it
+                * is still standing there. Naming both ends of the leg it is
+                * driving stops a passenger reading "Tarlac stop" and assuming
+                * the bus has not left yet.
+                */}
               <div className="text-muted-foreground">
                 {notDepartedYet ? (
                   <>
                     Still at <span className="font-semibold text-foreground">{arrival.origin}</span>{' '}
                     · leaves {formatTime(arrival.scheduledDeparture)}
                   </>
-                ) : arrival.lastConfirmedCheckpoint ? (
+                ) : arrival.lastConfirmedCheckpoint && arrival.nextCheckpoint ? (
                   <>
-                    Now around{' '}
+                    Between{' '}
                     <span className="font-semibold text-foreground">
                       {arrival.lastConfirmedCheckpoint.name}
+                    </span>{' '}
+                    and{' '}
+                    <span className="font-semibold text-foreground">
+                      {arrival.nextCheckpoint.name}
                     </span>
                     {arrival.stopsAway > 0 && (
                       <>
@@ -155,10 +165,27 @@ function ArrivalRow({ arrival, now }) {
                       </>
                     )}
                   </>
+                ) : arrival.lastConfirmedCheckpoint ? (
+                  <>
+                    Past{' '}
+                    <span className="font-semibold text-foreground">
+                      {arrival.lastConfirmedCheckpoint.name}
+                    </span>
+                  </>
                 ) : (
                   'Not yet departed'
                 )}
               </div>
+
+              {arrival.lastConfirmedAt && !notDepartedYet && (
+                <div className="text-muted-foreground">
+                  Passed {arrival.lastConfirmedCheckpoint?.name} at{' '}
+                  {formatTime(arrival.lastConfirmedAt)}
+                  {arrival.minutesSinceLastConfirm !== null && (
+                    <> · {formatElapsed(arrival.minutesSinceLastConfirm)} ago</>
+                  )}
+                </div>
+              )}
 
               {arrival.continuesTo?.length > 0 && (
                 <div className="text-muted-foreground">

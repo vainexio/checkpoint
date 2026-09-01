@@ -185,21 +185,28 @@ export const stationBoard = asyncHandler(async (req, res) => {
         isOrigin: index === 0,
         traffic: trip.traffic,
 
+        // Where the bus actually is: past one point, not yet at the next.
+        nextCheckpoint: trip.nextCheckpoint,
+
         /**
          * Enough of the route to answer the two questions someone who does not
          * know the area actually has: where is this bus now, and is it going
          * anywhere useful to me?
          *
-         * `journey` is the whole line with this station marked, so the board can
-         * draw it as a strip. `continuesTo` is the plain answer to "if I get on,
-         * where can I end up".
+         * A checkpoint system never knows a bus is *at* a place — only that it
+         * passed one and has not yet reached the next. So the position is
+         * carried as `isHeadingHere` on the checkpoint being approached, which
+         * lets the board draw the bus on the leg between two points rather than
+         * parked on a dot it left half an hour ago.
          */
         journey: trip.stops.map((s, i) => ({
           name: s.name,
           type: s.type,
           progress: s.progress,
           eta: s.projectedArrival ?? s.scheduledArrival,
-          isCurrentPosition: i === lastPassed,
+          isLastConfirmed: i === lastPassed,
+          isHeadingHere:
+            i === lastPassed + 1 && !!trip.actualDeparture && trip.status !== 'arrived',
           isYourStop: i === index,
         })),
         continuesTo: trip.stops

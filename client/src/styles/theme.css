@@ -1,0 +1,74 @@
+/*
+ * CHECKPOINT visual identity.
+ *
+ * Two grounds, one product. The public arrivals board is dark — it is a display
+ * surface, read across a terminal hall, and it should feel like the board above
+ * the gates. The conductor and admin apps are light — they are working surfaces,
+ * used in daylight on a phone or across a long shift at a desk.
+ *
+ * IBM Plex Sans carries the language; IBM Plex Mono carries every time and
+ * number, because tabular figures are what make a departure board legible at a
+ * glance and stop the ETA from twitching as it counts.
+ */
+
+:root {
+  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* Signal colours. Shared across all three experiences so a delayed bus looks
+     the same to a passenger, a conductor, and an operator. */
+  --signal-ontime: #2fbf83;
+  --signal-ontime-soft: rgba(47, 191, 131, 0.14);
+  --signal-delayed: #e8843c;
+  --signal-delayed-soft: rgba(232, 132, 60, 0.15);
+  --signal-stale: #8595a8;
+  --signal-stale-soft: rgba(133, 149, 168, 0.16);
+  --signal-scheduled: #6b8bbd;
+  --signal-scheduled-soft: rgba(107, 139, 189, 0.16);
+  --signal-arrived: #7c8aa0;
+
+  --brand: #ffc247;
+  --danger: #e0576b;
+
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 16px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --shadow-card: 0 1px 2px rgba(14, 22, 33, 0.06), 0 8px 24px rgba(14, 22, 33, 0.06);
+}
+
+/* The board: deep ink, high contrast, nothing decorative competing with the
+   times. */
+.theme-board {
+  --bg: #0e1621;
+  --bg-deep: #0a121b;
+  --surface: #16202d;
+  --surface-raised: #1c2836;
+  --line: #263445;
+  --line-soft: #1e2a38;
+  --text: #edf2f7;
+  --text-dim: #9fb0c2;
+  --text-faint: #6d8098;
+}
+
+/* The tools: paper-warm rather than clinical white, so a long shift on the
+   dashboard is easier on the eyes than gray-on-white. */
+.theme-app {
+  --bg: #f6f7f9;
+  --bg-deep: #eceff3;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --line: #dfe4ea;
+  --line-soft: #eceff3;
+  --text: #16202d;
+  --text-dim: #5b6b7e;
+  --text-faint: #8595a8;
+}

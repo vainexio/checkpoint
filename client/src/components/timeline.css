@@ -1,0 +1,114 @@
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.timeline__row {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: var(--space-3);
+  align-items: start;
+  padding: var(--space-3) 0;
+}
+
+.timeline__rail {
+  position: relative;
+  align-self: stretch;
+  display: flex;
+  justify-content: center;
+}
+
+/* The connecting line is drawn on the rail rather than between rows so the
+   first and last nodes cap cleanly. */
+.timeline__rail::before {
+  content: '';
+  position: absolute;
+  top: -14px;
+  bottom: -14px;
+  width: 2px;
+  background: var(--line);
+}
+
+.timeline__row:first-child .timeline__rail::before {
+  top: 12px;
+}
+
+.timeline__row:last-child .timeline__rail::before {
+  bottom: calc(100% - 12px);
+}
+
+.timeline__node {
+  position: relative;
+  width: 11px;
+  height: 11px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 2px solid var(--line);
+}
+
+/* Confirmed: a solid node. This point is known, not inferred. */
+.timeline__row--passed .timeline__node {
+  background: var(--signal-ontime);
+  border-color: var(--signal-ontime);
+}
+
+/* Skipped: hollow and dashed — the bus went past, nobody confirmed it. */
+.timeline__row--skipped .timeline__node {
+  border-style: dashed;
+  border-color: var(--signal-stale);
+}
+
+.timeline__row--current .timeline__node {
+  box-shadow: 0 0 0 4px var(--signal-ontime-soft);
+}
+
+.timeline__row--pending .timeline__name,
+.timeline__row--pending .timeline__meta {
+  color: var(--text-dim);
+}
+
+.timeline__name {
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.timeline__tag {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
+.timeline__meta {
+  font-size: 13px;
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+
+.timeline__time {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: 15px;
+}
+
+.timeline__time--projected {
+  color: var(--text-dim);
+}
+
+.timeline__est {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}

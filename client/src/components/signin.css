@@ -1,0 +1,45 @@
+/* Shared by the conductor and admin sign-in screens. */
+
+.signin {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+}
+
+.signin__card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-card);
+}
+
+.signin__title {
+  font-size: 24px;
+  font-weight: 600;
+  margin-top: var(--space-5);
+  letter-spacing: -0.02em;
+}
+
+.signin__sub {
+  color: var(--text-dim);
+  font-size: 14px;
+  margin: 6px 0 var(--space-5);
+}
+
+.signin__foot {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line-soft);
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+.signin__foot a {
+  color: var(--text-dim);
+  text-decoration: underline;
+}

@@ -1,0 +1,227 @@
+.stationgroup {
+  margin-bottom: var(--space-6);
+}
+
+.stationgroup .eyebrow {
+  display: block;
+  margin-bottom: var(--space-3);
+}
+
+.stationcard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  transition: border-color 140ms ease, transform 140ms ease;
+}
+
+.stationcard:hover {
+  border-color: var(--brand);
+  transform: translateY(-1px);
+}
+
+.stationcard__name {
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.stationcard__go {
+  color: var(--text-faint);
+}
+
+.stationcard:hover .stationcard__go {
+  color: var(--brand);
+}
+
+.routecard__name {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.routecard__path {
+  color: var(--text-dim);
+  font-size: 14px;
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.routecard__count {
+  color: var(--text-faint);
+}
+
+.backlink {
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+.backlink:hover {
+  color: var(--text);
+}
+
+/* --------------------------------------------------------------- the board */
+
+.board {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.arrival {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  transition: border-color 140ms ease, background 140ms ease;
+}
+
+.arrival:hover {
+  border-color: var(--text-faint);
+  background: var(--surface-raised);
+}
+
+.arrival__route {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.arrival__path {
+  color: var(--text-dim);
+  font-size: 14px;
+  margin-top: 2px;
+}
+
+.arrival__tags {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 var(--space-2);
+  flex-wrap: wrap;
+}
+
+.arrival__plate {
+  font-size: 12px;
+  color: var(--text-dim);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  letter-spacing: 0.04em;
+}
+
+.arrival__confirm {
+  font-size: 13px;
+  color: var(--text-faint);
+  line-height: 1.5;
+}
+
+.arrival__confirm strong {
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+.arrival__delay {
+  margin-top: var(--space-2);
+  font-size: 13px;
+  color: var(--signal-delayed);
+}
+
+.arrival__eta {
+  text-align: right;
+  min-width: 150px;
+}
+
+.arrival__countdown {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: var(--space-2);
+}
+
+/* The stale strip spans both columns so it reads as a caveat on the whole
+   row, not a footnote beside the time. */
+.arrival__stale {
+  grid-column: 1 / -1;
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px dashed color-mix(in srgb, var(--signal-stale) 45%, transparent);
+  font-size: 13px;
+  color: var(--signal-stale);
+}
+
+@media (max-width: 620px) {
+  .arrival {
+    grid-template-columns: 1fr;
+  }
+
+  .arrival__eta {
+    text-align: left;
+    border-top: 1px solid var(--line-soft);
+    padding-top: var(--space-4);
+  }
+}
+
+/* --------------------------------------------------------- trip detail page */
+
+.triphero {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-5);
+  align-items: end;
+  padding: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-4);
+}
+
+.triphero__label {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+.triphero__eta {
+  text-align: right;
+}
+
+@media (max-width: 620px) {
+  .triphero {
+    grid-template-columns: 1fr;
+  }
+
+  .triphero__eta {
+    text-align: left;
+  }
+}
+
+.factgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.fact__label {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 5px;
+}
+
+.fact__value {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}

@@ -1,0 +1,186 @@
+/* Mobile-first. Everything a conductor touches is at least 56px tall, because
+   this is used one-handed, standing, on a moving bus. */
+
+/* ------------------------------------------------------------- trip tiles */
+
+.triptile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.triptile__route {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.triptile__meta {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+.triptile__go {
+  color: var(--text-faint);
+  font-size: 20px;
+}
+
+/* --------------------------------------------------------------- taps */
+
+.conductor .actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.tapbtn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  width: 100%;
+  min-height: 68px;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 90ms ease, border-color 120ms ease;
+}
+
+.tapbtn:active {
+  transform: scale(0.985);
+}
+
+.tapbtn--primary {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #16202d;
+}
+
+.tapbtn__label {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.tapbtn__sub {
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+.chiprow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+}
+
+.chip {
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.chip:active {
+  background: var(--bg-deep);
+}
+
+/* ------------------------------------------------------- status + receipt */
+
+.statuscard {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.statuscard__variance {
+  margin-top: var(--space-3);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.statuscard__last {
+  text-align: right;
+}
+
+.confirm {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+  border-radius: var(--radius);
+  background: var(--signal-ontime-soft);
+  border: 1px solid color-mix(in srgb, var(--signal-ontime) 35%, transparent);
+}
+
+.confirm__tick {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--signal-ontime);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  flex: none;
+}
+
+.confirm__time {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+/* --------------------------------------------------------------- queue bar */
+
+.queuebar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+  border-radius: var(--radius);
+  background: var(--signal-scheduled-soft);
+  color: var(--text-dim);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.queuebar strong {
+  color: var(--text);
+}
+
+.queuebar--offline {
+  background: var(--signal-stale-soft);
+}
+
+.queuebar__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--signal-scheduled);
+  flex: none;
+}
+
+.queuebar--offline .queuebar__dot {
+  background: var(--signal-stale);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}

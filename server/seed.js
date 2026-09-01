@@ -168,8 +168,9 @@ const TRIPS = [
       ['Tarlac stop', 15],
     ],
     left: ['Tarlac stop', 6],
+    load: ['few', 6],
     delay: ['traffic', 40],
-    note: 'left Tarlac, on the road, running late',
+    note: 'left Tarlac filling up, running late',
   },
   {
     route: 'Cubao – Baguio',
@@ -200,8 +201,9 @@ const TRIPS = [
       ['Calamba Crossing', 25],
     ],
     left: ['Calamba Crossing', 19],
+    load: ['full', 19],
     delay: ['loading', 18],
-    note: 'left Calamba, on the road, running late',
+    note: 'left Calamba FULL — should warn people not to wait',
   },
   {
     route: 'PITX – Lipa',
@@ -215,7 +217,8 @@ const TRIPS = [
       ['Tanauan', 22],
     ],
     left: ['Tanauan', 17],
-    note: 'left Tanauan, approaching Lipa, running early',
+    load: ['seats', 17],
+    note: 'left Tanauan with seats, running early',
   },
   {
     route: 'PITX – Lipa',
@@ -393,6 +396,9 @@ async function seed() {
       push('departed', minutesAgo(spec.departedAgo));
       for (const [name, ago] of spec.confirms ?? []) {
         push('passed_checkpoint', minutesAgo(ago), { checkpoint: idFor(name) });
+      }
+      if (spec.load) {
+        push('load_report', minutesAgo(spec.load[1]), { load: spec.load[0] });
       }
       if (spec.left) {
         push('left_checkpoint', minutesAgo(spec.left[1]), { checkpoint: idFor(spec.left[0]) });

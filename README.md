@@ -140,6 +140,32 @@ the stop it ends on, so the same variance formula measures "how late it is *leav
 bus that arrives on time then sits for twenty minutes is twenty minutes late immediately —
 rather than that only being discovered at the next checkpoint.
 
+### Seat availability
+
+The other question a passenger has, after "when": *will I get on?* On a provincial route with
+90 minutes to the next bus, knowing **not to wait** is worth as much as the ETA.
+
+Three levels — seats available / filling up / full — chosen because they map to the decision,
+not to a count. A conductor can judge "full" in a glance; counting free seats is a different
+job, and asking for it is how you get an app nobody uses.
+
+Rules that keep it honest:
+
+- **It rides on a tap already being made.** Leaving a stop carries the reading, so the normal
+  case costs no extra action.
+- **It is invalidated on reaching the next stop**, never carried forward. That is precisely the
+  place it can change: a bus that left Calamba full may empty at Santo Tomas, and a stale
+  "full" would make someone give up on a bus they could have caught.
+- **It is always attributed** — "as it left Calamba Crossing, 08:14 PM" — never shown as a live
+  measurement.
+- **"Full" changes the row, not just a badge.** The whole point is telling someone not to wait,
+  so those rows carry a banner saying so.
+- It touches no arithmetic. Like a delay note, it is information beside the ETA, not an input.
+
+**Limitation worth stating:** this is a conductor's judgement, not a measurement, and is subject
+to both error and incentive. Electronic ticketing would give it objectively, which is why
+systems that have it do not ask staff.
+
 ### Staleness matters as much as the number
 
 An ETA that stopped updating an hour ago is worse than no ETA, because it looks just as
@@ -232,7 +258,7 @@ the viewer's device clock.
 cd server && npm test
 ```
 
-45 tests: the engine's arithmetic (variance, re-projection, skipped checkpoints, out-of-order
+50 tests: the engine's arithmetic (variance, re-projection, skipped checkpoints, out-of-order
 replay, staleness thresholds, and traffic applying forward-only without touching a measured
 variance) plus API integration against an in-memory MongoDB covering the shared login and its
 role boundary, the frozen plan, offline sync, undo and its limits, at-stop versus on-the-road position, and the public board.

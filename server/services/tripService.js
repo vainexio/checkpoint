@@ -145,6 +145,11 @@ export function presentTrip(trip, { logs = [], now = new Date(), audience = 'pub
     positionInferred: place.inferred,
     minutesAtStop: place.minutesStanding,
     leftLastCheckpointAt: state.leftLastCheckpointAt,
+    // Always paired with where and when it was said — never presented as a
+    // current fact the system measured.
+    load: state.load,
+    loadReportedAt: state.loadReportedAt,
+    loadReportedAtName: state.loadReportedAtName,
     nextCheckpoint: staleness.nextCheckpointName
       ? { checkpointId: String(staleness.nextCheckpoint), name: staleness.nextCheckpointName }
       : null,

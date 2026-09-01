@@ -16,7 +16,15 @@ import {
  * way a courier scans a parcel — by asserting they are at a known point.
  */
 
-const LOG_TYPES = ['departed', 'passed_checkpoint', 'left_checkpoint', 'delayed', 'arrived'];
+const LOG_TYPES = [
+  'departed',
+  'passed_checkpoint',
+  'left_checkpoint',
+  'delayed',
+  'arrived',
+  'load_report',
+];
+const LOAD_LEVELS = ['seats', 'few', 'full'];
 const DELAY_REASONS = ['traffic', 'loading', 'breakdown', 'inspection', 'weather', 'other'];
 
 /** A conductor may only ever touch a trip assigned to them. */
@@ -75,12 +83,21 @@ function normaliseLog(raw, tripId) {
     throw Object.assign(new Error(`Unknown delay reason: ${raw.delayReason}`), { status: 400 });
   }
 
+  if (raw.load && !LOAD_LEVELS.includes(raw.load)) {
+    throw Object.assign(new Error(`Unknown seat availability: ${raw.load}`), { status: 400 });
+  }
+
+  if (raw.type === 'load_report' && !raw.load) {
+    throw Object.assign(new Error('A seat report must say how full the bus is.'), { status: 400 });
+  }
+
   return {
     trip: tripId,
     type: raw.type,
     checkpoint:
       raw.type === 'passed_checkpoint' || raw.type === 'left_checkpoint' ? raw.checkpoint : null,
     delayReason: raw.type === 'delayed' ? (raw.delayReason ?? 'other') : null,
+    load: raw.load ?? null,
     reportedAt,
     syncedAt: new Date(),
     // The device should always send one; generating a fallback keeps a manual

@@ -29,11 +29,36 @@ const checkpointLogSchema = new mongoose.Schema(
      *   left_checkpoint     — pulled out of this point, now on the road again
      *   delayed             — ad-hoc note, changes no arithmetic
      *   arrived             — reached the destination, trip over
+     *   load_report         — how full the bus is, reported on its own
      */
     type: {
       type: String,
-      enum: ['departed', 'passed_checkpoint', 'left_checkpoint', 'delayed', 'arrived'],
+      enum: [
+        'departed',
+        'passed_checkpoint',
+        'left_checkpoint',
+        'delayed',
+        'arrived',
+        'load_report',
+      ],
       required: true,
+    },
+
+    /**
+     * How full the bus is. Optional on any log, so the usual case costs no
+     * extra tap — the conductor picks it as part of leaving a stop.
+     *
+     *   seats — you will get a seat
+     *   few   — you will get on, maybe standing
+     *   full  — not picking up; do not wait for this one
+     *
+     * A judgement, not a measurement: it is what the conductor says, and the
+     * board always shows where and when they said it.
+     */
+    load: {
+      type: String,
+      enum: ['seats', 'few', 'full', null],
+      default: null,
     },
 
     // Only meaningful when type === "delayed".

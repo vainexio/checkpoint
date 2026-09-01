@@ -4,13 +4,16 @@ import {
   AlertCircle,
   AlertTriangle,
   ArrowLeft,
+  Ban,
   ChevronDown,
+  Footprints,
   MapPin,
   TrafficCone,
 } from 'lucide-react';
 import { usePolling, useNow } from '@/hooks/usePolling.js';
 import { fetchStationBoard } from '@/api/publicApi.js';
 import { StatusBadge } from '@/components/StatusBadge.jsx';
+import { SeatBadge } from '@/components/SeatPicker.jsx';
 import { JourneyStrip } from '@/components/JourneyStrip.jsx';
 import { PageHeader, LiveIndicator } from '@/components/layout/AppLayout.jsx';
 import { Card, CardContent } from '@/components/ui/card.tsx';
@@ -18,6 +21,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert.tsx';
 import { Skeleton } from '@/components/ui/skeleton.tsx';
 import { Button } from '@/components/ui/button.tsx';
 import { cn } from '@/lib/utils.ts';
+import { directionsUrl } from '@/utils/directions.js';
 import { formatCountdown, formatElapsed, formatTime, relativeMinutes } from '@/utils/time.js';
 
 const DELAY_TEXT = {
@@ -62,7 +66,22 @@ export default function StationBoardPage() {
         icon={MapPin}
         title={data?.station?.name ?? 'Loading…'}
         description="Buses heading to this stop, soonest first. Times update each time a conductor confirms the bus has passed a checkpoint."
-        actions={<LiveIndicator lastUpdated={lastUpdated} />}
+        actions={
+          <div className="flex flex-col items-end gap-2">
+            <LiveIndicator lastUpdated={lastUpdated} />
+            {data?.station?.location && (
+              <a
+                href={directionsUrl(data.station.location)}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+              >
+                <Footprints className="h-3.5 w-3.5" />
+                Directions to this stop
+              </a>
+            )}
+          </div>
+        }
       />
 
       {error && (
@@ -105,11 +124,24 @@ function ArrivalRow({ arrival, now }) {
   const minutesAway = relativeMinutes(arrival.eta, now);
   const notDepartedYet = arrival.status === 'scheduled';
   const dimmed = arrival.isStale || notDepartedYet;
+  const isFull = arrival.load === 'full';
 
   return (
     <Card
-      className={cn('overflow-hidden', arrival.isHereNow && 'border-success/60 bg-success/[0.04]')}
+      className={cn(
+        'overflow-hidden',
+        arrival.isHereNow && 'border-success/60 bg-success/[0.04]',
+        // The whole value of a "full" report is telling someone not to wait, so
+        // the row has to stop looking like something to wait for.
+        isFull && 'border-destructive/40 bg-destructive/[0.03] opacity-90'
+      )}
     >
+      {isFull && (
+        <div className="flex items-center gap-2 bg-destructive/10 px-5 py-2 text-[13px] font-bold text-destructive">
+          <Ban className="h-3.5 w-3.5 shrink-0" />
+          Not picking up passengers — don't wait for this one
+        </div>
+      )}
       <CardContent className="p-5 sm:p-6">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
@@ -133,6 +165,11 @@ function ArrivalRow({ arrival, now }) {
                 status={arrival.status}
                 isStale={arrival.isStale}
                 varianceMinutes={arrival.varianceMinutes}
+              />
+              <SeatBadge
+                load={arrival.load}
+                reportedAtName={arrival.loadReportedAtName}
+                reportedAt={arrival.loadReportedAt}
               />
             </div>
 

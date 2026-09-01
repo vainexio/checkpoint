@@ -430,3 +430,82 @@ test('arriving at the next stop clears the standing state', () => {
   assert.equal(state.lastConfirmedCheckpoint, CP.tarlac);
   assert.equal(state.leftLastCheckpointAt, null);
 });
+
+/* --------------------------------------------------------- seat availability */
+
+const withLoad = (type, minutes, load, extra = {}) =>
+  log(type, minutes, { load, ...extra });
+
+test('load rides along with the tap the conductor was already making', () => {
+  const state = computeTripState({
+    plan,
+    logs: [departed(), withLoad('left_checkpoint', 2, 'few', { checkpoint: CP.cubao })],
+  });
+
+  assert.equal(state.load, 'few');
+  assert.equal(state.loadReportedAtName, 'Cubao Terminal');
+});
+
+test('reaching the next stop invalidates the load rather than carrying it', () => {
+  // Leaves Cubao full, then reaches Balintawak where people can get off.
+  const state = computeTripState({
+    plan,
+    logs: [
+      departed(),
+      withLoad('left_checkpoint', 2, 'full', { checkpoint: CP.cubao }),
+      passed(CP.balintawak, 20),
+    ],
+  });
+
+  // "Full" must not survive the stop where the bus may have emptied.
+  assert.equal(state.load, null);
+  assert.equal(state.loadReportedAt, null);
+});
+
+test('a standalone report updates the load while standing at a stop', () => {
+  // The realistic case: packed leaving Cubao, then thirty people alight at
+  // Balintawak and the conductor updates before pulling out.
+  const state = computeTripState({
+    plan,
+    logs: [
+      departed(),
+      withLoad('left_checkpoint', 2, 'full', { checkpoint: CP.cubao }),
+      passed(CP.balintawak, 20),
+      withLoad('load_report', 23, 'seats'),
+    ],
+  });
+
+  assert.equal(state.load, 'seats');
+  assert.equal(state.loadReportedAtName, 'Balintawak');
+  // A load report carries no position information.
+  assert.equal(state.position, 'at_stop');
+  assert.equal(state.lastConfirmedCheckpoint, CP.balintawak);
+});
+
+test('load never touches the arithmetic', () => {
+  const plain = computeTripState({ plan, logs: [departed(), passed(CP.balintawak, 35)] });
+  const loaded = computeTripState({
+    plan,
+    logs: [departed(), passed(CP.balintawak, 35), withLoad('load_report', 36, 'full')],
+  });
+
+  assert.equal(loaded.cumulativeVarianceMinutes, plain.cumulativeVarianceMinutes);
+  assert.deepEqual(
+    loaded.computedETAs.map((e) => e.projectedArrival?.getTime()),
+    plain.computedETAs.map((e) => e.projectedArrival?.getTime())
+  );
+});
+
+test('the latest report wins when several arrive out of order', () => {
+  const state = computeTripState({
+    plan,
+    logs: [
+      departed(),
+      withLoad('load_report', 30, 'seats'),
+      withLoad('load_report', 10, 'full'),
+    ],
+  });
+
+  // Sorted by reportedAt, so the 30-minute reading is the current one.
+  assert.equal(state.load, 'seats');
+});

@@ -19,6 +19,7 @@ import { usePolling } from '@/hooks/usePolling.js';
 import { useOfflineQueue } from '@/hooks/useOfflineQueue.js';
 import { fetchMyTrip } from '@/api/conductorApi.js';
 import { StatusBadge } from '@/components/StatusBadge.jsx';
+import { SeatPicker, loadLevel } from '@/components/SeatPicker.jsx';
 import { Timeline } from '@/components/Timeline.jsx';
 import { Button } from '@/components/ui/button.tsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.tsx';
@@ -203,6 +204,19 @@ export default function ConductorTripPage() {
         )}
       </AnimatePresence>
 
+      {!finished && !notDeparted && (
+        <SeatCard
+          trip={trip}
+          standingAt={standingAt}
+          onPick={(load) =>
+            tap(
+              { type: 'load_report', load },
+              `Seats reported: ${loadLevel(load).label.toLowerCase()}`
+            )
+          }
+        />
+      )}
+
       <Card className="mb-4">
         <CardContent className="flex items-start justify-between gap-4 p-5">
           <div>
@@ -262,7 +276,13 @@ export default function ConductorTripPage() {
               sub="Optional — skip it if you are busy, and it will be assumed"
               onClick={() =>
                 tap(
-                  { type: 'left_checkpoint', checkpoint: standingAt.checkpointId },
+                  {
+                    type: 'left_checkpoint',
+                    checkpoint: standingAt.checkpointId,
+                    // Whatever they already set above rides along, so leaving is
+                    // still one tap and still records the seats.
+                    load: trip.load ?? undefined,
+                  },
                   `Departure from ${standingAt.name} recorded`
                 )
               }
@@ -405,6 +425,60 @@ export default function ConductorTripPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/**
+ * Seat availability, asked for only when it is both unknown and useful.
+ *
+ * The design constraint is that a conductor must never feel nagged. So this is
+ * loud exactly once — when the bus is standing at a stop and nobody has said
+ * how full it is, which is the moment people on the pavement are deciding
+ * whether to walk over. At every other time it sits quietly showing the last
+ * answer, tappable if something changes.
+ */
+function SeatCard({ trip, standingAt, onPick }) {
+  const level = loadLevel(trip.load);
+  const needsAnswer = !!standingAt && !trip.load;
+
+  return (
+    <Card
+      className={cn(
+        'mb-4',
+        needsAnswer && 'border-primary/50 bg-primary/[0.04] shadow-sm'
+      )}
+    >
+      <CardContent className="p-5">
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+              Seats
+            </div>
+            <div className="mt-1 text-[15px] font-bold">
+              {needsAnswer ? (
+                <span className="text-primary">How full are you leaving {standingAt.name}?</span>
+              ) : level ? (
+                level.label
+              ) : (
+                <span className="text-muted-foreground">Not reported</span>
+              )}
+            </div>
+            {needsAnswer && (
+              <div className="mt-0.5 text-[13px] text-muted-foreground">
+                People at the next stops are deciding whether to wait for you.
+              </div>
+            )}
+            {!needsAnswer && level && trip.loadReportedAtName && (
+              <div className="mt-0.5 text-[13px] text-muted-foreground">
+                as it left {trip.loadReportedAtName}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <SeatPicker value={trip.load} onPick={onPick} compact={!needsAnswer} />
+      </CardContent>
+    </Card>
   );
 }
 

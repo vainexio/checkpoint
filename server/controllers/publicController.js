@@ -201,6 +201,9 @@ export const stationBoard = asyncHandler(async (req, res) => {
         nextCheckpoint: trip.nextCheckpoint,
         position: trip.position,
         leftLastCheckpointAt: trip.leftLastCheckpointAt,
+        load: trip.load,
+        loadReportedAt: trip.loadReportedAt,
+        loadReportedAtName: trip.loadReportedAtName,
         // Standing at *this* stop, not merely somewhere on the route.
         isHereNow:
           trip.position === 'at_stop' &&
@@ -248,7 +251,16 @@ export const stationBoard = asyncHandler(async (req, res) => {
     });
 
   res.json({
-    station: { id: String(station._id), name: station.name, isTerminal: station.isTerminal },
+    station: {
+      id: String(station._id),
+      name: station.name,
+      area: station.area || null,
+      isTerminal: station.isTerminal,
+      location:
+        station.location?.lat != null
+          ? { lat: station.location.lat, lng: station.location.lng }
+          : null,
+    },
     generatedAt: new Date(),
     arrivals: inbound,
   });

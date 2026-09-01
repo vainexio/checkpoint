@@ -1,0 +1,131 @@
+import { Armchair, TriangleAlert, Users } from 'lucide-react';
+import { cn } from '@/lib/utils.ts';
+import { formatTime } from '@/utils/time.js';
+
+/**
+ * The three answers to the only seat question a passenger actually has:
+ * will I sit, will I get on, or should I stop waiting for this one.
+ *
+ * Deliberately not a count. A conductor on a moving bus can judge "full" in a
+ * glance; counting free seats is a different job, and asking for it is how you
+ * get an app nobody uses.
+ */
+export const LOAD_LEVELS = [
+  {
+    value: 'seats',
+    label: 'Seats available',
+    short: 'Seats',
+    hint: 'Passengers will get a seat',
+    icon: Armchair,
+    tone: 'success',
+  },
+  {
+    value: 'few',
+    label: 'Filling up',
+    short: 'Filling up',
+    hint: 'They will get on, maybe standing',
+    icon: Users,
+    tone: 'warning',
+  },
+  {
+    value: 'full',
+    label: 'Full — not picking up',
+    short: 'Full',
+    hint: 'Tells people at the next stops not to wait',
+    icon: TriangleAlert,
+    tone: 'destructive',
+  },
+];
+
+export const loadLevel = (value) => LOAD_LEVELS.find((l) => l.value === value) ?? null;
+
+const TONES = {
+  success: {
+    on: 'border-success bg-success text-success-foreground',
+    off: 'border-border hover:border-success/50 hover:bg-success/5',
+  },
+  warning: {
+    on: 'border-warning bg-warning text-warning-foreground',
+    off: 'border-border hover:border-warning/50 hover:bg-warning/5',
+  },
+  destructive: {
+    on: 'border-destructive bg-destructive text-destructive-foreground',
+    off: 'border-border hover:border-destructive/50 hover:bg-destructive/5',
+  },
+};
+
+/**
+ * Three big targets, no confirmation step.
+ *
+ * There is no confirm because there is nothing to lose: a wrong tap is fixed by
+ * tapping the right one, and every report is undoable. Making a two-second,
+ * reversible action ask "are you sure" is how a screen becomes tiring.
+ */
+export function SeatPicker({ value, onPick, disabled = false, compact = false }) {
+  return (
+    <div className={cn('grid gap-2', compact ? 'grid-cols-3' : 'grid-cols-1 sm:grid-cols-3')}>
+      {LOAD_LEVELS.map((level) => {
+        const Icon = level.icon;
+        const selected = value === level.value;
+        const tone = TONES[level.tone];
+
+        return (
+          <button
+            key={level.value}
+            type="button"
+            disabled={disabled}
+            aria-pressed={selected}
+            onClick={() => onPick(level.value)}
+            className={cn(
+              'flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 px-3 py-3',
+              'text-center transition-all active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+              compact ? 'min-h-[64px]' : 'min-h-[84px]',
+              selected ? tone.on : cn('bg-card', tone.off)
+            )}
+          >
+            <Icon className={cn('shrink-0', compact ? 'h-4 w-4' : 'h-5 w-5')} />
+            <span className={cn('font-bold leading-tight', compact ? 'text-[13px]' : 'text-[15px]')}>
+              {compact ? level.short : level.label}
+            </span>
+            {!compact && <span className="text-[11px] opacity-80">{level.hint}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** How the board tells a passenger what they are walking towards. */
+export function SeatBadge({ load, reportedAtName, reportedAt, className }) {
+  const level = loadLevel(load);
+  if (!level) return null;
+
+  const Icon = level.icon;
+  const tone = {
+    success: 'bg-success/15 text-success border-success/30',
+    warning: 'bg-warning/20 text-warning-strong border-warning/40',
+    destructive: 'bg-destructive/10 text-destructive border-destructive/30',
+  }[level.tone];
+
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold',
+        tone,
+        className
+      )}
+    >
+      <Icon className="h-3.5 w-3.5" />
+      {level.label}
+      {/* Attribution, always. A seat count is a judgement made somewhere, at a
+          time — never a live measurement, and never presented as one. */}
+      {reportedAtName && (
+        <span className="font-medium opacity-75">
+          · as it left {reportedAtName}
+          {reportedAt && `, ${formatTime(reportedAt)}`}
+        </span>
+      )}
+    </span>
+  );
+}

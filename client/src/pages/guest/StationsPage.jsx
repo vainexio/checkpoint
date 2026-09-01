@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Bus, Crosshair, Loader2, MapPin, Search, X } from 'lucide-react';
+import {
+  ArrowRight,
+  Bus,
+  Crosshair,
+  Footprints,
+  Loader2,
+  MapPin,
+  Search,
+  X,
+} from 'lucide-react';
+import { directionsUrl, walkMinutes } from '@/utils/directions.js';
 import { usePolling } from '@/hooks/usePolling.js';
 import { fetchMapData, fetchNearbyStations, fetchStations } from '@/api/publicApi.js';
 import { PageHeader } from '@/components/layout/AppLayout.jsx';
@@ -188,7 +198,7 @@ export default function StationsPage() {
         (nearby.within.length > 0 ? (
           <Section title={`Stops within ${nearby.radiusKm} km of you`}>
             {nearby.within.map((s) => (
-              <StationCard key={s.id} station={s} />
+              <StationCard key={s.id} station={s} you={you} />
             ))}
           </Section>
         ) : (
@@ -205,7 +215,7 @@ export default function StationsPage() {
               to travel to reach them.
             </div>
             {nearby.fallback.map((s) => (
-              <StationCard key={s.id} station={s} far />
+              <StationCard key={s.id} station={s} you={you} far />
             ))}
           </Section>
         ))}
@@ -243,11 +253,14 @@ function Section({ title, children }) {
   );
 }
 
-function StationCard({ station, far = false }) {
+function StationCard({ station, you = null, far = false }) {
+  const walk = walkMinutes(station.distanceKm);
+  const directions = directionsUrl(station.location, you);
+
   return (
-    <Link to={`/stations/${station.id}`} className="group">
-      <Card className="h-full transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
-        <CardContent className="flex items-center justify-between gap-3 p-5">
+    <Card className="group h-full transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
+      <Link to={`/stations/${station.id}`} className="block">
+        <CardContent className="flex items-center justify-between gap-3 p-5 pb-3">
           <span className="flex min-w-0 items-start gap-3">
             <MapPin className="mt-1 h-4 w-4 shrink-0 text-primary" />
             <span className="min-w-0">
@@ -259,8 +272,8 @@ function StationCard({ station, far = false }) {
               )}
               {station.distanceKm != null && (
                 <Badge variant={far ? 'muted' : 'secondary'} className="mt-1.5">
-                  {station.distanceKm} km away
-                  {far && ' · not nearby'}
+                  {station.distanceKm} km
+                  {far ? ' away · not nearby' : walk ? ` · about ${walk} min walk` : ' away'}
                 </Badge>
               )}
             </span>
@@ -272,7 +285,21 @@ function StationCard({ station, far = false }) {
             )}
           />
         </CardContent>
-      </Card>
-    </Link>
+      </Link>
+
+      {directions && (
+        <div className="px-5 pb-4">
+          <a
+            href={directions}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+          >
+            <Footprints className="h-3.5 w-3.5" />
+            Walking directions
+          </a>
+        </div>
+      )}
+    </Card>
   );
 }

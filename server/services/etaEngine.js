@@ -139,6 +139,11 @@ export function computeTripState({
   // When the bus pulled out of the checkpoint it most recently reached. Null
   // while it is still standing there.
   let leftLastCheckpointAt = null;
+  // How full the bus is, and where the conductor said so. Cleared whenever the
+  // bus reaches a new stop, because that is exactly where it can change.
+  let load = null;
+  let loadReportedAt = null;
+  let loadReportedAtIndex = -1;
   const ignored = [];
 
   const skip = (log, reason) =>
@@ -161,10 +166,28 @@ export function computeTripState({
     lastConfirmedAt = toDate(reportedAt);
     // Reaching a new point means the bus is no longer standing at the old one.
     leftLastCheckpointAt = null;
+    /**
+     * A stop is the one place where the load can change — people board and
+     * alight — so whatever was reported for the last leg is now unknown rather
+     * than merely old. Carrying it forward would let "full" survive past the
+     * stop where the bus emptied, and someone downstream would give up on a bus
+     * they could have caught.
+     */
+    load = null;
+    loadReportedAt = null;
+    loadReportedAtIndex = -1;
     exactVariance = varianceAt(index, reportedAt);
   };
 
   for (const log of sortLogs(logs)) {
+    // Load rides along with whatever the conductor was already tapping, so the
+    // common case costs no extra action.
+    if (log.load) {
+      load = log.load;
+      loadReportedAt = toDate(log.reportedAt);
+      loadReportedAtIndex = lastConfirmedIndex;
+    }
+
     switch (log.type) {
       case 'departed': {
         if (actualDeparture) {
@@ -248,6 +271,11 @@ export function computeTripState({
         actualArrival = toDate(log.reportedAt);
         break;
       }
+
+      case 'load_report':
+        // Nothing further to do — the load was picked up above, and this
+        // carries no position information at all.
+        break;
 
       case 'delayed': {
         // Informational only. A delay report is not anchored to a measured
@@ -350,6 +378,13 @@ export function computeTripState({
     lastConfirmedAt,
     position: actualArrival ? 'arrived' : standingAtStop ? 'at_stop' : 'between',
     leftLastCheckpointAt,
+    load,
+    loadReportedAt,
+    // Which checkpoint the bus had last reached when the load was reported, so
+    // the board can say "as it left Calamba" rather than implying it is current.
+    loadReportedAtCheckpoint:
+      loadReportedAtIndex >= 0 ? plan[loadReportedAtIndex].checkpoint : null,
+    loadReportedAtName: loadReportedAtIndex >= 0 ? plan[loadReportedAtIndex].name : null,
     // Rounded for storage and display; the projections above use the exact
     // value so the clock stays honest.
     cumulativeVarianceMinutes: Math.round(exactVariance),

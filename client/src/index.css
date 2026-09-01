@@ -157,6 +157,19 @@
   .tabular {
     font-variant-numeric: tabular-nums;
   }
+
+  /*
+   * The topbar keeps its nav on one row and scrolls if the links outgrow the
+   * width. Wrapping would break the header's fixed height, and a visible
+   * scrollbar across the top of every page is worse than either.
+   */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @layer base {

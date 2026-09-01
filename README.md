@@ -18,9 +18,14 @@ There is no GPS or device geolocation anywhere in this system, by design.
 
 | | Auth | What it is |
 |---|---|---|
-| **Guest** | None | Dark arrivals board, browsable by station. Every bus inbound, soonest first. |
+| **Guest** | None at all | Arrivals board, browsable by station. Every bus inbound, soonest first. |
 | **Conductor** | JWT | Their own trips and four taps. Mobile-first, works offline. |
 | **Admin** | JWT | Routes, checkpoints, buses, conductor accounts, trip scheduling, live dashboard. |
+
+Staff share **one sign-in** at `/login`. Nobody has to know which of two forms is
+"theirs" before typing a password — the account's role decides where they land, and the
+role boundary is enforced on every protected route rather than by which page was opened.
+Guests never sign in.
 
 ## Quick start
 
@@ -81,7 +86,7 @@ staleAfter = lastConfirmedAt + segmentBaseline + (50% of that segment's baseline
 
 The grace scales with the segment, so a 20-minute urban hop is flagged sooner than an
 80-minute rural one. When a trip is stale the board greys the number, labels it "estimate
-only", and says how long it has been since anyone confirmed anything.
+estimate, and says how long it has been since anyone confirmed anything.
 
 ## Offline queueing
 
@@ -110,11 +115,15 @@ The frontend uses the **SCOUT design system** — Tailwind v4 with SCOUT's token
 shadcn/ui (new-york) primitives copied in unmodified, Plus Jakarta Sans and JetBrains Mono,
 and its `glass-panel` navbar, `bg-blobs` ambient background and `PageHeader` pattern.
 
-Two grounds, one product: the public board runs in the dark palette because it is a *display*
-surface read across a terminal hall; the conductor and admin apps stay light because they are
-*working* surfaces used in daylight and across long shifts. Every time and number is set in
-JetBrains Mono with tabular figures, because that is what keeps a departure board legible at a
+All three experiences share one light palette, so a passenger checking a bus and a dispatcher
+checking the same bus recognise it as the same product. Every time and number is set in
+JetBrains Mono with tabular figures, because that is what keeps an arrivals board legible at a
 glance and stops the ETA twitching as digits change.
+
+The public board is written for someone who has never seen it before: the arrival time is
+labelled ("Expected arrival" vs "Scheduled arrival"), status is in plain words
+("Running late by 8 min", "No recent update", "Not yet departed"), and the header says
+outright that times update when a conductor confirms a checkpoint.
 
 All timestamps are stored in UTC and displayed in `Asia/Manila` explicitly, never by trusting
 the viewer's device clock.
@@ -127,7 +136,7 @@ cd server && npm test
 
 29 tests: the engine's arithmetic (variance, re-projection, skipped checkpoints, out-of-order
 replay, staleness thresholds) plus API integration against an in-memory MongoDB covering
-auth separation, the frozen plan, offline sync, and the public board.
+the shared login and its role boundary, the frozen plan, offline sync, and the public board.
 
 ## Project layout
 

@@ -44,7 +44,7 @@ async function setupWorld() {
   });
 
   const adminLogin = await request(app)
-    .post('/api/auth/admin/login')
+    .post('/api/auth/login')
     .send({ username: 'admin', password: 'checkpoint123' })
     .expect(200);
   const adminToken = adminLogin.body.token;
@@ -92,7 +92,7 @@ async function setupWorld() {
     .expect(201);
 
   const conductorLogin = await request(app)
-    .post('/api/auth/conductor/login')
+    .post('/api/auth/login')
     .send({ username: 'rey', password: 'checkpoint123' })
     .expect(200);
 
@@ -107,15 +107,30 @@ async function setupWorld() {
 
 const byName = (cps, name) => cps.find((c) => c.name === name)._id;
 
-test('admin login rejects a conductor password and vice versa', async () => {
+test('one login serves both roles, and the token still fences them apart', async () => {
   const { conductorToken } = await setupWorld();
 
-  await request(app)
-    .post('/api/auth/admin/login')
+  // Both staff roles sign in through the same endpoint; the response says which
+  // product the person belongs in.
+  const asConductor = await request(app)
+    .post('/api/auth/login')
     .send({ username: 'rey', password: 'checkpoint123' })
+    .expect(200);
+  assert.equal(asConductor.body.user.role, 'conductor');
+
+  const asAdmin = await request(app)
+    .post('/api/auth/login')
+    .send({ username: 'admin', password: 'checkpoint123' })
+    .expect(200);
+  assert.equal(asAdmin.body.user.role, 'admin');
+
+  await request(app)
+    .post('/api/auth/login')
+    .send({ username: 'rey', password: 'wrong-password' })
     .expect(401);
 
-  // A valid conductor token must not open an admin door.
+  // Sharing a door changes nothing about authorisation: a conductor token must
+  // still be refused everywhere admin is required.
   await request(app)
     .get('/api/admin/dashboard')
     .set('Authorization', `Bearer ${conductorToken}`)
@@ -302,7 +317,7 @@ test('a conductor cannot log against a trip that is not theirs', async () => {
     .expect(201);
 
   const other = await request(app)
-    .post('/api/auth/conductor/login')
+    .post('/api/auth/login')
     .send({ username: 'marlon', password: 'checkpoint123' })
     .expect(200);
 

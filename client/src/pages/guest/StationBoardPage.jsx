@@ -50,7 +50,7 @@ export default function StationBoardPage() {
       <PageHeader
         icon={MapPin}
         title={data?.station?.name ?? 'Loading…'}
-        description="Buses currently heading to this stop, soonest first."
+        description="Buses currently heading to this stop, soonest first. Times update each time a conductor confirms the bus has passed a checkpoint."
         actions={<LiveIndicator lastUpdated={lastUpdated} />}
       />
 
@@ -150,7 +150,10 @@ function ArrivalRow({ arrival, now }) {
               )}
             </div>
 
-            <div className="shrink-0 text-left sm:min-w-[150px] sm:text-right">
+            <div className="shrink-0 text-left sm:min-w-[160px] sm:text-right">
+              <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                {notDepartedYet ? 'Scheduled arrival' : 'Expected arrival'}
+              </div>
               <div
                 className={cn(
                   'font-mono tabular text-[44px] font-bold leading-none tracking-tight sm:text-[56px]',
@@ -161,12 +164,12 @@ function ArrivalRow({ arrival, now }) {
               </div>
               <div className="mt-2 text-[13px] font-medium text-muted-foreground">
                 {notDepartedYet
-                  ? 'scheduled'
+                  ? 'if it leaves on time'
                   : arrival.isStale
-                    ? 'estimate only'
+                    ? 'rough estimate'
                     : minutesAway !== null && minutesAway > 1
                       ? formatCountdown(arrival.eta, now)
-                      : 'arriving'}
+                      : 'arriving now'}
               </div>
             </div>
           </div>

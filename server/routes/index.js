@@ -9,9 +9,9 @@ import { requireAuth, requireRole } from '../middleware/auth.js';
 const router = Router();
 
 /* ------------------------------------------------------------------ auth */
-// Separate doors for separate experiences.
-router.post('/auth/admin/login', auth.loginAdmin);
-router.post('/auth/conductor/login', auth.loginConductor);
+// One door for staff. The account's role decides which product they land in;
+// the role boundary itself is enforced per-route below.
+router.post('/auth/login', auth.login);
 router.get('/auth/me', requireAuth, auth.me);
 
 /* ---------------------------------------------------------------- public */

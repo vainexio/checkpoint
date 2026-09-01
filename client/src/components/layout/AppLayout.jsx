@@ -8,10 +8,9 @@ import { formatTime } from '@/utils/time.js';
  * SCOUT's application shell, adopted wholesale: glass navbar, ambient blob
  * background, animated page transitions, and the PageHeader pattern.
  *
- * The one CHECKPOINT-specific move is `dark` — the public arrivals board runs
- * in SCOUT's dark palette because it is a *display* surface read across a
- * terminal hall, while the conductor and admin tools stay light, since they are
- * working surfaces used in daylight and across long shifts.
+ * All three experiences share the one light palette. A passenger checking a bus
+ * and a dispatcher checking the same bus should recognise it as the same
+ * product, and a light board stays readable on a phone held up outdoors.
  */
 
 export function BrandMark({ className = '' }) {
@@ -37,7 +36,7 @@ export function Navbar({ home = '/', links = [], right = null }) {
           <span className="text-[15px] font-extrabold tracking-[0.16em]">CHECKPOINT</span>
         </Link>
 
-        <nav className="flex flex-1 items-center gap-1 overflow-x-auto">
+        <nav className="no-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
           {links.map((link) => (
             <NavLink
               key={link.to}
@@ -73,16 +72,11 @@ export function Navbar({ home = '/', links = [], right = null }) {
   );
 }
 
-export function AppLayout({ children, dark = false, navbar }) {
+export function AppLayout({ children, navbar }) {
   const location = useLocation();
 
   return (
-    <div
-      className={cn(
-        'relative flex min-h-[100dvh] flex-col bg-background text-foreground selection:bg-primary/20',
-        dark && 'dark'
-      )}
-    >
+    <div className="relative flex min-h-[100dvh] flex-col bg-background text-foreground selection:bg-primary/20">
       <div className="pointer-events-none fixed inset-0 bg-blobs" aria-hidden />
 
       {navbar}

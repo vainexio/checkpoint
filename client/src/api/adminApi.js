@@ -1,7 +1,7 @@
 import { api } from './client.js';
 
-const role = 'admin';
-const opts = { role };
+
+const opts = { auth: true };
 
 export const fetchDashboard = () => api.get('/admin/dashboard', opts);
 

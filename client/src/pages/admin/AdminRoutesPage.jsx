@@ -1,12 +1,30 @@
-import { useState } from 'react';
-import { AlertCircle, Plus, Route as RouteIcon, Trash2, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import {
+  AlertCircle,
+  ArrowDown,
+  Check,
+  MapPin,
+  Plus,
+  Route as RouteIcon,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { useList } from '@/hooks/useList.js';
-import { createRoute, deleteRoute, listCheckpoints, listRoutes } from '@/api/adminApi.js';
+import {
+  createCheckpoint,
+  createRoute,
+  deleteCheckpoint,
+  deleteRoute,
+  listCheckpoints,
+  listRoutes,
+} from '@/api/adminApi.js';
 import { PageHeader } from '@/components/layout/AppLayout.jsx';
+import { CheckpointMap } from '@/components/CheckpointMap.jsx';
 import { Button } from '@/components/ui/button.tsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.tsx';
 import { Input } from '@/components/ui/input.tsx';
 import { Label } from '@/components/ui/label.tsx';
+import { Badge } from '@/components/ui/badge.tsx';
 import { Alert, AlertDescription } from '@/components/ui/alert.tsx';
 import {
   Select,
@@ -17,67 +35,77 @@ import {
 } from '@/components/ui/select.tsx';
 import { cn } from '@/lib/utils.ts';
 
-const emptyRow = () => ({ checkpoint: '', baselineMinutesFromPrevious: '' });
-const asHours = (m) => `${Math.floor(m / 60)}h ${m % 60}m`;
+const asHours = (m) => (m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`);
 
 /**
- * The route builder — the "set once, run every trip" step from the pitch.
+ * Routes and the checkpoints they are made of, on one page.
  *
- * Baselines are entered per segment because that is how an operator actually
- * knows a route: how long Balintawak to Tarlac usually takes, not what time a
- * bus reaches Tarlac. The running total is shown as you type, since that is the
- * number an operator can sanity-check against experience.
+ * These were two separate tabs, which made the job confusing: you cannot build
+ * a route without checkpoints, so being sent elsewhere to make one and then
+ * back again hid the actual shape of the task. Building a route *is* placing
+ * points in order, so both happen here, against the same map.
+ *
+ * The map shows fixed places only. Nothing about a bus appears on it.
  */
 export default function AdminRoutesPage() {
   const routes = useList(listRoutes);
   const checkpoints = useList(listCheckpoints);
-
-  const [name, setName] = useState('');
-  const [rows, setRows] = useState([emptyRow(), emptyRow()]);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
-  const total = rows.reduce((sum, r) => sum + (Number(r.baselineMinutesFromPrevious) || 0), 0);
+  const [name, setName] = useState('');
+  const [stops, setStops] = useState([]); // [{ id, name, minutes }]
+  const [saving, setSaving] = useState(false);
 
-  const setRow = (index, patch) =>
-    setRows(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
+  const [draftPin, setDraftPin] = useState(null);
+  const [previewRouteId, setPreviewRouteId] = useState(null);
 
-  const submit = async (e) => {
+  const byId = useMemo(
+    () => new Map(checkpoints.items.map((c) => [c._id, c])),
+    [checkpoints.items]
+  );
+
+  const totalMinutes = stops.reduce((sum, s, i) => sum + (i === 0 ? 0 : Number(s.minutes) || 0), 0);
+
+  const chosen = stops.map((s) => byId.get(s.id)).filter(Boolean);
+  const unplaced = checkpoints.items.filter((c) => c.location?.lat == null);
+
+  const previewRoute = routes.items.find((r) => r._id === previewRouteId);
+  const previewPath = previewRoute
+    ? previewRoute.checkpoints.map((e) => e.checkpoint).filter(Boolean)
+    : chosen;
+
+  const addStop = (id) => {
+    if (!id || stops.some((s) => s.id === id)) return;
+    setStops([...stops, { id, minutes: stops.length === 0 ? 0 : '' }]);
+    setPreviewRouteId(null);
+  };
+
+  const saveRoute = async (e) => {
     e.preventDefault();
     setError(null);
 
-    const filled = rows.filter((r) => r.checkpoint);
-    if (filled.length < 2) {
-      setError(new Error('A route needs at least an origin and a destination.'));
+    if (stops.length < 2) {
+      setError(new Error('A route needs at least a start and an end.'));
       return;
     }
 
-    setBusy(true);
+    setSaving(true);
     try {
       await createRoute({
         name,
-        checkpoints: filled.map((r, i) => ({
-          checkpoint: r.checkpoint,
-          // The origin has nothing before it, so its baseline is always zero.
-          baselineMinutesFromPrevious: i === 0 ? 0 : Number(r.baselineMinutesFromPrevious) || 0,
+        checkpoints: stops.map((s, i) => ({
+          checkpoint: s.id,
+          // The first stop has nothing before it, so its baseline is always 0.
+          baselineMinutesFromPrevious: i === 0 ? 0 : Number(s.minutes) || 0,
         })),
       });
       setName('');
-      setRows([emptyRow(), emptyRow()]);
+      setStops([]);
       await routes.reload();
     } catch (err) {
       setError(err);
     } finally {
-      setBusy(false);
-    }
-  };
-
-  const remove = async (id) => {
-    try {
-      await deleteRoute(id);
-      await routes.reload();
-    } catch (err) {
-      setError(err);
+      setSaving(false);
     }
   };
 
@@ -85,131 +113,193 @@ export default function AdminRoutesPage() {
     <>
       <PageHeader
         icon={RouteIcon}
-        title="Routes"
-        description="An ordered chain of checkpoints with the usual travel time between each. This baseline is what every trip on the route is measured against."
+        title="Routes & checkpoints"
+        description="A route is an ordered chain of checkpoints with the usual travel time between each. Place the points on the map, put them in order, and give each leg its normal duration."
       />
 
-      {(error || routes.error) && (
+      {(error || routes.error || checkpoints.error) && (
         <Alert variant="destructive" className="mb-4">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{(error ?? routes.error).message}</AlertDescription>
+          <AlertDescription>
+            {(error ?? routes.error ?? checkpoints.error).message}
+          </AlertDescription>
         </Alert>
       )}
 
-      <Card>
-        <CardHeader className="flex-row items-center justify-between space-y-0">
-          <CardTitle>New route</CardTitle>
-          {total > 0 && (
-            <span className="font-mono text-xs text-muted-foreground">
-              {asHours(total)} end to end
-            </span>
-          )}
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={submit} className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="route-name">Route name</Label>
-              <Input
-                id="route-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Cubao – Baguio"
-                required
-              />
+      <div className="grid items-start gap-4 lg:grid-cols-[1fr_420px]">
+        {/* ------------------------------------------------------------ map */}
+        <Card className="overflow-hidden">
+          <CardHeader className="flex-row items-center justify-between space-y-0">
+            <CardTitle>
+              {previewRoute ? `Route: ${previewRoute.name}` : 'Click the map to add a checkpoint'}
+            </CardTitle>
+            {previewRoute && (
+              <Button variant="ghost" size="sm" onClick={() => setPreviewRouteId(null)}>
+                Back to editing
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent className="p-0">
+            <CheckpointMap
+              checkpoints={checkpoints.items.map((c) => ({ ...c, id: c._id }))}
+              routePath={previewPath}
+              draft={draftPin}
+              onPick={previewRoute ? null : setDraftPin}
+              onSelect={previewRoute ? null : (cp) => addStop(cp.id ?? cp._id)}
+              height={420}
+              className="rounded-none border-0 border-b"
+            />
+            <div className="px-5 py-3 text-xs text-muted-foreground">
+              Click an empty spot to place a new checkpoint · click an existing pin to add it to
+              the route being built
             </div>
+          </CardContent>
+        </Card>
 
-            <div className="space-y-2">
-              <Label>Checkpoints, in order</Label>
-              <div className="space-y-2">
-                {rows.map((row, index) => (
-                  <div
-                    key={index}
-                    className="grid grid-cols-[24px_1fr_auto_36px] items-center gap-3"
-                  >
-                    <span className="text-center font-mono text-xs text-muted-foreground">
-                      {index + 1}
-                    </span>
+        {/* --------------------------------------------------------- builder */}
+        <div className="space-y-4">
+          <NewCheckpointCard
+            draftPin={draftPin}
+            onClear={() => setDraftPin(null)}
+            onCreated={async (created) => {
+              setDraftPin(null);
+              await checkpoints.reload();
+              addStop(created._id);
+            }}
+            onError={setError}
+          />
 
-                    <Select
-                      value={row.checkpoint}
-                      onValueChange={(value) => setRow(index, { checkpoint: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a checkpoint…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {checkpoints.items.map((cp) => (
-                          <SelectItem key={cp._id} value={cp._id}>
-                            {cp.name}
-                            {cp.type === 'landmark' ? ' (landmark)' : ''}
+          <Card>
+            <CardHeader className="flex-row items-center justify-between space-y-0">
+              <CardTitle>Build a route</CardTitle>
+              {totalMinutes > 0 && (
+                <span className="font-mono text-xs text-muted-foreground">
+                  {asHours(totalMinutes)} total
+                </span>
+              )}
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={saveRoute} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="route-name">Route name</Label>
+                  <Input
+                    id="route-name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g. Cubao – Baguio"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Stops, in the order the bus drives them</Label>
+
+                  {stops.length === 0 && (
+                    <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                      Nothing added yet. Click pins on the map, or pick from the list below — the
+                      first one you add is where the bus starts.
+                    </p>
+                  )}
+
+                  <ol className="space-y-2">
+                    {stops.map((stop, i) => {
+                      const cp = byId.get(stop.id);
+                      const isFirst = i === 0;
+                      const isLast = i === stops.length - 1;
+
+                      return (
+                        <li key={stop.id}>
+                          {!isFirst && (
+                            <div className="flex items-center gap-2 py-1 pl-3 text-xs text-muted-foreground">
+                              <ArrowDown className="h-3 w-3" />
+                              <Input
+                                type="number"
+                                min="0"
+                                className="h-8 w-20"
+                                value={stop.minutes}
+                                onChange={(e) =>
+                                  setStops(
+                                    stops.map((s, j) =>
+                                      j === i ? { ...s, minutes: e.target.value } : s
+                                    )
+                                  )
+                                }
+                                placeholder="0"
+                              />
+                              <span>min drive, normally</span>
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-2 rounded-lg border border-border p-2.5">
+                            <span
+                              className={cn(
+                                'grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold',
+                                isFirst || isLast
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'bg-muted text-muted-foreground'
+                              )}
+                            >
+                              {i + 1}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-semibold">
+                                {cp?.name ?? 'Unknown'}
+                              </span>
+                              <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                {isFirst ? 'Start' : isLast ? 'End' : cp?.type}
+                                {cp?.location?.lat == null && ' · no pin yet'}
+                              </span>
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 shrink-0"
+                              onClick={() => setStops(stops.filter((_, j) => j !== i))}
+                              aria-label={`Remove ${cp?.name}`}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ol>
+
+                  <Select value="" onValueChange={addStop}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="+ Add an existing checkpoint…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {checkpoints.items
+                        .filter((c) => !stops.some((s) => s.id === c._id))
+                        .map((c) => (
+                          <SelectItem key={c._id} value={c._id}>
+                            {c.name}
+                            {c.type === 'landmark' ? ' (timing point)' : ''}
                           </SelectItem>
                         ))}
-                      </SelectContent>
-                    </Select>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                    {index === 0 ? (
-                      <span className="whitespace-nowrap text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
-                        origin
-                      </span>
-                    ) : (
-                      <div className="flex items-center gap-2 whitespace-nowrap text-xs text-muted-foreground">
-                        <Input
-                          type="number"
-                          min="0"
-                          className="w-20"
-                          value={row.baselineMinutesFromPrevious}
-                          onChange={(e) =>
-                            setRow(index, { baselineMinutesFromPrevious: e.target.value })
-                          }
-                          placeholder="0"
-                        />
-                        <span className="hidden sm:inline">min from previous</span>
-                        <span className="sm:hidden">min</span>
-                      </div>
-                    )}
+                <Button type="submit" className="w-full" disabled={saving || stops.length < 2}>
+                  {saving ? 'Saving…' : `Create route with ${stops.length} stops`}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-9 w-9"
-                      onClick={() => setRows(rows.filter((_, i) => i !== index))}
-                      disabled={rows.length <= 2}
-                      aria-label={`Remove checkpoint ${index + 1}`}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex flex-wrap justify-between gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setRows([...rows, emptyRow()])}
-              >
-                <Plus className="mr-1.5 h-3.5 w-3.5" />
-                Add checkpoint
-              </Button>
-              <Button type="submit" disabled={busy}>
-                {busy ? 'Saving…' : 'Create route'}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
+      {/* ------------------------------------------------------ existing data */}
       <Card className="mt-4">
         <CardHeader className="flex-row items-center justify-between space-y-0">
           <CardTitle>Existing routes</CardTitle>
           <span className="font-mono text-xs text-muted-foreground">{routes.items.length}</span>
         </CardHeader>
         <CardContent className="space-y-3">
-          {routes.loading && <div className="py-10 text-center text-muted-foreground">Loading…</div>}
-          {!routes.loading && routes.items.length === 0 && (
+          {routes.items.length === 0 && !routes.loading && (
             <div className="rounded-xl border border-dashed py-12 text-center text-muted-foreground">
               No routes yet.
             </div>
@@ -229,14 +319,27 @@ export default function AdminRoutesPage() {
                       {route.checkpoints.length} checkpoints · {asHours(mins)} baseline
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    onClick={() => remove(route._id)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  <div className="flex shrink-0 gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setPreviewRouteId(route._id)}>
+                      <MapPin className="mr-1.5 h-3.5 w-3.5" />
+                      Show on map
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      onClick={async () => {
+                        try {
+                          await deleteRoute(route._id);
+                          await routes.reload();
+                        } catch (err) {
+                          setError(err);
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
@@ -264,6 +367,157 @@ export default function AdminRoutesPage() {
           })}
         </CardContent>
       </Card>
+
+      <Card className="mt-4">
+        <CardHeader className="flex-row items-center justify-between space-y-0">
+          <CardTitle>All checkpoints</CardTitle>
+          <span className="font-mono text-xs text-muted-foreground">
+            {checkpoints.items.length}
+            {unplaced.length > 0 && ` · ${unplaced.length} without a pin`}
+          </span>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            {checkpoints.items.map((cp) => (
+              <span
+                key={cp._id}
+                className="inline-flex items-center gap-2 rounded-lg border border-border py-1 pl-2.5 pr-1 text-[13px]"
+              >
+                <MapPin
+                  className={cn(
+                    'h-3 w-3',
+                    cp.location?.lat != null ? 'text-primary' : 'text-muted-foreground/50'
+                  )}
+                />
+                {cp.name}
+                {cp.type === 'landmark' && (
+                  <Badge variant="muted" className="text-[10px]">
+                    timing
+                  </Badge>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                  onClick={async () => {
+                    try {
+                      await deleteCheckpoint(cp._id);
+                      await checkpoints.reload();
+                    } catch (err) {
+                      setError(err);
+                    }
+                  }}
+                  aria-label={`Delete ${cp.name}`}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </span>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </>
+  );
+}
+
+/** Turns a dropped pin into a named checkpoint without leaving the page. */
+function NewCheckpointCard({ draftPin, onClear, onCreated, onError }) {
+  const [form, setForm] = useState({ name: '', type: 'station', area: '', isTerminal: false });
+  const [busy, setBusy] = useState(false);
+
+  if (!draftPin) {
+    return (
+      <Card className="border-dashed">
+        <CardContent className="flex items-center gap-3 p-5 text-sm text-muted-foreground">
+          <Plus className="h-4 w-4 shrink-0" />
+          Click anywhere on the map to place a new checkpoint.
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const created = await createCheckpoint({ ...form, location: draftPin });
+      setForm({ name: '', type: 'station', area: '', isTerminal: false });
+      onCreated(created);
+    } catch (err) {
+      onError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card className="border-primary/40">
+      <CardHeader className="flex-row items-center justify-between space-y-0">
+        <CardTitle className="flex items-center gap-2">
+          <MapPin className="h-4 w-4 text-primary" />
+          New checkpoint here
+        </CardTitle>
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClear}>
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={submit} className="space-y-3">
+          <p className="font-mono text-xs text-muted-foreground">
+            {draftPin.lat.toFixed(4)}, {draftPin.lng.toFixed(4)}
+          </p>
+
+          <div className="space-y-2">
+            <Label htmlFor="cp-name">Name</Label>
+            <Input
+              id="cp-name"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="e.g. Balintawak"
+              autoFocus
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="cp-area">Area (helps people who don't know the place)</Label>
+            <Input
+              id="cp-area"
+              value={form.area}
+              onChange={(e) => setForm({ ...form, area: e.target.value })}
+              placeholder="Quezon City, Metro Manila"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Type</Label>
+            <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="station">Stop — passengers board, gets a board</SelectItem>
+                <SelectItem value="landmark">Timing point — no boarding</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-primary"
+              checked={form.isTerminal}
+              onChange={(e) => setForm({ ...form, isTerminal: e.target.checked })}
+            />
+            This is an official terminal
+          </label>
+
+          <Button type="submit" className="w-full" disabled={busy}>
+            <Check className="mr-1.5 h-4 w-4" />
+            {busy ? 'Adding…' : 'Add & put in route'}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }

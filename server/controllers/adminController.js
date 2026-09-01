@@ -9,20 +9,37 @@ export const listCheckpoints = asyncHandler(async (req, res) => {
   res.json(await Checkpoint.find().sort({ name: 1 }).lean());
 });
 
+/** Accept a dropped pin, or no pin at all — placement can come later. */
+const readLocation = (body) => {
+  const lat = Number(body?.location?.lat);
+  const lng = Number(body?.location?.lng);
+  return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : { lat: null, lng: null };
+};
+
 export const createCheckpoint = asyncHandler(async (req, res) => {
-  const { name, type, isTerminal } = req.body;
-  const checkpoint = await Checkpoint.create({ name, type, isTerminal: !!isTerminal });
+  const { name, type, isTerminal, area } = req.body;
+  const checkpoint = await Checkpoint.create({
+    name,
+    type,
+    area: area || '',
+    isTerminal: !!isTerminal,
+    location: readLocation(req.body),
+  });
   res.status(201).json(checkpoint);
 });
 
 export const updateCheckpoint = asyncHandler(async (req, res) => {
-  const { name, type, isTerminal } = req.body;
-  const checkpoint = await Checkpoint.findByIdAndUpdate(
-    req.params.id,
-    { name, type, isTerminal: !!isTerminal },
-    { new: true, runValidators: true }
-  );
+  const checkpoint = await Checkpoint.findById(req.params.id);
   if (!checkpoint) return res.status(404).json({ error: 'Checkpoint not found.' });
+
+  if (req.body.name !== undefined) checkpoint.name = req.body.name;
+  if (req.body.type !== undefined) checkpoint.type = req.body.type;
+  if (req.body.area !== undefined) checkpoint.area = req.body.area;
+  if (req.body.isTerminal !== undefined) checkpoint.isTerminal = !!req.body.isTerminal;
+  // Dragging a pin is the common edit here, so location updates on its own.
+  if (req.body.location !== undefined) checkpoint.location = readLocation(req.body);
+
+  await checkpoint.save();
   res.json(checkpoint);
 });
 

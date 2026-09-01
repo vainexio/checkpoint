@@ -23,12 +23,44 @@ const CONDUCTORS = [
   { name: 'Marlon Cruz', username: 'marlon', password: 'checkpoint123' },
 ];
 
+// Approximate real-world coordinates, good enough to place a pin and to give
+// the traffic provider genuine segment endpoints along NLEX/TPLEX and Kennon.
 const CHECKPOINTS = [
-  { name: 'Cubao Terminal', type: 'station', isTerminal: true },
-  { name: 'Balintawak', type: 'station', isTerminal: false },
-  { name: 'Tarlac stop', type: 'station', isTerminal: false },
-  { name: 'TPLEX – Rosario Exit', type: 'landmark', isTerminal: false },
-  { name: 'Baguio Terminal', type: 'station', isTerminal: true },
+  {
+    name: 'Cubao Terminal',
+    type: 'station',
+    isTerminal: true,
+    area: 'Quezon City, Metro Manila',
+    location: { lat: 14.6217, lng: 121.053 },
+  },
+  {
+    name: 'Balintawak',
+    type: 'station',
+    isTerminal: false,
+    area: 'Quezon City, Metro Manila',
+    location: { lat: 14.657, lng: 121.003 },
+  },
+  {
+    name: 'Tarlac stop',
+    type: 'station',
+    isTerminal: false,
+    area: 'Tarlac City, Tarlac',
+    location: { lat: 15.4802, lng: 120.5979 },
+  },
+  {
+    name: 'TPLEX – Rosario Exit',
+    type: 'landmark',
+    isTerminal: false,
+    area: 'Rosario, La Union',
+    location: { lat: 16.229, lng: 120.49 },
+  },
+  {
+    name: 'Baguio Terminal',
+    type: 'station',
+    isTerminal: true,
+    area: 'Governor Pack Road, Baguio City',
+    location: { lat: 16.4103, lng: 120.596 },
+  },
 ];
 
 // Baseline minutes from the previous checkpoint. 185 minutes end to end.

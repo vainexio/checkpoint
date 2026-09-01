@@ -17,7 +17,6 @@ import ConductorTripPage from '@/pages/conductor/ConductorTripPage.jsx';
 import AdminDashboardPage from '@/pages/admin/AdminDashboardPage.jsx';
 import AdminTripsPage from '@/pages/admin/AdminTripsPage.jsx';
 import AdminRoutesPage from '@/pages/admin/AdminRoutesPage.jsx';
-import AdminCheckpointsPage from '@/pages/admin/AdminCheckpointsPage.jsx';
 import AdminFleetPage from '@/pages/admin/AdminFleetPage.jsx';
 
 /**
@@ -132,8 +131,7 @@ function AdminApp() {
             links={[
               { to: '/admin', label: 'Dashboard', end: true },
               { to: '/admin/trips', label: 'Trips' },
-              { to: '/admin/routes', label: 'Routes' },
-              { to: '/admin/checkpoints', label: 'Checkpoints' },
+              { to: '/admin/routes', label: 'Routes & checkpoints' },
               { to: '/admin/fleet', label: 'Fleet' },
             ]}
             right={<SignOutButton />}
@@ -144,7 +142,6 @@ function AdminApp() {
           <Route index element={<AdminDashboardPage />} />
           <Route path="trips" element={<AdminTripsPage />} />
           <Route path="routes" element={<AdminRoutesPage />} />
-          <Route path="checkpoints" element={<AdminCheckpointsPage />} />
           <Route path="fleet" element={<AdminFleetPage />} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Routes>

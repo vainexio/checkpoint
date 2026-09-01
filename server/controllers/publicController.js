@@ -13,13 +13,90 @@ const ACTIVE_STATUSES = ['scheduled', 'in_transit', 'delayed'];
 /** Stations only. Landmarks are timing points; they get no board. */
 export const listStations = asyncHandler(async (req, res) => {
   const stations = await Checkpoint.find({ type: 'station' }).sort({ name: 1 }).lean();
-  res.json(
-    stations.map((s) => ({
-      id: String(s._id),
-      name: s.name,
-      isTerminal: s.isTerminal,
+  res.json(stations.map(toPublicCheckpoint));
+});
+
+const toPublicCheckpoint = (c) => ({
+  id: String(c._id),
+  name: c.name,
+  type: c.type,
+  area: c.area || null,
+  isTerminal: c.isTerminal,
+  location: c.location?.lat != null ? { lat: c.location.lat, lng: c.location.lng } : null,
+});
+
+/**
+ * Everything the map needs in one request: every checkpoint that has been
+ * placed, plus each route as an ordered list of them so the client can draw the
+ * line a bus follows.
+ *
+ * These are fixed places encoded by an operator, not vehicle positions — there
+ * is nothing live on this map, and that is the point.
+ */
+export const mapData = asyncHandler(async (req, res) => {
+  const [checkpoints, routes] = await Promise.all([
+    Checkpoint.find({ 'location.lat': { $ne: null } }).lean(),
+    Route.find({ isActive: true }).populate('checkpoints.checkpoint', 'name type location').lean(),
+  ]);
+
+  res.json({
+    checkpoints: checkpoints.map(toPublicCheckpoint),
+    routes: routes.map((r) => ({
+      id: String(r._id),
+      name: r.name,
+      path: r.checkpoints
+        .map((entry) => entry.checkpoint)
+        .filter((cp) => cp?.location?.lat != null)
+        .map((cp) => ({
+          id: String(cp._id),
+          name: cp.name,
+          type: cp.type,
+          location: { lat: cp.location.lat, lng: cp.location.lng },
+        })),
+    })),
+  });
+});
+
+/** Straight-line distance in km. Good enough to rank what is walkable. */
+function distanceKm(a, b) {
+  const R = 6371;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+/**
+ * Stations near a point, nearest first.
+ *
+ * The coordinates come from the passenger's own device and are used for this
+ * one ranking. Nothing is stored, and no bus position is involved.
+ */
+export const nearbyStations = asyncHandler(async (req, res) => {
+  const lat = Number(req.query.lat);
+  const lng = Number(req.query.lng);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return res.status(400).json({ error: 'A valid lat and lng are required.' });
+  }
+
+  const stations = await Checkpoint.find({
+    type: 'station',
+    'location.lat': { $ne: null },
+  }).lean();
+
+  const ranked = stations
+    .map((s) => ({
+      ...toPublicCheckpoint(s),
+      distanceKm: Math.round(distanceKm({ lat, lng }, s.location) * 10) / 10,
     }))
-  );
+    .sort((a, b) => a.distanceKm - b.distanceKm)
+    .slice(0, Number(req.query.limit) || 8);
+
+  res.json({ from: { lat, lng }, stations: ranked });
 });
 
 export const listRoutes = asyncHandler(async (req, res) => {
@@ -92,6 +169,29 @@ export const stationBoard = asyncHandler(async (req, res) => {
         scheduledEta: stop.scheduledArrival,
         stopsAway: lastPassed >= 0 ? index - lastPassed : null,
         isOrigin: index === 0,
+        traffic: trip.traffic,
+
+        /**
+         * Enough of the route to answer the two questions someone who does not
+         * know the area actually has: where is this bus now, and is it going
+         * anywhere useful to me?
+         *
+         * `journey` is the whole line with this station marked, so the board can
+         * draw it as a strip. `continuesTo` is the plain answer to "if I get on,
+         * where can I end up".
+         */
+        journey: trip.stops.map((s, i) => ({
+          name: s.name,
+          type: s.type,
+          progress: s.progress,
+          eta: s.projectedArrival ?? s.scheduledArrival,
+          isCurrentPosition: i === lastPassed,
+          isYourStop: i === index,
+        })),
+        continuesTo: trip.stops
+          .slice(index + 1)
+          .filter((s) => s.type === 'station')
+          .map((s) => s.name),
       };
     })
     .sort((a, b) => {

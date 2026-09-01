@@ -5,6 +5,7 @@ import {
   cumulativeBaseline,
   evaluateStaleness,
 } from './etaEngine.js';
+import { getAdjustments, getSegmentDetail } from './trafficProvider.js';
 
 /**
  * The bridge between the pure ETA engine and the database.
@@ -69,8 +70,21 @@ export async function recomputeTrip(tripId) {
  */
 export function presentTrip(trip, { logs = [], now = new Date(), audience = 'public' } = {}) {
   const plan = trip.plan;
-  const state = computeTripState({ plan, logs, cancelled: trip.status === 'cancelled' });
-  const staleness = evaluateStaleness({ plan, state, now });
+
+  // Traffic is applied when a trip is *read*, never when it is stored. What we
+  // persist is what we measured — departure, confirmed checkpoints, variance —
+  // and that must not drift because a road was busy at write time. The live
+  // adjustment is a view over those facts, recomputed on every read from
+  // whatever the cache currently knows.
+  const trafficAdjustments = getAdjustments(now.getTime?.() ?? Date.now());
+
+  const state = computeTripState({
+    plan,
+    logs,
+    cancelled: trip.status === 'cancelled',
+    trafficAdjustments,
+  });
+  const staleness = evaluateStaleness({ plan, state, now, trafficAdjustments });
 
   const etaByCheckpoint = new Map(
     state.computedETAs.map((e) => [String(e.checkpoint), e])
@@ -94,6 +108,9 @@ export function presentTrip(trip, { logs = [], now = new Date(), audience = 'pub
       ),
       actualArrival: eta?.actualArrival ?? null,
       progress: eta?.progress ?? 'pending',
+      // Minutes this stop has moved because of live traffic on the road still
+      // ahead of the bus. Zero when no provider is configured.
+      trafficMinutes: eta?.trafficMinutes ?? 0,
     };
   });
 
@@ -124,6 +141,7 @@ export function presentTrip(trip, { logs = [], now = new Date(), audience = 'pub
     isStale: staleness.isStale,
     minutesSinceLastConfirm: staleness.minutesSinceLastConfirm,
     latestDelay: state.latestDelay,
+    traffic: buildTrafficNote(plan, state, now),
     stops,
   };
 
@@ -143,6 +161,30 @@ export function presentTrip(trip, { logs = [], now = new Date(), audience = 'pub
     ignoredLogs: state.ignoredLogs,
     expectedAtNextCheckpoint: staleness.expectedAtNextCheckpoint,
     staleAfter: staleness.staleAfter,
+  };
+}
+
+/**
+ * A plain-language note about the road immediately ahead, or null when there is
+ * nothing worth saying. Small fluctuations are noise; a passenger only needs to
+ * hear about traffic when it actually moves their bus.
+ */
+function buildTrafficNote(plan, state, now) {
+  const nextIndex = state.lastConfirmedIndex + 1;
+  if (nextIndex <= 0 || nextIndex >= plan.length) return null;
+
+  const detail = getSegmentDetail(
+    plan[nextIndex - 1].checkpoint,
+    plan[nextIndex].checkpoint,
+    now.getTime?.() ?? Date.now()
+  );
+  if (!detail || Math.abs(detail.adjustmentMinutes) < 3) return null;
+
+  return {
+    segment: `${plan[nextIndex - 1].name} → ${plan[nextIndex].name}`,
+    adjustmentMinutes: detail.adjustmentMinutes,
+    source: detail.source,
+    checkedAt: new Date(detail.fetchedAt),
   };
 }
 

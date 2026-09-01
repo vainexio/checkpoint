@@ -255,3 +255,90 @@ test('a cancelled trip reports cancelled regardless of its logs', () => {
   const state = computeTripState({ plan, logs: [departed(), passed(CP.balintawak, 35)], cancelled: true });
   assert.equal(state.status, 'cancelled');
 });
+
+/* ------------------------------------------------------------------ traffic */
+
+const seg = (from, to) => `${from}->${to}`;
+
+test('traffic shifts the road ahead but never rewrites a measured variance', () => {
+  // Confirmed Balintawak dead on baseline, then traffic reports +25 on the long
+  // Tarlac leg.
+  const logs = [departed(), passed(CP.balintawak, 20)];
+  const trafficAdjustments = { [seg(CP.balintawak, CP.tarlac)]: 25 };
+
+  const clear = computeTripState({ plan, logs });
+  const jammed = computeTripState({ plan, logs, trafficAdjustments });
+
+  // The past is a measurement and must be identical.
+  assert.equal(jammed.cumulativeVarianceMinutes, clear.cumulativeVarianceMinutes);
+  assert.equal(jammed.cumulativeVarianceMinutes, 0);
+  assert.equal(
+    etaFor(jammed, CP.balintawak).getTime(),
+    etaFor(clear, CP.balintawak).getTime()
+  );
+
+  // Everything past the jam moves by it, once — not once per stop.
+  assert.equal(minutesFromDeparture(etaFor(jammed, CP.tarlac)), 125);
+  assert.equal(minutesFromDeparture(etaFor(jammed, CP.tplex)), 165);
+  assert.equal(minutesFromDeparture(etaFor(jammed, CP.baguio)), 210);
+});
+
+test('traffic on a segment already driven is ignored', () => {
+  // The bus is past Balintawak, so congestion reported on the leg behind it
+  // says nothing about when it will reach Baguio.
+  const state = computeTripState({
+    plan,
+    logs: [departed(), passed(CP.balintawak, 20), passed(CP.tarlac, 100)],
+    trafficAdjustments: { [seg(CP.cubao, CP.balintawak)]: 40 },
+  });
+
+  assert.equal(state.cumulativeVarianceMinutes, 0);
+  assert.equal(minutesFromDeparture(etaFor(state, CP.baguio)), 185);
+});
+
+test('traffic and running late stack, without double-counting', () => {
+  // 15 min late at Balintawak, and 10 min of traffic reported ahead.
+  const state = computeTripState({
+    plan,
+    logs: [departed(), passed(CP.balintawak, 35)],
+    trafficAdjustments: { [seg(CP.balintawak, CP.tarlac)]: 10 },
+  });
+
+  assert.equal(state.cumulativeVarianceMinutes, 15);
+  assert.equal(minutesFromDeparture(etaFor(state, CP.baguio)), 210); // 185 + 15 + 10
+});
+
+test('a jam we already know about does not get reported as a missing bus', () => {
+  const state = computeTripState({ plan, logs: [departed(), passed(CP.balintawak, 20)] });
+  const anchor = addMinutes(DEPARTURE, 20);
+
+  // Tarlac is 80 min out: without traffic the grace window closes at 120 min.
+  assert.equal(
+    evaluateStaleness({ plan, state, now: addMinutes(anchor, 130) }).isStale,
+    true
+  );
+
+  // With 45 minutes of reported congestion on that leg, a bus that has not
+  // confirmed yet is stuck, not silent.
+  const withTraffic = evaluateStaleness({
+    plan,
+    state,
+    now: addMinutes(anchor, 130),
+    trafficAdjustments: { [seg(CP.balintawak, CP.tarlac)]: 45 },
+  });
+  assert.equal(withTraffic.isStale, false);
+  assert.equal(withTraffic.nextSegmentTrafficMinutes, 45);
+});
+
+test('with no traffic provider the engine behaves exactly as before', () => {
+  const a = computeTripState({ plan, logs: [departed(), passed(CP.balintawak, 35)] });
+  const b = computeTripState({
+    plan,
+    logs: [departed(), passed(CP.balintawak, 35)],
+    trafficAdjustments: {},
+  });
+  assert.deepEqual(
+    b.computedETAs.map((e) => e.projectedArrival?.getTime()),
+    a.computedETAs.map((e) => e.projectedArrival?.getTime())
+  );
+});

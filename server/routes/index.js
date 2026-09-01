@@ -18,6 +18,8 @@ router.get('/auth/me', requireAuth, auth.me);
 // No auth middleware below this line, on purpose. A passenger checking a bus
 // should never meet a login screen.
 router.get('/public/stations', pub.listStations);
+router.get('/public/stations/nearby', pub.nearbyStations);
+router.get('/public/map', pub.mapData);
 router.get('/public/stations/:stationId/board', pub.stationBoard);
 router.get('/public/routes', pub.listRoutes);
 router.get('/public/trips', pub.listActiveTrips);

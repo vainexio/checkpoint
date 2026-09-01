@@ -97,7 +97,12 @@ const sortLogs = (logs) =>
  * hours late just sorts into position and the trip recomputes correctly,
  * whatever order it reached the server in.
  */
-export function computeTripState({ plan, logs = [], cancelled = false }) {
+export function computeTripState({
+  plan,
+  logs = [],
+  cancelled = false,
+  trafficAdjustments = null,
+}) {
   if (!plan || !plan.length) throw new Error('computeTripState requires a trip plan.');
 
   const lastIndex = plan.length - 1;
@@ -208,22 +213,50 @@ export function computeTripState({ plan, logs = [], cancelled = false }) {
     }
   }
 
+  /**
+   * Traffic reported for the road still ahead, summed from the last confirmed
+   * point up to `index`.
+   *
+   * Only the future is adjusted. Variance is a measurement of what already
+   * happened — how long the bus actually took against the baseline — and no
+   * traffic feed gets to revise a fact we observed. What traffic can do is say
+   * the next stretch is running slow, and that belongs in the projection.
+   */
+  const trafficAheadTo = (index) => {
+    if (!trafficAdjustments) return 0;
+    let total = 0;
+    for (let i = Math.max(lastConfirmedIndex + 1, 1); i <= index; i += 1) {
+      const key = `${idOf(plan[i - 1].checkpoint)}->${idOf(plan[i].checkpoint)}`;
+      total += trafficAdjustments[key] || 0;
+    }
+    return total;
+  };
+
   // Project every checkpoint: confirmed ones keep their observed time, and
   // everything still ahead carries the current variance forward.
   const computedETAs = plan.map((entry, index) => {
     const seen = progress[index];
     let projectedArrival = null;
+    let trafficMinutes = 0;
+
     if (actualDeparture) {
-      projectedArrival =
-        seen.progress === 'passed' && seen.actualArrival
-          ? seen.actualArrival
-          : addMinutes(actualDeparture, cumulativeBaseline(plan, index) + exactVariance);
+      if (seen.progress === 'passed' && seen.actualArrival) {
+        projectedArrival = seen.actualArrival;
+      } else {
+        trafficMinutes = trafficAheadTo(index);
+        projectedArrival = addMinutes(
+          actualDeparture,
+          cumulativeBaseline(plan, index) + exactVariance + trafficMinutes
+        );
+      }
     }
+
     return {
       checkpoint: entry.checkpoint,
       projectedArrival,
       progress: seen.progress,
       actualArrival: seen.actualArrival,
+      trafficMinutes,
     };
   });
 
@@ -259,7 +292,7 @@ export function computeTripState({ plan, logs = [], cancelled = false }) {
  * an hour ago is worse than no number, because it looks just as confident — so
  * the board is told to stop trusting it rather than left to guess.
  */
-export function evaluateStaleness({ plan, state, now = new Date() }) {
+export function evaluateStaleness({ plan, state, now = new Date(), trafficAdjustments = null }) {
   const quiet = {
     isStale: false,
     minutesSinceLastConfirm: null,
@@ -279,7 +312,18 @@ export function evaluateStaleness({ plan, state, now = new Date() }) {
   if (nextIndex >= plan.length) return quiet;
 
   const segmentBaseline = plan[nextIndex].baselineMinutesFromPrevious || 0;
-  const expectedAtNextCheckpoint = addMinutes(anchor, segmentBaseline);
+
+  // If traffic says this stretch is crawling, a bus that has not reported yet
+  // is late, not missing. Extending the window by the reported delay stops the
+  // board crying "no recent update" at a bus that is simply stuck in the jam we
+  // already know about.
+  const trafficMinutes = trafficAdjustments
+    ? trafficAdjustments[
+        `${idOf(plan[nextIndex - 1].checkpoint)}->${idOf(plan[nextIndex].checkpoint)}`
+      ] || 0
+    : 0;
+
+  const expectedAtNextCheckpoint = addMinutes(anchor, segmentBaseline + Math.max(0, trafficMinutes));
   const staleAfter = addMinutes(expectedAtNextCheckpoint, segmentBaseline * STALE_GRACE_RATIO);
 
   return {
@@ -287,6 +331,7 @@ export function evaluateStaleness({ plan, state, now = new Date() }) {
     minutesSinceLastConfirm: Math.max(0, Math.round(minutesBetween(anchor, now))),
     nextCheckpoint: plan[nextIndex].checkpoint,
     nextCheckpointName: plan[nextIndex].name,
+    nextSegmentTrafficMinutes: trafficMinutes,
     expectedAtNextCheckpoint,
     staleAfter,
   };

@@ -1,12 +1,22 @@
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { AlertCircle, AlertTriangle, ArrowLeft, MapPin } from 'lucide-react';
+import {
+  AlertCircle,
+  AlertTriangle,
+  ArrowLeft,
+  ChevronDown,
+  MapPin,
+  TrafficCone,
+} from 'lucide-react';
 import { usePolling, useNow } from '@/hooks/usePolling.js';
 import { fetchStationBoard } from '@/api/publicApi.js';
 import { StatusBadge } from '@/components/StatusBadge.jsx';
+import { JourneyStrip } from '@/components/JourneyStrip.jsx';
 import { PageHeader, LiveIndicator } from '@/components/layout/AppLayout.jsx';
 import { Card, CardContent } from '@/components/ui/card.tsx';
 import { Alert, AlertDescription } from '@/components/ui/alert.tsx';
 import { Skeleton } from '@/components/ui/skeleton.tsx';
+import { Button } from '@/components/ui/button.tsx';
 import { cn } from '@/lib/utils.ts';
 import { formatCountdown, formatElapsed, formatTime, relativeMinutes } from '@/utils/time.js';
 
@@ -22,9 +32,10 @@ const DELAY_TEXT = {
 /**
  * The arrivals board for one station: every bus heading here, soonest first.
  *
- * The ETA is the largest thing on the screen because it is the only thing most
- * people came for. Everything else — the route, the plate, where it was last
- * confirmed — is supporting evidence for that one number.
+ * Two things a passenger has to be able to do at a glance — read the arrival
+ * time, and identify which physical bus that is when it pulls up. So the ETA is
+ * the biggest thing on the row and the plate number is the second biggest, not
+ * a footnote.
  */
 export default function StationBoardPage() {
   const { stationId } = useParams();
@@ -50,7 +61,7 @@ export default function StationBoardPage() {
       <PageHeader
         icon={MapPin}
         title={data?.station?.name ?? 'Loading…'}
-        description="Buses currently heading to this stop, soonest first. Times update each time a conductor confirms the bus has passed a checkpoint."
+        description="Buses heading to this stop, soonest first. Times update each time a conductor confirms the bus has passed a checkpoint."
         actions={<LiveIndicator lastUpdated={lastUpdated} />}
       />
 
@@ -64,7 +75,7 @@ export default function StationBoardPage() {
       {loading && !data && (
         <div className="space-y-3">
           {[0, 1].map((i) => (
-            <Skeleton key={i} className="h-[150px] rounded-xl" />
+            <Skeleton key={i} className="h-[190px] rounded-xl" />
           ))}
         </div>
       )}
@@ -90,101 +101,160 @@ export default function StationBoardPage() {
 }
 
 function ArrivalRow({ arrival, now }) {
+  const [open, setOpen] = useState(false);
   const minutesAway = relativeMinutes(arrival.eta, now);
   const notDepartedYet = arrival.status === 'scheduled';
   const dimmed = arrival.isStale || notDepartedYet;
 
   return (
-    <Link to={`/trips/${arrival.tripId}`} className="block">
-      <Card className="transition-all duration-200 hover:border-primary/40 hover:shadow-md">
-        <CardContent className="p-5 sm:p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <div className="text-[19px] font-extrabold tracking-tight">{arrival.route}</div>
-              <div className="mt-0.5 text-sm text-muted-foreground">
-                {arrival.origin} → {arrival.destination}
+    <Card className="overflow-hidden">
+      <CardContent className="p-5 sm:p-6">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
+            {/* The plate is how you pick this bus out of five at a curb, so it
+                is set as an identifier, not as metadata. */}
+            {arrival.bus && (
+              <div className="mb-2 inline-flex items-center gap-2 rounded-lg border-2 border-foreground/15 bg-muted/60 px-3 py-1.5">
+                <span className="font-mono text-[19px] font-bold tracking-[0.08em]">
+                  {arrival.bus.plateNumber}
+                </span>
               </div>
+            )}
 
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <StatusBadge
-                  status={arrival.status}
-                  isStale={arrival.isStale}
-                  varianceMinutes={arrival.varianceMinutes}
-                />
-                {arrival.bus && (
-                  <span className="rounded-md border border-border px-2 py-0.5 font-mono text-xs tracking-wide text-muted-foreground">
-                    {arrival.bus.plateNumber}
-                  </span>
-                )}
-              </div>
+            <div className="text-[17px] font-extrabold tracking-tight">{arrival.route}</div>
+            <div className="mt-0.5 text-sm text-muted-foreground">
+              {arrival.bus?.operatorName}
+            </div>
 
-              <div className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <StatusBadge
+                status={arrival.status}
+                isStale={arrival.isStale}
+                varianceMinutes={arrival.varianceMinutes}
+              />
+            </div>
+
+            {/* Plain answers to "where is it" and "does it go where I want". */}
+            <div className="mt-3 space-y-1 text-[13px] leading-relaxed">
+              <div className="text-muted-foreground">
                 {notDepartedYet ? (
                   <>
-                    Departs {formatTime(arrival.scheduledDeparture)} from {arrival.origin}
+                    Still at <span className="font-semibold text-foreground">{arrival.origin}</span>{' '}
+                    · leaves {formatTime(arrival.scheduledDeparture)}
                   </>
                 ) : arrival.lastConfirmedCheckpoint ? (
                   <>
-                    Last confirmed at{' '}
-                    <span className="font-semibold text-foreground/80">
+                    Now around{' '}
+                    <span className="font-semibold text-foreground">
                       {arrival.lastConfirmedCheckpoint.name}
                     </span>
-                    {arrival.minutesSinceLastConfirm !== null && (
-                      <> · {formatElapsed(arrival.minutesSinceLastConfirm)} ago</>
+                    {arrival.stopsAway > 0 && (
+                      <>
+                        {' '}
+                        · {arrival.stopsAway} stop{arrival.stopsAway === 1 ? '' : 's'} before you
+                      </>
                     )}
-                    {arrival.stopsAway > 1 && <> · {arrival.stopsAway} stops away</>}
                   </>
                 ) : (
                   'Not yet departed'
                 )}
               </div>
 
-              {arrival.latestDelay && !arrival.isStale && (
-                <div className="mt-2 text-[13px] font-medium text-warning">
-                  Conductor reported {DELAY_TEXT[arrival.latestDelay.reason] ?? 'a delay'}
-                  {arrival.latestDelay.nearCheckpoint && (
-                    <> near {arrival.latestDelay.nearCheckpoint}</>
-                  )}
-                  , {formatTime(arrival.latestDelay.reportedAt)}
+              {arrival.continuesTo?.length > 0 && (
+                <div className="text-muted-foreground">
+                  After your stop, continues to{' '}
+                  <span className="font-semibold text-foreground">
+                    {arrival.continuesTo.join(' → ')}
+                  </span>
                 </div>
               )}
             </div>
 
-            <div className="shrink-0 text-left sm:min-w-[160px] sm:text-right">
-              <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                {notDepartedYet ? 'Scheduled arrival' : 'Expected arrival'}
+            {arrival.traffic && (
+              <div className="mt-3 flex items-start gap-2 rounded-lg bg-warning/10 px-3 py-2 text-[13px] text-warning">
+                <TrafficCone className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>
+                  Live traffic on {arrival.traffic.segment} is running{' '}
+                  <strong>
+                    {arrival.traffic.adjustmentMinutes > 0 ? '+' : ''}
+                    {arrival.traffic.adjustmentMinutes} min
+                  </strong>{' '}
+                  against normal. Already included below.
+                </span>
               </div>
-              <div
-                className={cn(
-                  'font-mono tabular text-[44px] font-bold leading-none tracking-tight sm:text-[56px]',
-                  dimmed && 'text-muted-foreground'
+            )}
+
+            {arrival.latestDelay && !arrival.isStale && (
+              <div className="mt-2 text-[13px] font-medium text-warning">
+                Conductor reported {DELAY_TEXT[arrival.latestDelay.reason] ?? 'a delay'}
+                {arrival.latestDelay.nearCheckpoint && (
+                  <> near {arrival.latestDelay.nearCheckpoint}</>
                 )}
-              >
-                {formatTime(notDepartedYet ? arrival.scheduledEta : arrival.eta)}
+                , {formatTime(arrival.latestDelay.reportedAt)}
               </div>
-              <div className="mt-2 text-[13px] font-medium text-muted-foreground">
-                {notDepartedYet
-                  ? 'if it leaves on time'
-                  : arrival.isStale
-                    ? 'rough estimate'
-                    : minutesAway !== null && minutesAway > 1
-                      ? formatCountdown(arrival.eta, now)
-                      : 'arriving now'}
-              </div>
-            </div>
+            )}
           </div>
 
-          {arrival.isStale && (
-            <div className="mt-4 flex items-start gap-2 border-t border-dashed border-border pt-3 text-[13px] text-muted-foreground">
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <span>
-                No update in {formatElapsed(arrival.minutesSinceLastConfirm)} — this time may be
-                out of date.
-              </span>
+          <div className="shrink-0 text-left sm:min-w-[160px] sm:text-right">
+            <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+              {notDepartedYet ? 'Scheduled arrival' : 'Expected arrival'}
+            </div>
+            <div
+              className={cn(
+                'font-mono tabular text-[44px] font-bold leading-none tracking-tight sm:text-[56px]',
+                dimmed && 'text-muted-foreground'
+              )}
+            >
+              {formatTime(notDepartedYet ? arrival.scheduledEta : arrival.eta)}
+            </div>
+            <div className="mt-2 text-[13px] font-medium text-muted-foreground">
+              {notDepartedYet
+                ? 'if it leaves on time'
+                : arrival.isStale
+                  ? 'rough estimate'
+                  : minutesAway !== null && minutesAway > 1
+                    ? formatCountdown(arrival.eta, now)
+                    : 'arriving now'}
+            </div>
+          </div>
+        </div>
+
+        {arrival.isStale && (
+          <div className="mt-4 flex items-start gap-2 border-t border-dashed border-border pt-3 text-[13px] text-muted-foreground">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              No update in {formatElapsed(arrival.minutesSinceLastConfirm)} — this time may be out
+              of date.
+            </span>
+          </div>
+        )}
+
+        <div className="mt-4 border-t border-border pt-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="-ml-2 h-8 text-muted-foreground"
+            onClick={() => setOpen((v) => !v)}
+          >
+            <ChevronDown
+              className={cn('mr-1.5 h-3.5 w-3.5 transition-transform', open && 'rotate-180')}
+            />
+            {open ? 'Hide full route' : 'See the full route'}
+          </Button>
+
+          {open && (
+            <div className="mt-3 space-y-3">
+              <JourneyStrip journey={arrival.journey} />
+              <Link
+                to={`/trips/${arrival.tripId}`}
+                className="inline-block text-[13px] font-semibold text-primary underline-offset-4 hover:underline"
+              >
+                Full trip details →
+              </Link>
             </div>
           )}
-        </CardContent>
-      </Card>
-    </Link>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

@@ -21,6 +21,23 @@ const checkpointSchema = new mongoose.Schema(
 
     // True for official origin/destination terminals.
     isTerminal: { type: Boolean, default: false },
+
+    /**
+     * Where this point physically is.
+     *
+     * This is static geocoding of a fixed, known place — a terminal, a toll
+     * exit — encoded once by an operator. It is emphatically NOT bus tracking:
+     * no vehicle position is ever derived from it. It exists so passengers can
+     * see stops on a map and find the ones near them, and so the traffic
+     * provider has segment endpoints to ask about.
+     */
+    location: {
+      lat: { type: Number, min: -90, max: 90, default: null },
+      lng: { type: Number, min: -180, max: 180, default: null },
+    },
+
+    // Free text to orient someone who does not know the area ("Quezon City").
+    area: { type: String, trim: true, default: '' },
   },
   { timestamps: true }
 );

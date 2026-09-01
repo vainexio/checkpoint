@@ -12,7 +12,10 @@ A conductor taps a button when the bus passes a known point. The system compares
 against the route's baseline travel time, derives how early or late the bus is running, and
 projects that variance forward onto every remaining stop.
 
-There is no GPS or device geolocation anywhere in this system, by design.
+**No bus is ever tracked by GPS.** Checkpoints carry coordinates so stops can be shown on a
+map and ranked by distance, and so the traffic provider has segment endpoints to ask about —
+but a bus's position comes only from a conductor confirming a checkpoint, never from a device.
+The map has no moving parts.
 
 ## The three experiences
 
@@ -88,6 +91,28 @@ The grace scales with the segment, so a 20-minute urban hop is flagged sooner th
 80-minute rural one. When a trip is stale the board greys the number, labels it "estimate
 estimate, and says how long it has been since anyone confirmed anything.
 
+## Live traffic
+
+Baselines say what a leg *usually* takes. Traffic says what it is taking now.
+[`services/trafficProvider.js`](server/services/trafficProvider.js) turns the second into a
+per-segment adjustment the engine applies to the road still ahead.
+
+Checkpoints are what make this affordable. A GPS system has no idea which stretch of highway
+matters, so it polls everything; we know each bus's last confirmed checkpoint, so we ask about
+the one or two segments it is about to drive — **once per segment**, however many buses are on
+it, cached for five minutes, and never on the request path.
+
+The split that matters:
+
+- **Variance is a measurement** of what already happened, and no traffic feed revises it.
+- **Traffic only moves projections** for segments ahead of the last confirmed checkpoint.
+- Congestion we already know about also **widens the staleness window**, so a bus stuck in a
+  reported jam is not accused of having gone silent.
+
+Set `TRAFFIC_API_KEY` in `server/.env` to enable it ([TomTom](https://developer.tomtom.com)
+has a free tier with no card). With no key the provider is inert and ETAs use pure baselines —
+same behaviour as before traffic existed, and every test covers both paths.
+
 ## Offline queueing
 
 Connectivity on provincial routes is unreliable, so a tap must never fail for want of signal.
@@ -134,9 +159,10 @@ the viewer's device clock.
 cd server && npm test
 ```
 
-29 tests: the engine's arithmetic (variance, re-projection, skipped checkpoints, out-of-order
-replay, staleness thresholds) plus API integration against an in-memory MongoDB covering
-the shared login and its role boundary, the frozen plan, offline sync, and the public board.
+34 tests: the engine's arithmetic (variance, re-projection, skipped checkpoints, out-of-order
+replay, staleness thresholds, and traffic applying forward-only without touching a measured
+variance) plus API integration against an in-memory MongoDB covering the shared login and its
+role boundary, the frozen plan, offline sync, and the public board.
 
 ## Project layout
 
@@ -144,13 +170,15 @@ the shared login and its role boundary, the frozen plan, offline sync, and the p
 server/
   models/       Checkpoint, Route, Bus, User, Trip, CheckpointLog
   services/     etaEngine.js (pure) · tripService.js (persistence bridge)
+                trafficProvider.js (pluggable) · trafficRefresher.js (cache warmer)
   controllers/  auth · admin · conductor · public
   middleware/   JWT auth, role checks, error handling
   seed.js       Cubao – Baguio demo data
 client/
   src/pages/          guest/ · conductor/ · admin/
   src/components/ui/  shadcn primitives, copied from SCOUT
-  src/components/     StatusBadge · StaleNotice · Timeline · layout/AppLayout
+  src/components/     StatusBadge · StaleNotice · Timeline · JourneyStrip
+                      CheckpointMap (Leaflet/OSM) · layout/AppLayout
   src/hooks/          usePolling · useOfflineQueue · useAuth
   src/api/            one module per audience
   src/index.css       SCOUT design tokens
@@ -158,6 +186,6 @@ client/
 
 ## Not built yet (deliberately)
 
-GPS or geolocation in any form · live traffic API integration · multi-operator tenancy ·
-automatic baseline recalibration from historical trips (the data is logged, the job is not
-built) · payments and the paid operator-analytics tier · push notifications and SMS fallback.
+GPS tracking of vehicles in any form · multi-operator tenancy · automatic baseline
+recalibration from historical trips (the data is logged, the job is not built) · payments and
+the paid operator-analytics tier · push notifications and SMS fallback.

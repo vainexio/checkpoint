@@ -2,6 +2,7 @@ import 'dotenv/config';
 import mongoose from 'mongoose';
 
 import { createApp } from './app.js';
+import { startTrafficRefresher } from './services/trafficRefresher.js';
 
 const PORT = process.env.PORT || 4000;
 
@@ -22,6 +23,10 @@ async function start() {
   createApp().listen(PORT, () => {
     console.log(`CHECKPOINT API listening on http://localhost:${PORT}`);
   });
+
+  // Warms the traffic cache for the road buses are about to drive. Silently
+  // does nothing when no TRAFFIC_API_KEY is set.
+  startTrafficRefresher();
 }
 
 start().catch((err) => {

@@ -99,8 +99,8 @@ export default function TripDetailPage() {
         )}
 
         {trip.latestDelay && !trip.isStale && (
-          <Alert className="border-warning/40 bg-warning/10">
-            <CircleDot className="h-4 w-4 text-warning" />
+          <Alert className="border-warning/50 bg-warning/15">
+            <CircleDot className="h-4 w-4 text-warning-strong" />
             <AlertDescription>
               Conductor reported {DELAY_TEXT[trip.latestDelay.reason] ?? 'a delay'}
               {trip.latestDelay.nearCheckpoint && <> near {trip.latestDelay.nearCheckpoint}</>}, at{' '}

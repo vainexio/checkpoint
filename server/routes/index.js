@@ -38,6 +38,8 @@ const adminOnly = [requireAuth, requireRole('admin')];
 
 router.get('/admin/dashboard', ...adminOnly, admin.dashboard);
 
+router.get('/admin/geocode', ...adminOnly, admin.geocodePlace);
+
 router.get('/admin/checkpoints', ...adminOnly, admin.listCheckpoints);
 router.post('/admin/checkpoints', ...adminOnly, admin.createCheckpoint);
 router.put('/admin/checkpoints/:id', ...adminOnly, admin.updateCheckpoint);

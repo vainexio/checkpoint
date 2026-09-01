@@ -51,28 +51,41 @@ Demo accounts created by the seed (change them before this touches anything real
 
 ## Deploying to Render
 
-`render.yaml` is a blueprint for both services — **New > Blueprint** on Render, point it at
-this repo, then fill in the values marked `sync: false`.
+**One service.** Express serves the API and the built React app together, so there is a single
+URL, no CORS, and no pair of services that need to know each other's addresses.
 
-The two services reference each other, which Render cannot resolve on a first deploy:
+| Field | Value |
+|---|---|
+| Root Directory | *(leave blank)* |
+| Build Command | `npm install --prefix server && npm install --prefix client && npm run build --prefix client` |
+| Start Command | `node server/server.js` |
+| Health Check Path | `/health` |
 
-| Service | Variable | Value |
-|---|---|---|
-| `checkpoint-api` | `CLIENT_ORIGIN` | the static site's URL, e.g. `https://checkpoint-web.onrender.com` |
-| `checkpoint-web` | `VITE_API_BASE_URL` | the API's URL **plus `/api`**, e.g. `https://checkpoint-api.onrender.com/api` |
+Environment variables:
 
-So: deploy both, copy each URL into the other, then **redeploy the static site** — Vite bakes
-`VITE_API_BASE_URL` in at build time, so changing it requires a rebuild, not just a restart.
+```
+NODE_VERSION=20.11.1
+MONGODB_URI=...
+JWT_SECRET=...
+JWT_EXPIRES_IN=12h
+TRAFFIC_PROVIDER=tomtom
+TRAFFIC_API_KEY=...
+```
+
+Don't set `PORT` — Render injects it. Don't set `CLIENT_ORIGIN` or `VITE_API_BASE_URL` — the
+client calls a relative `/api`, so neither applies.
+
+`render.yaml` declares all of the above; **New > Blueprint** creates the service from it.
 
 Two things that will otherwise bite:
 
 - **Atlas network access.** Render's free tier has no static outbound IPs, so the cluster must
   allow `0.0.0.0/0` under Network Access or every request fails to connect.
-- **SPA rewrites.** The blueprint routes `/*` to `/index.html`. Without it, refreshing on
-  `/stations/:id` returns a 404 from the static host before React ever loads.
+- **Seed once, manually.** Run `npm run seed` locally against the production `MONGODB_URI`.
+  It rebuilds the demo trips every run, so it must not be part of the deploy.
 
-Seeding runs against whatever `MONGODB_URI` points at — run `npm run seed` locally with the
-production URI once, rather than wiring a seed step into the deploy.
+On the free plan the service sleeps after ~15 minutes idle and takes ~50s to wake, which looks
+like a broken board to anyone opening it cold.
 
 ## How the ETA works
 

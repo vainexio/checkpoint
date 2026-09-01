@@ -1,23 +1,20 @@
-# Render blueprint. Point Render at this repo with "New > Blueprint" and it
-# creates both services; then fill in the values marked sync:false in the
-# dashboard (they are secrets and must not live in git).
-#
-# The two services need to know about each other:
-#   API   CLIENT_ORIGIN       = the static site's URL   (for CORS)
-#   Web   VITE_API_BASE_URL   = the API's URL + /api    (baked in at build time)
-# Render cannot resolve that circularity on first deploy, so set both after the
-# URLs exist and redeploy the static site.
+# Render blueprint. One service: Express serves the API *and* the built React
+# app, so there is one URL, no CORS, and nothing for the two halves to know
+# about each other. Point Render at this repo with "New > Blueprint", then fill
+# in the values marked sync:false (they are secrets and must not live in git).
 
 services:
   - type: web
-    name: checkpoint-api
+    name: checkpoint
     runtime: node
     plan: free
-    rootDir: server
-    buildCommand: npm install
-    startCommand: node server.js
+    # Root Directory stays at the repo root, because the build has to reach
+    # both halves and the server serves the client's dist folder.
+    buildCommand: npm install --prefix server && npm install --prefix client && npm run build --prefix client
+    startCommand: node server/server.js
     healthCheckPath: /health
     envVars:
+      # fetch() and crypto.randomUUID() need a current runtime.
       - key: NODE_VERSION
         value: 20.11.1
       - key: MONGODB_URI
@@ -26,28 +23,10 @@ services:
         sync: false
       - key: JWT_EXPIRES_IN
         value: 12h
-      - key: CLIENT_ORIGIN
-        sync: false
+      # Live traffic. Leave TRAFFIC_API_KEY unset to run on static baselines.
       - key: TRAFFIC_PROVIDER
         value: tomtom
       - key: TRAFFIC_API_KEY
         sync: false
-
-  - type: web
-    name: checkpoint-web
-    runtime: static
-    rootDir: client
-    buildCommand: npm install && npm run build
-    staticPublishPath: ./dist
-    envVars:
-      - key: NODE_VERSION
-        value: 20.11.1
-      - key: VITE_API_BASE_URL
-        sync: false
-    routes:
-      # The client routes /stations/:id and /trips/:id itself. Without this,
-      # a deep link or a refresh on any page but "/" returns a 404 from the
-      # static host before React ever loads.
-      - type: rewrite
-        source: /*
-        destination: /index.html
+      # CLIENT_ORIGIN and VITE_API_BASE_URL are deliberately absent: the client
+      # calls a relative /api on the same origin, so neither is needed.

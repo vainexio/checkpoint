@@ -5,6 +5,10 @@ const opts = { auth: true };
 
 export const fetchDashboard = () => api.get('/admin/dashboard', opts);
 
+/** Free OpenStreetMap place lookup, proxied and rate-limited by our server. */
+export const geocodePlace = (q) =>
+  api.get(`/admin/geocode?q=${encodeURIComponent(q)}`, opts);
+
 export const listCheckpoints = () => api.get('/admin/checkpoints', opts);
 export const createCheckpoint = (body) => api.post('/admin/checkpoints', body, opts);
 export const updateCheckpoint = (id, body) => api.put(`/admin/checkpoints/${id}`, body, opts);

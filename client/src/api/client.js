@@ -1,4 +1,10 @@
-const BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
+/**
+ * Same-origin by default. In production one Express service serves both the API
+ * and this bundle, and in development the Vite dev server proxies /api to it —
+ * so the client never needs to know the API's address, and CORS never applies.
+ * Override only if you deliberately split them onto separate hosts.
+ */
+const BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
 /**
  * One session for staff, whichever role they hold. The token carries the role;

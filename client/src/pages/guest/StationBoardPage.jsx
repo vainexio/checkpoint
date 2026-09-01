@@ -151,7 +151,7 @@ function ArrivalRow({ arrival, now }) {
                     {arrival.stopsAway > 0 && (
                       <>
                         {' '}
-                        · {arrival.stopsAway} stop{arrival.stopsAway === 1 ? '' : 's'} before you
+                        · {arrival.stopsAway} stop{arrival.stopsAway === 1 ? '' : 's'} away
                       </>
                     )}
                   </>
@@ -162,7 +162,7 @@ function ArrivalRow({ arrival, now }) {
 
               {arrival.continuesTo?.length > 0 && (
                 <div className="text-muted-foreground">
-                  After your stop, continues to{' '}
+                  After this stop, continues to{' '}
                   <span className="font-semibold text-foreground">
                     {arrival.continuesTo.join(' → ')}
                   </span>
@@ -171,21 +171,20 @@ function ArrivalRow({ arrival, now }) {
             </div>
 
             {arrival.traffic && (
-              <div className="mt-3 flex items-start gap-2 rounded-lg bg-warning/10 px-3 py-2 text-[13px] text-warning">
-                <TrafficCone className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <div className="mt-3 flex items-start gap-2.5 rounded-lg border border-warning/50 bg-warning/15 px-3 py-2.5 text-[13px] text-foreground">
+                <TrafficCone className="mt-0.5 h-4 w-4 shrink-0 text-warning-strong" />
                 <span>
-                  Live traffic on {arrival.traffic.segment} is running{' '}
-                  <strong>
-                    {arrival.traffic.adjustmentMinutes > 0 ? '+' : ''}
+                  <strong className="font-bold">
+                    Traffic {arrival.traffic.adjustmentMinutes > 0 ? '+' : ''}
                     {arrival.traffic.adjustmentMinutes} min
                   </strong>{' '}
-                  against normal. Already included below.
+                  on {arrival.traffic.segment}, already included in the time shown.
                 </span>
               </div>
             )}
 
             {arrival.latestDelay && !arrival.isStale && (
-              <div className="mt-2 text-[13px] font-medium text-warning">
+              <div className="mt-2 text-[13px] font-medium text-warning-strong">
                 Conductor reported {DELAY_TEXT[arrival.latestDelay.reason] ?? 'a delay'}
                 {arrival.latestDelay.nearCheckpoint && (
                   <> near {arrival.latestDelay.nearCheckpoint}</>

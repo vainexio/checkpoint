@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   ArrowDown,
@@ -6,6 +6,7 @@ import {
   MapPin,
   Plus,
   Route as RouteIcon,
+  Search,
   Trash2,
   X,
 } from 'lucide-react';
@@ -15,6 +16,7 @@ import {
   createRoute,
   deleteCheckpoint,
   deleteRoute,
+  geocodePlace,
   listCheckpoints,
   listRoutes,
 } from '@/api/adminApi.js';
@@ -57,6 +59,7 @@ export default function AdminRoutesPage() {
   const [saving, setSaving] = useState(false);
 
   const [draftPin, setDraftPin] = useState(null);
+  const [suggested, setSuggested] = useState(null);
   const [previewRouteId, setPreviewRouteId] = useState(null);
 
   const byId = useMemo(
@@ -140,6 +143,14 @@ export default function AdminRoutesPage() {
             )}
           </CardHeader>
           <CardContent className="p-0">
+            <div className="border-b border-border p-4">
+              <PlaceSearch
+                onPick={(hit) => {
+                  setDraftPin(hit.location);
+                  setSuggested({ name: hit.name, area: hit.area });
+                }}
+              />
+            </div>
             <CheckpointMap
               checkpoints={checkpoints.items.map((c) => ({ ...c, id: c._id }))}
               routePath={previewPath}
@@ -150,8 +161,8 @@ export default function AdminRoutesPage() {
               className="rounded-none border-0 border-b"
             />
             <div className="px-5 py-3 text-xs text-muted-foreground">
-              Click an empty spot to place a new checkpoint · click an existing pin to add it to
-              the route being built
+              Search a place above, or click an empty spot to place a checkpoint · click an
+              existing pin to add it to the route being built
             </div>
           </CardContent>
         </Card>
@@ -160,9 +171,14 @@ export default function AdminRoutesPage() {
         <div className="space-y-4">
           <NewCheckpointCard
             draftPin={draftPin}
-            onClear={() => setDraftPin(null)}
+            suggested={suggested}
+            onClear={() => {
+              setDraftPin(null);
+              setSuggested(null);
+            }}
             onCreated={async (created) => {
               setDraftPin(null);
+              setSuggested(null);
               await checkpoints.reload();
               addStop(created._id);
             }}
@@ -420,10 +436,97 @@ export default function AdminRoutesPage() {
   );
 }
 
+/**
+ * Type a place name and drop a pin on it.
+ *
+ * Backed by OpenStreetMap's free lookup, proxied through our own server so the
+ * rate limit is honoured centrally. It costs nothing and shares no quota with
+ * the traffic provider — worst case the search returns nothing and the map
+ * click still works.
+ */
+function PlaceSearch({ onPick }) {
+  const [q, setQ] = useState('');
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const seq = useRef(0);
+
+  // Debounced: one lookup after typing stops, not one per keystroke. The free
+  // service asks for at most a request per second and this is how we stay well
+  // inside that.
+  useEffect(() => {
+    const term = q.trim();
+    if (term.length < 3) {
+      setResults([]);
+      return undefined;
+    }
+
+    const mine = ++seq.current;
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await geocodePlace(term);
+        if (seq.current === mine) setResults(res.results ?? []);
+      } catch {
+        if (seq.current === mine) setResults([]);
+      } finally {
+        if (seq.current === mine) setSearching(false);
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [q]);
+
+  return (
+    <div className="relative">
+      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <Input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Find a place — e.g. “Balintawak” or “PITX”"
+        className="pl-9"
+      />
+      {searching && (
+        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+          searching…
+        </span>
+      )}
+
+      {results.length > 0 && (
+        <ul className="absolute z-[1000] mt-1 max-h-64 w-full overflow-auto rounded-lg border border-border bg-popover shadow-lg">
+          {results.map((hit, i) => (
+            <li key={i}>
+              <button
+                type="button"
+                className="w-full px-3 py-2 text-left hover:bg-muted"
+                onClick={() => {
+                  onPick(hit);
+                  setQ('');
+                  setResults([]);
+                }}
+              >
+                <span className="block text-sm font-semibold">{hit.name}</span>
+                <span className="block truncate text-xs text-muted-foreground">{hit.label}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 /** Turns a dropped pin into a named checkpoint without leaving the page. */
-function NewCheckpointCard({ draftPin, onClear, onCreated, onError }) {
+function NewCheckpointCard({ draftPin, suggested, onClear, onCreated, onError }) {
   const [form, setForm] = useState({ name: '', type: 'station', area: '', isTerminal: false });
   const [busy, setBusy] = useState(false);
+
+  // A pin from the search box already knows what the place is called, so the
+  // form arrives filled in rather than blank.
+  useEffect(() => {
+    if (suggested) {
+      setForm((f) => ({ ...f, name: suggested.name ?? '', area: suggested.area ?? '' }));
+    }
+  }, [suggested]);
 
   if (!draftPin) {
     return (

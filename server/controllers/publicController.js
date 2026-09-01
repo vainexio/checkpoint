@@ -70,11 +70,16 @@ function distanceKm(a, b) {
 }
 
 /**
- * Stations near a point, nearest first.
+ * How far a stop can be and still honestly be called "near you".
  *
- * The coordinates come from the passenger's own device and are used for this
- * one ranking. Nothing is stored, and no bus position is involved.
+ * Roughly a short ride: far enough to include the terminal across town, close
+ * enough that getting there is not itself a journey. Sorting by distance alone
+ * is not enough — with only a handful of stops in the database the closest one
+ * can be 60 km away, and calling that "nearest to you" is technically true and
+ * practically a lie.
  */
+const NEARBY_RADIUS_KM = 25;
+
 export const nearbyStations = asyncHandler(async (req, res) => {
   const lat = Number(req.query.lat);
   const lng = Number(req.query.lng);
@@ -93,10 +98,19 @@ export const nearbyStations = asyncHandler(async (req, res) => {
       ...toPublicCheckpoint(s),
       distanceKm: Math.round(distanceKm({ lat, lng }, s.location) * 10) / 10,
     }))
-    .sort((a, b) => a.distanceKm - b.distanceKm)
-    .slice(0, Number(req.query.limit) || 8);
+    .sort((a, b) => a.distanceKm - b.distanceKm);
 
-  res.json({ from: { lat, lng }, stations: ranked });
+  const within = ranked.filter((s) => s.distanceKm <= NEARBY_RADIUS_KM);
+
+  res.json({
+    from: { lat, lng },
+    radiusKm: NEARBY_RADIUS_KM,
+    // Genuinely nearby, if anything is.
+    within: within.slice(0, Number(req.query.limit) || 8),
+    // When nothing is, say so and offer the closest anyway — labelled for what
+    // it is, rather than dressed up as "near".
+    fallback: within.length ? [] : ranked.slice(0, 3),
+  });
 });
 
 export const listRoutes = asyncHandler(async (req, res) => {

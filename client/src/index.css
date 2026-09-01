@@ -28,6 +28,7 @@
   --color-success-foreground: hsl(var(--success-foreground));
   --color-warning: hsl(var(--warning));
   --color-warning-foreground: hsl(var(--warning-foreground));
+  --color-warning-strong: hsl(var(--warning-strong));
 
   --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
@@ -74,6 +75,9 @@
 
   --warning: 40 90% 55%;
   --warning-foreground: 220 20% 15%;
+  /* The bright amber above is a fill colour. As text on a near-white card it
+     fails contrast badly, so warning *words* use this darker amber instead. */
+  --warning-strong: 32 88% 30%;
 
   --border: 35 15% 85%;
   --input: 35 15% 85%;
@@ -113,6 +117,8 @@
 
   --warning: 40 80% 60%;
   --warning-foreground: 220 30% 10%;
+  /* Inverted for a dark ground: text needs to be lighter, not darker. */
+  --warning-strong: 40 90% 72%;
 
   --border: 220 20% 25%;
   --input: 220 20% 25%;

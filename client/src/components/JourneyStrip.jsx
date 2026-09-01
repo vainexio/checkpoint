@@ -3,7 +3,7 @@ import { formatTime } from '@/utils/time.js';
 
 /**
  * The whole route as one horizontal strip, with the bus's last confirmed
- * position and *your* stop both marked.
+ * position and the stop being viewed both marked.
  *
  * This exists for the passenger who does not know the area. A list of place
  * names means nothing if you have never heard of them; seeing that the bus is
@@ -51,12 +51,12 @@ export function JourneyStrip({ journey }) {
 
                 {stop.isCurrentPosition && (
                   <span className="mt-1 rounded-full bg-success/15 px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-success">
-                    bus here
+                    bus is here
                   </span>
                 )}
                 {stop.isYourStop && (
                   <span className="mt-1 rounded-full bg-primary/15 px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-primary">
-                    your stop
+                    this stop
                   </span>
                 )}
               </div>

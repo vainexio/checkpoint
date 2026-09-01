@@ -24,7 +24,7 @@ export default function StationsPage() {
   const map = usePolling(fetchMapData, { intervalMs: 300000 });
 
   const [query, setQuery] = useState('');
-  const [nearby, setNearby] = useState(null);
+  const [nearby, setNearby] = useState(null); // { radiusKm, within, fallback }
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState(null);
   const [you, setYou] = useState(null);
@@ -58,7 +58,7 @@ export default function StationsPage() {
         setYou(here);
         try {
           const res = await fetchNearbyStations(here.lat, here.lng);
-          setNearby(res.stations);
+          setNearby(res);
           setQuery('');
         } catch (err) {
           setLocationError(err.message);
@@ -178,13 +178,31 @@ export default function StationsPage() {
         </Section>
       )}
 
-      {nearby && (
-        <Section title="Nearest to you">
-          {nearby.map((s) => (
-            <StationCard key={s.id} station={s} />
-          ))}
-        </Section>
-      )}
+      {nearby &&
+        (nearby.within.length > 0 ? (
+          <Section title={`Stops within ${nearby.radiusKm} km of you`}>
+            {nearby.within.map((s) => (
+              <StationCard key={s.id} station={s} />
+            ))}
+          </Section>
+        ) : (
+          /*
+           * Sorting by distance always produces a "nearest", but calling a stop
+           * 60 km away "near you" is a lie a passenger would act on. When
+           * nothing is actually close, say so plainly and offer the closest as
+           * what it is — the most realistic option, not a nearby one.
+           */
+          <Section title="Nothing close to you">
+            <div className="col-span-full mb-1 rounded-xl border border-dashed border-border bg-muted/40 p-4 text-sm text-muted-foreground">
+              No stops within {nearby.radiusKm} km of where you are. This route network only
+              covers Cubao–Baguio for now. The most realistic options are below — you would need
+              to travel to reach them.
+            </div>
+            {nearby.fallback.map((s) => (
+              <StationCard key={s.id} station={s} far />
+            ))}
+          </Section>
+        ))}
 
       {!matches && !nearby && (
         <>
@@ -219,7 +237,7 @@ function Section({ title, children }) {
   );
 }
 
-function StationCard({ station }) {
+function StationCard({ station, far = false }) {
   return (
     <Link to={`/stations/${station.id}`} className="group">
       <Card className="h-full transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
@@ -234,8 +252,9 @@ function StationCard({ station }) {
                 </span>
               )}
               {station.distanceKm != null && (
-                <Badge variant="secondary" className="mt-1.5">
+                <Badge variant={far ? 'muted' : 'secondary'} className="mt-1.5">
                   {station.distanceKm} km away
+                  {far && ' · not nearby'}
                 </Badge>
               )}
             </span>

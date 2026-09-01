@@ -2,6 +2,25 @@ import { Bus, Checkpoint, CheckpointLog, Route, Trip, User } from '../models/ind
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { buildPlan } from '../services/etaEngine.js';
 import { presentTrip, presentTrips, TRIP_POPULATE } from '../services/tripService.js';
+import { geocode } from '../services/geocoder.js';
+
+/* ------------------------------------------------------------------ geocoding */
+
+/**
+ * Look up a place by name so a pin can be dropped without hunting on the map.
+ *
+ * Admin-only on purpose: this proxies a free community service with a strict
+ * rate limit, and exposing it publicly would be the quickest way to get the
+ * whole deployment blocked. Costs nothing and is unrelated to the traffic key.
+ */
+export const geocodePlace = asyncHandler(async (req, res) => {
+  try {
+    res.json({ results: await geocode(req.query.q, { limit: 6 }) });
+  } catch (err) {
+    // A failed lookup is not a failed page — clicking the map still works.
+    res.json({ results: [], error: 'Place search is unavailable right now.' });
+  }
+});
 
 /* ---------------------------------------------------------------- checkpoints */
 

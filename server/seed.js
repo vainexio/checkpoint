@@ -6,7 +6,14 @@
  *
  * Run with:  npm run seed        (add --fresh to wipe first)
  */
-import 'dotenv/config';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import dotenv from 'dotenv';
+
+// Load server/.env by its own path, not the working directory's — so the app
+// starts the same whether you run `node server.js` from here or
+// `node server/server.js` from the repo root (which is what Render does).
+dotenv.config({ path: path.join(path.dirname(fileURLToPath(import.meta.url)), '.env') });
 import mongoose from 'mongoose';
 
 import { Bus, Checkpoint, CheckpointLog, Route, Trip, User } from './models/index.js';

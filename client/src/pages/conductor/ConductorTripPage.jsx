@@ -18,6 +18,7 @@ import {
 import { usePolling } from '@/hooks/usePolling.js';
 import { useOfflineQueue } from '@/hooks/useOfflineQueue.js';
 import { fetchMyTrip } from '@/api/conductorApi.js';
+import { applyTap } from '@/utils/optimisticTrip.js';
 import { StatusBadge } from '@/components/StatusBadge.jsx';
 import { SeatPicker, loadLevel } from '@/components/SeatPicker.jsx';
 import { Timeline } from '@/components/Timeline.jsx';
@@ -145,6 +146,18 @@ export default function ConductorTripPage() {
 
   const tap = (entry, message) => {
     const log = enqueue(entry);
+    /**
+     * Move the screen now, not when the server gets back.
+     *
+     * The tap is already saved to the device by this point, so waiting on a
+     * round trip before the button changes buys nothing and costs a second or
+     * more — during which the conductor is looking at a screen that still
+     * names the stop they have just left, with no way to tell a slow network
+     * from a tap that did not take. The server's reply overwrites this.
+     */
+    setData((prev) =>
+      prev?.trip ? { trip: applyTap(prev.trip, entry, log.reportedAt) } : prev
+    );
     setReceipt({ message, at: new Date(), clientLogId: log.clientLogId });
     setPanel(null);
     setUndoError(null);

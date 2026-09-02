@@ -44,7 +44,6 @@ export default function LoginPage() {
 
   return (
     <div className="relative flex min-h-[100dvh] items-center justify-center bg-background px-4 py-10">
-      <div className="pointer-events-none fixed inset-0 bg-blobs" aria-hidden />
 
       <motion.div
         initial={{ opacity: 0, y: 12 }}

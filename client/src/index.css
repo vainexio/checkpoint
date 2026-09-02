@@ -143,21 +143,6 @@
   .bg-warm-gradient {
     background: linear-gradient(135deg, hsl(var(--primary) / 0.05), hsl(var(--accent) / 0.05));
   }
-  /*
-   * Ambient depth, deliberately near the threshold of noticing.
-   *
-   * At four percent over a twenty percent radius this was invisible and every
-   * screen read as flat white. Taken far the other way it reads as a marketing
-   * page, which is worse for a tool people are meant to trust with a departure
-   * time. These are large, soft, and weak enough that the page still looks like
-   * white paper — they give it a surface rather than a colour.
-   */
-  .bg-blobs {
-    background-image:
-      radial-gradient(ellipse 70% 50% at 12% -6%, hsl(var(--primary) / 0.10), transparent 60%),
-      radial-gradient(ellipse 60% 45% at 92% 4%, hsl(var(--accent) / 0.08), transparent 60%),
-      radial-gradient(ellipse 80% 42% at 50% 104%, hsl(var(--primary) / 0.06), transparent 64%);
-  }
   .glass-panel {
     @apply bg-background/70 backdrop-blur-xl border-b border-border shadow-sm;
   }

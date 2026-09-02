@@ -87,8 +87,6 @@ export function AppLayout({ children, navbar }) {
 
   return (
     <div className="relative flex min-h-[100dvh] flex-col bg-background text-foreground selection:bg-primary/20">
-      <div className="pointer-events-none fixed inset-0 bg-blobs" aria-hidden />
-
       {navbar}
 
       <main className="relative z-10 mx-auto w-full max-w-7xl flex-1 px-4 py-10 sm:px-6">

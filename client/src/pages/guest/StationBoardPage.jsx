@@ -145,12 +145,12 @@ function ArrivalRow({ arrival, now }) {
     <Card
       className={cn(
         'overflow-hidden',
-        arrival.isHereNow && 'border-success/60 bg-success/[0.04]',
-        isDeparture && 'border-primary/50 bg-primary/[0.03]',
+        arrival.isHereNow && 'border-success/60 tint-success',
+        isDeparture && 'border-primary/50 tint-primary',
         hasArrived && 'opacity-70',
         // The whole value of a "full" report is telling someone not to wait, so
         // the row has to stop looking like something to wait for.
-        isFull && 'border-destructive/40 bg-destructive/[0.03] opacity-90'
+        isFull && 'border-destructive/40 tint-destructive'
       )}
     >
       {isFull && (

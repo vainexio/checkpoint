@@ -114,15 +114,19 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
       /*
-       * Tightened hard on phones. At 375px the old header — 48px icon, 30px
-       * title wrapping to two lines, a three-line description and stacked
-       * buttons — used almost half the screen before the first bus appeared,
-       * which is the one thing anyone opened the page for.
+       * The header is a card like everything else on the page.
+       *
+       * Sitting bare on the background it read as a separate kind of thing from
+       * the content below it. One surface for every block is the pattern people
+       * already know from Facebook, and knowing where a block starts and stops
+       * without being told is most of what makes an interface easy.
+       *
+       * Tightened hard on phones: at 375px the old header used almost half the
+       * screen before the first bus appeared, which is the one thing anyone
+       * opened the page for.
        */
-      className="relative mb-6 flex flex-col justify-between gap-4 border-b border-border/60 pb-5 sm:mb-10 sm:gap-6 sm:pb-6 md:flex-row md:items-end"
+      className="relative mb-4 flex flex-col justify-between gap-4 rounded-lg border border-border bg-card p-4 shadow-sm sm:mb-6 sm:gap-6 sm:p-5 md:flex-row md:items-end"
     >
-      <div className="absolute bottom-0 left-0 h-px w-24 bg-gradient-to-r from-primary to-transparent" />
-
       <div className="flex min-w-0 max-w-2xl items-start gap-3 sm:gap-4">
         {Icon && (
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-accent/15 text-primary shadow-sm sm:h-12 sm:w-12 sm:rounded-2xl">

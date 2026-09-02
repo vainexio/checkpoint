@@ -23,7 +23,7 @@ export function StaleNotice({ minutesSinceLastConfirm, lastCheckpointName, compa
   }
 
   return (
-    <Alert className="border-dashed bg-muted/50">
+    <Alert className="border-dashed tint-muted">
       <AlertTriangle className="h-4 w-4" />
       <AlertTitle>No update in {elapsed}</AlertTitle>
       <AlertDescription>

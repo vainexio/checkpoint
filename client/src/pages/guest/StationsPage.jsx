@@ -251,7 +251,7 @@ export default function StationsPage() {
            * what it is — the most realistic option, not a nearby one.
            */
           <Section title="Nothing close to you">
-            <div className="col-span-full mb-1 rounded-xl border border-dashed border-border bg-muted/40 p-4 text-sm text-muted-foreground">
+            <div className="col-span-full mb-1 rounded-xl border border-dashed border-border tint-muted p-4 text-sm text-muted-foreground">
               No stops within {nearby.radiusKm} km of where you are. This route network only
               covers Cubao–Baguio for now. The most realistic options are below — you would need
               to travel to reach them.

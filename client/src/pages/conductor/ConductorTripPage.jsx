@@ -501,7 +501,7 @@ function SeatCard({ trip, standingAt, onPick }) {
     <Card
       className={cn(
         'mb-4',
-        needsAnswer && 'border-primary/50 bg-primary/[0.04] shadow-sm'
+        needsAnswer && 'border-primary/50 tint-primary shadow-sm'
       )}
     >
       <CardContent className="p-5">
@@ -677,7 +677,7 @@ function QueueBanner({ pendingCount, isOnline, isSyncing, onRetry }) {
 
   if (!pendingCount && !isOnline) {
     return (
-      <Alert className="mb-4 bg-muted/50">
+      <Alert className="mb-4 tint-muted">
         <CloudOff className="h-4 w-4" />
         <AlertDescription>No connection. Your taps will still be recorded.</AlertDescription>
       </Alert>

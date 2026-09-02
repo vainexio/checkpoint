@@ -61,7 +61,7 @@ export function JourneyPlanner({ stations, you, onRequestLocation, locating }) {
   }, [run, to]);
 
   return (
-    <Card className="mb-6 border-primary/25 bg-primary/[0.02]">
+    <Card className="mb-6 border-primary/25 tint-primary">
       <CardContent className="p-5">
         <div className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
           <Route className="h-3.5 w-3.5" />
@@ -170,8 +170,10 @@ function OptionRow({ option, you, now }) {
   return (
     <Card
       className={cn(
-        'overflow-hidden bg-background',
-        option.isHereNow && 'border-success/60 bg-success/[0.04]',
+        // A white result sitting inside the tinted planner card, so the two
+        // layers stay distinguishable.
+        'overflow-hidden bg-card',
+        option.isHereNow && 'border-success/60 tint-success',
         isFull && 'border-destructive/40 opacity-90'
       )}
     >

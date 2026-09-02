@@ -111,7 +111,17 @@ export default function ConductorTripPage() {
     </Link>
   );
 
-  if (error) {
+  /**
+   * Only surrender the screen when there is nothing to show.
+   *
+   * A failed refresh used to replace the whole trip — buttons and all — with an
+   * error box. That is precisely backwards for this screen: the poll fails
+   * because the bus has driven out of signal, which is the exact moment the
+   * conductor still needs to tap, and the queue behind those buttons is built
+   * to work with no connection at all. The last known trip is still perfectly
+   * good to act on, so it stays, and the failure is reported as a banner.
+   */
+  if (error && !trip) {
     return (
       <div className="mx-auto max-w-2xl">
         {back}
@@ -164,6 +174,18 @@ export default function ConductorTripPage() {
           {trip.bus?.plateNumber} · departs {formatTime(trip.scheduledDeparture)}
         </p>
       </div>
+
+      {/* Stale, not broken: say the times may have moved on without pretending
+          the screen is unusable. Taps still work — they queue. */}
+      {error && (
+        <Alert className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Cannot reach the server, so these times may be out of date. Your taps are still being
+            saved and will send when the signal returns.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <QueueBanner
         pendingCount={pendingCount}

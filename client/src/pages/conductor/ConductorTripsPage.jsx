@@ -64,6 +64,7 @@ export default function ConductorTripsPage({ user }) {
                       status={trip.status}
                       isStale={trip.isStale}
                       varianceMinutes={trip.varianceMinutes}
+                      conditionsAllowanceMinutes={trip.conditionsAllowanceMinutes}
                     />
                   </div>
                 </div>

@@ -234,6 +234,8 @@ export const stationBoard = asyncHandler(async (req, res) => {
         isStale: trip.isStale,
         minutesSinceLastConfirm: trip.minutesSinceLastConfirm,
         varianceMinutes: trip.varianceMinutes,
+        // Lets the board separate "late" from "late and something is wrong".
+        conditionsAllowanceMinutes: trip.conditionsAllowanceMinutes,
         scheduledDeparture: trip.scheduledDeparture,
         lastConfirmedCheckpoint: trip.lastConfirmedCheckpoint,
         lastConfirmedAt: trip.lastConfirmedAt,

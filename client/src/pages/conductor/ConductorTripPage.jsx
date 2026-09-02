@@ -224,6 +224,7 @@ export default function ConductorTripPage() {
               status={trip.status}
               isStale={trip.isStale}
               varianceMinutes={trip.varianceMinutes}
+              conditionsAllowanceMinutes={trip.conditionsAllowanceMinutes}
             />
             <div className="mt-3 text-xl font-extrabold tracking-tight">
               {formatVariance(trip.varianceMinutes)}

@@ -11,7 +11,21 @@
  * coordinates. There is no geolocation anywhere in this file by design.
  */
 
-/** A trip counts as "delayed" once it is running more than this far behind. */
+/**
+ * A trip counts as "delayed" once it is running more than this far behind —
+ * behind *what the road allowed*, not behind the timetable.
+ *
+ * Those are different numbers and conflating them broke the status. A baseline
+ * is one figure standing in for a leg that genuinely takes 32 minutes at
+ * midnight and 39 at six in the evening, so a bus doing nothing wrong in
+ * rush-hour traffic accrues variance against it and gets flagged — every day,
+ * on every trip, until the badge means nothing. What a passenger needs the
+ * flag to say is "something has gone wrong with this bus", not "it is 6 PM".
+ *
+ * So the delay decision runs on schedule variance minus whatever the road cost
+ * (see `trafficAllowanceMinutes` on CheckpointLog). The ETA is untouched by
+ * this: a bus 12 minutes behind arrives 12 minutes late whoever is to blame.
+ */
 export const DELAY_THRESHOLD_MINUTES = 5;
 
 /**
@@ -135,6 +149,16 @@ export function computeTripState({
   let lastConfirmedIndex = -1;
   let lastConfirmedAt = null;
   let exactVariance = 0;
+  /**
+   * Sum of the road conditions recorded on the legs already driven.
+   *
+   * The one genuinely accumulated quantity here, and unavoidably so: each leg
+   * was driven under its own conditions and there is no absolute measurement
+   * that recovers them after the fact. It stays safe because the sum is rebuilt
+   * from the logs on every replay rather than carried between calls, so trip
+   * state is still a pure function of the event stream.
+   */
+  let conditionsAllowance = 0;
   let latestDelay = null;
   // When the bus pulled out of the checkpoint it most recently reached. Null
   // while it is still standing there.
@@ -153,7 +177,7 @@ export function computeTripState({
   const varianceAt = (index, reportedAt) =>
     minutesBetween(actualDeparture, reportedAt) - cumulativeBaseline(plan, index);
 
-  const advanceTo = (index, reportedAt) => {
+  const advanceTo = (index, reportedAt, allowanceMinutes = null) => {
     // A conductor who forgets a checkpoint and taps the next one still gets
     // correct math — the baseline sum is origin-through-here either way — but
     // the points passed without confirmation should not read as pending.
@@ -177,6 +201,11 @@ export function computeTripState({
     loadReportedAt = null;
     loadReportedAtIndex = -1;
     exactVariance = varianceAt(index, reportedAt);
+    // A leg with no reading is not a leg that was clear — it is one we cannot
+    // speak for, so it excuses nothing.
+    if (typeof allowanceMinutes === 'number' && Number.isFinite(allowanceMinutes)) {
+      conditionsAllowance += allowanceMinutes;
+    }
   };
 
   for (const log of sortLogs(logs)) {
@@ -198,6 +227,7 @@ export function computeTripState({
         lastConfirmedAt = actualDeparture;
         lastConfirmedIndex = 0;
         exactVariance = 0;
+        conditionsAllowance = 0;
         progress[0].progress = 'passed';
         progress[0].actualArrival = actualDeparture;
         break;
@@ -222,7 +252,7 @@ export function computeTripState({
           skip(log, 'checkpoint_already_passed');
           break;
         }
-        advanceTo(index, log.reportedAt);
+        advanceTo(index, log.reportedAt, log.trafficAllowanceMinutes);
         // Passing the final checkpoint is an arrival.
         if (index === lastIndex) actualArrival = toDate(log.reportedAt);
         break;
@@ -267,7 +297,7 @@ export function computeTripState({
           skip(log, 'duplicate_arrival');
           break;
         }
-        advanceTo(lastIndex, log.reportedAt);
+        advanceTo(lastIndex, log.reportedAt, log.trafficAllowanceMinutes);
         actualArrival = toDate(log.reportedAt);
         break;
       }
@@ -341,11 +371,25 @@ export function computeTripState({
     };
   });
 
+  /**
+   * How far behind the bus is once the road is accounted for.
+   *
+   * Expanded, this is elapsed time minus what each leg actually took today,
+   * which is the only fair question to ask of a driver. It collapses to plain
+   * schedule variance whenever no conditions were recorded, so a deployment
+   * with no traffic provider behaves exactly as it did before.
+   *
+   * The sign is kept symmetric on purpose. A quiet road that ran ten minutes
+   * under baseline hands back a negative allowance, and a bus that still lost
+   * time on it is judged against the road it actually had, not the average one.
+   */
+  const faultVariance = exactVariance - conditionsAllowance;
+
   let status;
   if (cancelled) status = 'cancelled';
   else if (actualArrival) status = 'arrived';
   else if (!actualDeparture) status = 'scheduled';
-  else status = exactVariance > DELAY_THRESHOLD_MINUTES ? 'delayed' : 'in_transit';
+  else status = faultVariance > DELAY_THRESHOLD_MINUTES ? 'delayed' : 'in_transit';
 
   /**
    * Where the bus is, in the only two forms this system can honestly report.
@@ -389,6 +433,11 @@ export function computeTripState({
     // value so the clock stays honest.
     cumulativeVarianceMinutes: Math.round(exactVariance),
     exactVarianceMinutes: exactVariance,
+    // What the road cost on the legs already driven, and what is left over
+    // after subtracting it. Surfaced together so a board can say *why* a bus is
+    // behind instead of showing a bare red badge nobody can act on.
+    conditionsAllowanceMinutes: Math.round(conditionsAllowance),
+    faultVarianceMinutes: Math.round(faultVariance),
     computedETAs,
     finalVarianceMinutes: actualArrival ? Math.round(exactVariance) : null,
     latestDelay,

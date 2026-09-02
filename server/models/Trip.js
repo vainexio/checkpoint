@@ -69,8 +69,21 @@ const tripSchema = new mongoose.Schema(
     },
     lastConfirmedAt: { type: Date, default: null },
 
-    // Positive = running late, negative = running early.
+    // Positive = running late, negative = running early. Measured against the
+    // timetable, so this is what a passenger feels regardless of the cause.
     cumulativeVarianceMinutes: { type: Number, default: 0 },
+
+    /**
+     * How much of that lateness the road itself accounts for, summed from the
+     * conditions recorded on each leg as it was driven.
+     *
+     * Kept apart from the variance rather than folded into it, because the two
+     * answer different questions and both get asked: a passenger wants to know
+     * how late the bus is, an operator wants to know whether this driver is
+     * losing time nobody else on that road lost. Subtract it and you have the
+     * second; leave it alone and you still have the first.
+     */
+    conditionsAllowanceMinutes: { type: Number, default: 0 },
 
     computedETAs: { type: [computedEtaSchema], default: [] },
 

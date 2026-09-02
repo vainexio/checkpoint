@@ -191,6 +191,48 @@ rides alongside the ETA as context ("conductor reported heavy traffic near Balin
 offline sync work: a batch of taps that reaches the server in the wrong order, hours late,
 still settles on exactly the state it would have reached live.
 
+### Late, and late for a reason
+
+Being behind the timetable and being *at fault* are different facts, and the system keeps them
+apart because both get asked about.
+
+A baseline is one number standing in for a leg that genuinely takes 32 minutes at midnight and
+39 at six in the evening — a 7-minute spread we measured on Alabang → Turbina. Judge a bus
+against that single number and every rush-hour trip is flagged, every day, until the badge
+means nothing.
+
+So when a checkpoint tap closes a leg, the live reading for that leg is written onto the log:
+
+```
+trafficAllowanceMinutes = (what the road was taking) − (that leg's baseline)
+```
+
+It is **recorded on the event, not derived later**. Traffic caches expire in minutes, so by the
+time anyone asks why a bus lost twelve minutes, the evidence is gone unless it was captured at
+the moment the leg closed. Storing it on the log keeps trip state a pure replay.
+
+Two numbers come out of the replay:
+
+| | Formula | Used for |
+|---|---|---|
+| **Schedule variance** | elapsed − cumulative baseline | the ETA, and what a passenger is told |
+| **Unexplained variance** | schedule variance − Σ allowances | the `delayed` flag |
+
+The ETA never touches the second one. **A bus 12 minutes behind arrives 12 minutes late
+whoever is to blame** — blame changes the badge, not the clock.
+
+Three rules keep it honest:
+
+- **Unknown excuses nothing.** No provider, a cold cache, or a tap that sat in an offline queue
+  for an hour records `null`, and null contributes zero. With no traffic data at all the status
+  is bit-for-bit what it was before this existed.
+- **The sign is symmetric.** A quiet road that ran 10 under baseline hands back a *negative*
+  allowance, so a bus that still lost time on an empty road is judged against the road it
+  actually had.
+- **Lateness is always shown.** Clearing the delayed flag must not turn into telling someone
+  "On time" about a bus that is twelve minutes away. When the road explains it, the board says
+  `12 min late · traffic` — the number stays, the blame moves.
+
 ### Where a bus is, honestly
 
 A bus does two separate things at a stop where passengers board: it pulls in, and later it
@@ -357,9 +399,10 @@ the viewer's device clock.
 cd server && npm test
 ```
 
-50 tests: the engine's arithmetic (variance, re-projection, skipped checkpoints, out-of-order
-replay, staleness thresholds, and traffic applying forward-only without touching a measured
-variance) plus API integration against an in-memory MongoDB covering the shared login and its
+65 tests: the engine's arithmetic (variance, re-projection, skipped checkpoints, out-of-order
+replay, staleness thresholds, traffic applying forward-only without touching a measured
+variance, and the delay flag surviving a slow road while still catching a slow bus) plus API
+integration against an in-memory MongoDB covering the shared login and its
 role boundary, the frozen plan, offline sync, undo and its limits, at-stop versus on-the-road position, and the public board.
 
 ## Project layout

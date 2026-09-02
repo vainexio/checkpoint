@@ -61,6 +61,22 @@ const checkpointLogSchema = new mongoose.Schema(
       default: null,
     },
 
+    /**
+     * How much slower than its baseline the road the bus had just driven was
+     * running, sampled at the moment this tap reached us.
+     *
+     * Recorded, not derived. Traffic caches expire in minutes, so by the time
+     * anyone asks why a bus lost twelve minutes on a leg, the evidence is long
+     * gone — the only place that fact can survive is the event that closed the
+     * leg. It exists so a delay can be attributed: a bus that lost exactly what
+     * the road cost everyone is behind schedule but not at fault.
+     *
+     * Null means we genuinely do not know — no traffic provider, a cold cache,
+     * or a log that sat in an offline queue for an hour. Unknown never excuses
+     * anything, so a null simply leaves the delay unexplained.
+     */
+    trafficAllowanceMinutes: { type: Number, default: null },
+
     // Only meaningful when type === "delayed".
     delayReason: {
       type: String,

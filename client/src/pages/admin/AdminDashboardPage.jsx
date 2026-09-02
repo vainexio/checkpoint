@@ -120,6 +120,7 @@ export default function AdminDashboardPage() {
                           status={trip.status}
                           isStale={trip.isStale}
                           varianceMinutes={trip.varianceMinutes}
+                          conditionsAllowanceMinutes={trip.conditionsAllowanceMinutes}
                         />
                       </TableCell>
                       <TableCell>

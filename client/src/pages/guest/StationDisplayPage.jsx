@@ -246,7 +246,12 @@ function DisplayRow({ arrival, now }) {
                 ? 'Unconfirmed'
                 : arrival.status === 'delayed'
                   ? 'Delayed'
-                  : ''}
+                  : // Behind the timetable, but the road accounts for it. Worth
+                    // one word on a wall people read from across a hall: the
+                    // time already shows the lateness, this says why.
+                    arrival.varianceMinutes >= 5 && arrival.conditionsAllowanceMinutes > 0
+                    ? 'Traffic'
+                    : ''}
           </span>
         )}
       </div>

@@ -176,6 +176,7 @@ function ArrivalRow({ arrival, now }) {
                 status={arrival.status}
                 isStale={arrival.isStale}
                 varianceMinutes={arrival.varianceMinutes}
+                conditionsAllowanceMinutes={arrival.conditionsAllowanceMinutes}
               />
               <SeatBadge
                 load={arrival.load}

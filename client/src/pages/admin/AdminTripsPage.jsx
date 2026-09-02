@@ -192,6 +192,7 @@ export default function AdminTripsPage() {
                           status={trip.status}
                           isStale={trip.isStale}
                           varianceMinutes={trip.varianceMinutes}
+                          conditionsAllowanceMinutes={trip.conditionsAllowanceMinutes}
                         />
                       </TableCell>
                       <TableCell className="whitespace-nowrap">

@@ -15,11 +15,44 @@ const LABELS = {
   cancelled: { text: 'Cancelled', variant: 'destructive' },
 };
 
-export function StatusBadge({ status, isStale, varianceMinutes, className }) {
+/**
+ * Matches DELAY_THRESHOLD_MINUTES on the server. Only used to decide whether
+ * lateness is worth naming — the server owns the delayed/not decision itself.
+ */
+const WORTH_MENTIONING_MINUTES = 5;
+
+export function StatusBadge({
+  status,
+  isStale,
+  varianceMinutes,
+  conditionsAllowanceMinutes = 0,
+  className,
+}) {
   if (isStale) {
     return (
       <Badge variant="muted" className={className}>
         No recent update
+      </Badge>
+    );
+  }
+
+  /**
+   * Behind the timetable, but the road explains it.
+   *
+   * The server clears the delayed flag when traffic accounts for the loss,
+   * which is right for judging the bus and wrong for the person waiting at the
+   * stop — "On time" over a bus that is twelve minutes away is a lie they will
+   * catch. So lateness is always stated; what the allowance changes is the
+   * colour and the blame, not whether the number is shown.
+   */
+  if (
+    status === 'in_transit' &&
+    varianceMinutes >= WORTH_MENTIONING_MINUTES &&
+    conditionsAllowanceMinutes > 0
+  ) {
+    return (
+      <Badge variant="secondary" className={className}>
+        {varianceMinutes} min late · traffic
       </Badge>
     );
   }

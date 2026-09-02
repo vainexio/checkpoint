@@ -17,9 +17,56 @@ import { getAdjustments, getSegmentDetail } from './trafficProvider.js';
  * right answer.
  */
 
+/**
+ * How recent a tap has to be for us to claim we know what the road was doing.
+ *
+ * A log that spent an hour in an offline queue closes a leg driven under
+ * conditions nobody sampled, and the traffic cache holds minutes of history,
+ * not hours. Guessing there would quietly excuse real delays, so anything older
+ * than this is recorded as unknown and excuses nothing.
+ */
+const CONDITIONS_SAMPLE_WINDOW_MINUTES = 10;
+
+/**
+ * Record what the road the bus just finished was running at.
+ *
+ * Sampled here, at the write, because this is the only moment the fact exists:
+ * the refresher keeps the segment ahead of each bus warm while it drives, so
+ * the reading is live when the closing tap arrives and gone minutes later.
+ * Writing it onto the log makes it part of the event stream, which is what lets
+ * a replay months from now still tell a delayed bus from a busy road.
+ */
+function stampConditions(trip, logDocs, now = Date.now()) {
+  const plan = trip.plan ?? [];
+  if (plan.length < 2) return logDocs;
+
+  const lastIndex = plan.length - 1;
+  const indexOfCheckpoint = (id) =>
+    plan.findIndex((entry) => String(entry.checkpoint) === String(id));
+
+  for (const log of logDocs) {
+    if (log.type !== 'passed_checkpoint' && log.type !== 'arrived') continue;
+
+    const ageMinutes = (now - new Date(log.reportedAt).getTime()) / 60000;
+    if (ageMinutes > CONDITIONS_SAMPLE_WINDOW_MINUTES) continue;
+
+    // An arrival names no checkpoint: it is always the end of the plan.
+    const index = log.type === 'arrived' ? lastIndex : indexOfCheckpoint(log.checkpoint);
+    if (index <= 0) continue;
+
+    const detail = getSegmentDetail(plan[index - 1].checkpoint, plan[index].checkpoint, now);
+    if (detail) log.trafficAllowanceMinutes = detail.adjustmentMinutes;
+  }
+
+  return logDocs;
+}
+
 /** Append a log and recompute the trip from its full history. */
 export async function recordLogs(tripId, logDocs) {
   if (logDocs.length) {
+    const trip = await Trip.findById(tripId).select('plan').lean();
+    if (trip) stampConditions(trip, logDocs);
+
     // ordered:false so one duplicate clientLogId in a synced batch does not
     // abort the rest of the queue.
     try {
@@ -55,6 +102,7 @@ export async function recomputeTrip(tripId) {
   trip.lastConfirmedCheckpoint = state.lastConfirmedCheckpoint;
   trip.lastConfirmedAt = state.lastConfirmedAt;
   trip.cumulativeVarianceMinutes = state.cumulativeVarianceMinutes;
+  trip.conditionsAllowanceMinutes = state.conditionsAllowanceMinutes;
   trip.computedETAs = state.computedETAs;
   trip.finalVarianceMinutes = state.finalVarianceMinutes;
 
@@ -134,6 +182,11 @@ export function presentTrip(trip, { logs = [], now = new Date(), audience = 'pub
     actualDeparture: state.actualDeparture,
     actualArrival: state.actualArrival,
     varianceMinutes: state.cumulativeVarianceMinutes,
+    // How much of that the road accounts for, so a board can show "14 min late,
+    // 11 of it traffic" rather than a bare red badge. The status above is
+    // already decided on the remainder.
+    conditionsAllowanceMinutes: state.conditionsAllowanceMinutes,
+    unexplainedVarianceMinutes: state.faultVarianceMinutes,
     lastConfirmedCheckpoint: lastConfirmed
       ? { checkpointId: String(lastConfirmed.checkpoint), name: lastConfirmed.name }
       : null,

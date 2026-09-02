@@ -509,3 +509,138 @@ test('the latest report wins when several arrive out of order', () => {
   // Sorted by reportedAt, so the 30-minute reading is the current one.
   assert.equal(state.load, 'seats');
 });
+
+/* ------------------------------------------------- traffic-aware delay flag */
+// A baseline is one number standing in for a leg that takes 32 minutes at
+// midnight and 39 at six in the evening. Judging a bus against it alone means
+// flagging every rush-hour trip, so the road it actually had is subtracted out
+// before the delay decision.
+
+const passedIn = (checkpoint, minutes, trafficAllowanceMinutes) =>
+  log('passed_checkpoint', minutes, { checkpoint, trafficAllowanceMinutes });
+
+test('a bus behind only because the road was slow is not flagged delayed', () => {
+  // Balintawak baseline is 20 and the road was running 8 over. Arriving 8 late
+  // is exactly keeping up with everyone else on it.
+  const state = computeTripState({
+    plan,
+    logs: [departed(), passedIn(CP.balintawak, 28, 8)],
+  });
+
+  assert.equal(state.cumulativeVarianceMinutes, 8, 'still 8 minutes behind the timetable');
+  assert.equal(state.conditionsAllowanceMinutes, 8, 'and the road accounts for all 8');
+  assert.equal(state.faultVarianceMinutes, 0);
+  assert.equal(state.status, 'in_transit');
+});
+
+test('delay beyond what the road explains is still flagged', () => {
+  // Same slow road, but this bus lost 20 minutes on it.
+  const state = computeTripState({
+    plan,
+    logs: [departed(), passedIn(CP.balintawak, 40, 8)],
+  });
+
+  assert.equal(state.cumulativeVarianceMinutes, 20);
+  assert.equal(state.conditionsAllowanceMinutes, 8);
+  assert.equal(state.faultVarianceMinutes, 12, 'the 12 the road does not explain');
+  assert.equal(state.status, 'delayed');
+});
+
+test('a quiet road is held against a bus that still lost time', () => {
+  // The leg ran 10 under baseline. Being 6 late on an empty road is 16 lost.
+  const state = computeTripState({
+    plan,
+    logs: [departed(), passedIn(CP.balintawak, 26, -10)],
+  });
+
+  assert.equal(state.conditionsAllowanceMinutes, -10);
+  assert.equal(state.faultVarianceMinutes, 16);
+  assert.equal(state.status, 'delayed');
+});
+
+test('the ETA follows the timetable variance, never the fault variance', () => {
+  // The whole point of separating them: blame changes the badge, not the clock.
+  const excused = computeTripState({
+    plan,
+    logs: [departed(), passedIn(CP.balintawak, 28, 8)],
+  });
+  const blamed = computeTripState({
+    plan,
+    logs: [departed(), passed(CP.balintawak, 28)],
+  });
+
+  assert.equal(excused.status, 'in_transit');
+  assert.equal(blamed.status, 'delayed');
+  assert.deepEqual(
+    etaFor(excused, CP.baguio),
+    etaFor(blamed, CP.baguio),
+    'a bus 8 minutes behind arrives 8 minutes late either way'
+  );
+  assert.equal(minutesFromDeparture(etaFor(excused, CP.baguio)), 185 + 8);
+});
+
+test('allowances add up across legs', () => {
+  const state = computeTripState({
+    plan,
+    logs: [departed(), passedIn(CP.balintawak, 26, 6), passedIn(CP.tarlac, 115, 9)],
+  });
+
+  assert.equal(state.cumulativeVarianceMinutes, 15, '115 elapsed against a 100 baseline');
+  assert.equal(state.conditionsAllowanceMinutes, 15, '6 on the first leg, 9 on the second');
+  assert.equal(state.faultVarianceMinutes, 0);
+  assert.equal(state.status, 'in_transit');
+});
+
+test('a leg with no reading excuses nothing', () => {
+  // Offline queue, cold cache, no provider — unknown must never mean forgiven.
+  const state = computeTripState({
+    plan,
+    logs: [departed(), passedIn(CP.balintawak, 26, 6), passed(CP.tarlac, 115)],
+  });
+
+  assert.equal(state.conditionsAllowanceMinutes, 6, 'only the leg we actually sampled');
+  assert.equal(state.faultVarianceMinutes, 9);
+  assert.equal(state.status, 'delayed');
+});
+
+test('with no traffic data at all the status is exactly what it always was', () => {
+  const late = computeTripState({ plan, logs: [departed(), passed(CP.balintawak, 26)] });
+  const early = computeTripState({ plan, logs: [departed(), passed(CP.balintawak, 14)] });
+
+  assert.equal(late.conditionsAllowanceMinutes, 0);
+  assert.equal(late.faultVarianceMinutes, late.cumulativeVarianceMinutes);
+  assert.equal(late.status, 'delayed');
+  assert.equal(early.status, 'in_transit');
+});
+
+test('an arrival carries the conditions of the final leg', () => {
+  const state = computeTripState({
+    plan,
+    logs: [
+      departed(),
+      passed(CP.balintawak, 20),
+      passed(CP.tarlac, 100),
+      passed(CP.tplex, 140),
+      log('arrived', 197, { trafficAllowanceMinutes: 12 }),
+    ],
+  });
+
+  assert.equal(state.status, 'arrived');
+  assert.equal(state.cumulativeVarianceMinutes, 12);
+  assert.equal(state.conditionsAllowanceMinutes, 12);
+  assert.equal(state.faultVarianceMinutes, 0, 'the whole loss was the road');
+});
+
+test('a bad reading cannot excuse a delay past the threshold on the next leg', () => {
+  // Replay is a pure function of the logs, so an allowance only ever applies to
+  // the leg whose closing tap carried it.
+  const state = computeTripState({
+    plan,
+    logs: [departed(), passedIn(CP.balintawak, 20, 30), passed(CP.tarlac, 130)],
+  });
+
+  assert.equal(state.conditionsAllowanceMinutes, 30);
+  assert.equal(state.cumulativeVarianceMinutes, 30);
+  assert.equal(state.faultVarianceMinutes, 0);
+  assert.ok(DELAY_THRESHOLD_MINUTES > 0);
+});

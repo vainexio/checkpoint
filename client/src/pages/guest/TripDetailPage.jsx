@@ -120,6 +120,7 @@ export default function TripDetailPage() {
                 status={trip.status}
                 isStale={trip.isStale}
                 varianceMinutes={trip.varianceMinutes}
+                conditionsAllowanceMinutes={trip.conditionsAllowanceMinutes}
               />
             </div>
             <div className="sm:text-right">
@@ -150,7 +151,17 @@ export default function TripDetailPage() {
               mono
               value={trip.actualDeparture ? formatTime(trip.actualDeparture) : 'Not yet'}
             />
-            <Fact label="Running" value={formatVariance(trip.varianceMinutes)} />
+            <Fact
+              label="Running"
+              value={formatVariance(trip.varianceMinutes)}
+              // Naming the share the road cost is the difference between a
+              // passenger blaming the bus and understanding the delay.
+              note={
+                trip.conditionsAllowanceMinutes > 0 && trip.varianceMinutes > 0
+                  ? `${Math.min(trip.conditionsAllowanceMinutes, trip.varianceMinutes)} min of it traffic`
+                  : null
+              }
+            />
             <Fact
               label={trip.status === 'arrived' ? 'Finished at' : 'Last passed'}
               value={trip.lastConfirmedCheckpoint?.name ?? 'Not departed'}
@@ -183,13 +194,14 @@ export default function TripDetailPage() {
   );
 }
 
-function Fact({ label, value, mono }) {
+function Fact({ label, value, mono, note }) {
   return (
     <div>
       <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
         {label}
       </div>
       <div className={cn('font-semibold', mono && 'font-mono tabular')}>{value}</div>
+      {note ? <div className="mt-0.5 text-xs text-muted-foreground">{note}</div> : null}
     </div>
   );
 }

@@ -108,21 +108,31 @@ export function SeatBadge({ load, reportedAtName, reportedAt, className }) {
     destructive: 'bg-destructive/10 text-destructive border-destructive/30',
   }[level.tone];
 
+  /*
+   * The pill and its attribution are separate boxes, not one long string.
+   *
+   * Inline, a stop name as long as "Balintawak Interchange" dragged the pill
+   * past the width of a phone and the label itself broke across two lines
+   * inside its own border. Splitting them lets the pill stay whole and the
+   * attribution wrap underneath, where a sentence is supposed to wrap.
+   */
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold',
-        tone,
-        className
-      )}
-    >
-      <Icon className="h-3.5 w-3.5" />
-      {level.label}
+    <span className={cn('inline-flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1', className)}>
+      <span
+        className={cn(
+          'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-bold',
+          tone
+        )}
+      >
+        <Icon className="h-3.5 w-3.5" />
+        {level.label}
+      </span>
+
       {/* Attribution, always. A seat count is a judgement made somewhere, at a
           time — never a live measurement, and never presented as one. */}
       {reportedAtName && (
-        <span className="font-medium opacity-75">
-          · as it left {reportedAtName}
+        <span className="text-[12px] font-medium text-muted-foreground">
+          as it left {reportedAtName}
           {reportedAt && `, ${formatTime(reportedAt)}`}
         </span>
       )}

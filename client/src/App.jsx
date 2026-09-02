@@ -79,9 +79,11 @@ function RequireRole({ role, children }) {
 function SignOutButton() {
   const { logout } = useAuth();
   return (
-    <Button variant="ghost" size="sm" onClick={logout}>
-      <LogOut className="mr-1.5 h-3.5 w-3.5" />
-      Sign out
+    <Button variant="ghost" size="sm" onClick={logout} aria-label="Sign out">
+      <LogOut className="h-3.5 w-3.5 sm:mr-1.5" />
+      {/* The icon carries it on a phone; the word is what makes it unambiguous
+          on a desktop where there is room for it. */}
+      <span className="hidden sm:inline">Sign out</span>
     </Button>
   );
 }

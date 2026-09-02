@@ -129,7 +129,10 @@ export function StopPicker({
       )}
 
       {open && (
-        <div className="absolute z-30 mt-1 w-full overflow-hidden rounded-lg border border-border bg-background shadow-lg">
+        // Leaflet stacks its own panes from z-index 400 and its controls at 1000,
+        // so anything floating over a map has to clear that outright — a tasteful
+        // z-30 loses to the tiles and the list gets sliced off mid-list.
+        <div className="absolute z-[1200] mt-1 max-h-[min(60vh,340px)] w-full overflow-y-auto overscroll-contain rounded-lg border border-border bg-background shadow-lg">
           {extraOption && (
             <button
               type="button"

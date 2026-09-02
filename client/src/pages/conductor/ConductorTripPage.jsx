@@ -217,20 +217,40 @@ export default function ConductorTripPage() {
         />
       )}
 
+      {/*
+        * Two columns on a desktop, stacked on a phone.
+        *
+        * Side by side at 375px, a long stop name and the variance were fighting
+        * over the same forty pixels and both lost. Stacked, each gets the full
+        * width and the card reads as two plain statements.
+        */}
       <Card className="mb-4">
-        <CardContent className="flex items-start justify-between gap-4 p-5">
-          <div>
-            <StatusBadge
-              status={trip.status}
-              isStale={trip.isStale}
-              varianceMinutes={trip.varianceMinutes}
-              conditionsAllowanceMinutes={trip.conditionsAllowanceMinutes}
-            />
-            <div className="mt-3 text-xl font-extrabold tracking-tight">
-              {formatVariance(trip.varianceMinutes)}
+        <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+              Running
+            </div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+              <StatusBadge
+                status={trip.status}
+                isStale={trip.isStale}
+                varianceMinutes={trip.varianceMinutes}
+                conditionsAllowanceMinutes={trip.conditionsAllowanceMinutes}
+              />
+              {/*
+                * The badge is the verdict, this is the measurement, and they
+                * are not the same thing — a bus can be flagged on time and
+                * still be two minutes behind the timetable. Saying which is
+                * which stops the pair reading as a contradiction.
+                */}
+              <span className="text-[15px] font-bold tracking-tight">
+                {formatVariance(trip.varianceMinutes)}
+                <span className="ml-1 font-medium text-muted-foreground">vs timetable</span>
+              </span>
             </div>
           </div>
-          <div className="text-right">
+
+          <div className="min-w-0 sm:text-right">
             <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
               Last passed
             </div>

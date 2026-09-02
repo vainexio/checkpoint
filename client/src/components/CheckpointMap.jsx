@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { cn } from '@/lib/utils.ts';
@@ -216,9 +216,35 @@ export function CheckpointMap({
 
         {draft && <Marker position={[draft.lat, draft.lng]} icon={ICONS.station} />}
         {you && (
-          <Marker position={[you.lat, you.lng]} icon={youAreHere}>
-            <Popup>You are here</Popup>
-          </Marker>
+          <>
+            {/*
+              * The dot is where the device thinks you are; the circle is how
+              * much it is guessing. On a laptop that circle is often kilometres
+              * wide, and drawing it is the difference between "the map is
+              * wrong" and "the fix is coarse".
+              */}
+            {you.accuracyM > 100 && (
+              <Circle
+                center={[you.lat, you.lng]}
+                radius={you.accuracyM}
+                pathOptions={{ color: '#2563eb', weight: 1, fillOpacity: 0.08 }}
+              />
+            )}
+            <Marker position={[you.lat, you.lng]} icon={youAreHere}>
+              <Popup>
+                You are here
+                {you.accuracyM ? (
+                  <>
+                    <br />
+                    accurate to about{' '}
+                    {you.accuracyM >= 1000
+                      ? `${Math.round(you.accuracyM / 1000)} km`
+                      : `${Math.round(you.accuracyM)} m`}
+                  </>
+                ) : null}
+              </Popup>
+            </Marker>
+          </>
         )}
       </MapContainer>
     </div>

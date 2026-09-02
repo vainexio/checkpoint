@@ -69,7 +69,9 @@ export default function StationBoardPage() {
         title={data?.station?.name ?? 'Loading…'}
         description="Buses heading to this stop, soonest first. Times update each time a conductor confirms the bus has passed a checkpoint."
         actions={
-          <div className="flex flex-col items-end gap-2">
+          /* A column of three stacked rows is a lot of header on a phone; in a
+             row they fit on one line and the buses start higher. */
+          <div className="flex flex-wrap items-center gap-2 sm:flex-col sm:items-end">
             <LiveIndicator lastUpdated={lastUpdated} />
             <a
               href={`/display/${stationId}`}
@@ -88,7 +90,9 @@ export default function StationBoardPage() {
                 className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
               >
                 <Footprints className="h-3.5 w-3.5" />
-                Directions to this stop
+                {/* Two buttons only fit side by side on a phone if the second
+                    one gives up the words it does not need. */}
+                Directions<span className="hidden sm:inline">&nbsp;to this stop</span>
               </a>
             )}
           </div>

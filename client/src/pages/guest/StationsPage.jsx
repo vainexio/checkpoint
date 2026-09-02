@@ -30,6 +30,13 @@ import { cn } from '@/lib/utils.ts';
  * types the stop name. Someone standing at a curb taps "near me". A tourist who
  * knows neither can look at the map and recognise a place.
  */
+/**
+ * Past this, a fix is a guess about which city you are in, not which street —
+ * well beyond the 25 km radius the nearby search works in, so distances built
+ * on it stop meaning anything.
+ */
+const COARSE_FIX_METRES = 2000;
+
 export default function StationsPage() {
   const stations = usePolling(fetchStations, { intervalMs: 120000 });
   const map = usePolling(fetchMapData, { intervalMs: 300000 });
@@ -65,7 +72,16 @@ export default function StationsPage() {
 
     navigator.geolocation.getCurrentPosition(
       async ({ coords }) => {
-        const here = { lat: coords.latitude, lng: coords.longitude };
+        /*
+         * `accuracy` is metres of radius, and it is not decoration.
+         *
+         * Without a GPS chip the browser falls back to WiFi and then to IP,
+         * and an IP fix lands on the ISP's exchange — routinely tens of
+         * kilometres out. Dropping the figure meant a guess that good as a
+         * street address and a guess accurate to half a province were drawn as
+         * the same confident dot, and then fed to a 25 km "near me" search.
+         */
+        const here = { lat: coords.latitude, lng: coords.longitude, accuracyM: coords.accuracy };
         setYou(here);
         // The journey planner only needs the fix itself; asking for the nearby
         // list as well would scroll the page to a section nobody asked for.
@@ -91,7 +107,9 @@ export default function StationsPage() {
             : 'Could not get your location. You can still search or use the map.'
         );
       },
-      { timeout: 10000, maximumAge: 60000 }
+      // Worth the extra seconds and battery: this decides which curb someone
+      // is sent to walk to.
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
     );
   };
 
@@ -158,6 +176,21 @@ export default function StationsPage() {
 
       {locationError && (
         <p className="mb-4 text-sm text-muted-foreground">{locationError}</p>
+      )}
+
+      {/*
+        * Say when the fix is too coarse to act on, rather than letting the map
+        * imply a precision it does not have.
+        */}
+      {you?.accuracyM > COARSE_FIX_METRES && (
+        <p className="mb-4 text-sm text-muted-foreground">
+          Your device could only place you to within about{' '}
+          <span className="font-semibold text-foreground">
+            {Math.round(you.accuracyM / 1000)} km
+          </span>{' '}
+          — probably a network lookup rather than GPS, so distances below are rough. Searching by
+          stop name will be more reliable.
+        </p>
       )}
 
       {/* --------------------------------------------------------------- map */}

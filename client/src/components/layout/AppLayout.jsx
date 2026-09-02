@@ -30,13 +30,23 @@ export function BrandMark({ className = '' }) {
 export function Navbar({ home = '/', links = [], right = null }) {
   return (
     <header className="sticky top-0 z-50 w-full glass-panel">
-      <div className="container mx-auto flex h-[68px] max-w-7xl items-center gap-6 px-4 sm:px-6">
+      <div className="container mx-auto flex h-[60px] max-w-7xl items-center gap-2 px-3 sm:h-[68px] sm:gap-6 sm:px-6">
         <Link to={home} className="group flex shrink-0 items-center gap-2.5">
           <BrandMark />
-          <span className="text-[15px] font-extrabold tracking-[0.16em]">CHECKPOINT</span>
+          {/*
+            * The wordmark is the first thing to go on a phone.
+            *
+            * At 375px it ate 150 of the 375 pixels and squeezed the nav until
+            * "My trips" rendered as "My" and "Arrivals board" was clipped away
+            * entirely — a conductor could not reach half the app. The mark alone
+            * still says whose app this is, and it is a link home either way.
+            */}
+          <span className="hidden text-[15px] font-extrabold tracking-[0.16em] sm:inline">
+            CHECKPOINT
+          </span>
         </Link>
 
-        <nav className="no-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+        <nav className="no-scrollbar flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto sm:gap-1">
           {links.map((link) => (
             <NavLink
               key={link.to}
@@ -44,7 +54,7 @@ export function Navbar({ home = '/', links = [], right = null }) {
               end={link.end}
               className={({ isActive }) =>
                 cn(
-                  'relative whitespace-nowrap px-2 py-4 text-[14px] font-semibold transition-colors hover:text-foreground',
+                  'relative whitespace-nowrap px-1.5 py-4 text-[13px] font-semibold transition-colors hover:text-foreground sm:px-2 sm:text-[14px]',
                   isActive ? 'text-foreground' : 'text-muted-foreground'
                 )
               }
@@ -66,7 +76,7 @@ export function Navbar({ home = '/', links = [], right = null }) {
           ))}
         </nav>
 
-        {right && <div className="flex shrink-0 items-center gap-3">{right}</div>}
+        {right && <div className="flex shrink-0 items-center gap-2 sm:gap-3">{right}</div>}
       </div>
     </header>
   );
@@ -105,26 +115,37 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
-      className="relative mb-10 flex flex-col justify-between gap-6 border-b border-border/60 pb-6 sm:flex-row sm:items-end"
+      /*
+       * Tightened hard on phones. At 375px the old header — 48px icon, 30px
+       * title wrapping to two lines, a three-line description and stacked
+       * buttons — used almost half the screen before the first bus appeared,
+       * which is the one thing anyone opened the page for.
+       */
+      className="relative mb-6 flex flex-col justify-between gap-4 border-b border-border/60 pb-5 sm:mb-10 sm:gap-6 sm:pb-6 md:flex-row md:items-end"
     >
       <div className="absolute bottom-0 left-0 h-px w-24 bg-gradient-to-r from-primary to-transparent" />
 
-      <div className="flex min-w-0 max-w-2xl items-start gap-4">
+      <div className="flex min-w-0 max-w-2xl items-start gap-3 sm:gap-4">
         {Icon && (
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/15 to-accent/15 text-primary shadow-sm">
-            <Icon className="h-6 w-6" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-accent/15 text-primary shadow-sm sm:h-12 sm:w-12 sm:rounded-2xl">
+            <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
           </div>
         )}
         <div className="min-w-0">
-          <h1 className="text-3xl font-black tracking-tight text-foreground sm:text-[34px]">
+          <h1 className="text-[26px] font-black leading-tight tracking-tight text-foreground sm:text-[34px]">
             {title}
           </h1>
           {description && (
-            <div className="mt-2 text-[15px] font-medium text-muted-foreground">{description}</div>
+            <div className="mt-1.5 text-[14px] font-medium text-muted-foreground sm:mt-2 sm:text-[15px]">
+              {description}
+            </div>
           )}
         </div>
       </div>
-      {actions && <div className="flex shrink-0 items-center gap-3">{actions}</div>}
+      {/* Actions wrap into a row on a phone instead of stacking full-width. */}
+      {actions && (
+        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">{actions}</div>
+      )}
     </motion.div>
   );
 }

@@ -35,7 +35,10 @@ export function Timeline({ stops, isArrived = false, position = 'between' }) {
         const busHere = !isArrived && position === 'at_stop' && index === lastPassed;
 
         return (
-          <li key={stop.checkpointId} className="grid grid-cols-[28px_1fr_auto] items-start gap-3 py-3">
+          <li
+            key={stop.checkpointId}
+            className="grid grid-cols-[24px_1fr_auto] items-start gap-2 py-3 sm:grid-cols-[28px_1fr_auto] sm:gap-3"
+          >
             <div className="relative flex justify-center self-stretch" aria-hidden>
               <span
                 className={cn(
@@ -45,8 +48,15 @@ export function Timeline({ stops, isArrived = false, position = 'between' }) {
                 )}
               />
 
+              {/*
+                * The bus is on the leg *into* this stop, so its marker belongs on
+                * the line between the two rows — centred on the boundary rather
+                * than nudged up by a fixed amount. The old fixed offset assumed a
+                * row height, and the moment a stop name or its note wrapped to two
+                * lines on a narrow screen the marker drifted into the text above.
+                */}
               {busInbound && (
-                <span className="absolute -top-6 grid h-5 w-5 place-items-center rounded-full bg-success text-white shadow-sm ring-2 ring-background">
+                <span className="absolute -top-3 grid h-5 w-5 -translate-y-1/2 place-items-center rounded-full bg-success text-white shadow-sm ring-2 ring-background">
                   <Bus className="h-3 w-3" />
                 </span>
               )}

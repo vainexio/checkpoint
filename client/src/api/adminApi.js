@@ -15,6 +15,10 @@ export const updateCheckpoint = (id, body) => api.put(`/admin/checkpoints/${id}`
 export const deleteCheckpoint = (id) => api.del(`/admin/checkpoints/${id}`, opts);
 
 export const listRoutes = () => api.get('/admin/routes', opts);
+/** Ask TomTom how long each leg of a route being drawn normally takes. */
+export const measureRouteLegs = (checkpointIds) =>
+  api.post('/admin/routes/measure', { checkpointIds }, opts);
+
 export const createRoute = (body) => api.post('/admin/routes', body, opts);
 export const updateRoute = (id, body) => api.put(`/admin/routes/${id}`, body, opts);
 export const deleteRoute = (id) => api.del(`/admin/routes/${id}`, opts);

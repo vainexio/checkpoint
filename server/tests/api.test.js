@@ -632,3 +632,41 @@ test('admins can appoint a successor, and cannot delete the last one', async () 
   // Now that a successor exists, the other can go — but never yourself.
   await asAdmin(request(app).delete(`/api/admin/admins/${second.body._id}`)).expect(204);
 });
+
+test('route legs can be estimated, and the operator can still override them', async () => {
+  const { adminToken, cps } = await setupWorld();
+  const asAdmin = (req) => req.set('Authorization', `Bearer ${adminToken}`);
+
+  // No provider configured in tests, so this must fail clearly rather than
+  // silently handing back invented numbers.
+  const withoutKey = await asAdmin(request(app).post('/api/admin/routes/measure'))
+    .send({ checkpointIds: [byName(cps, 'Cubao Terminal'), byName(cps, 'Balintawak')] })
+    .expect(503);
+  assert.match(withoutKey.body.error, /traffic provider/i);
+
+  // With a provider present, too few stops is a plain input error. (Without
+  // one, availability is reported first — there is no point validating input
+  // for a feature that cannot run.)
+  process.env.TRAFFIC_API_KEY = 'test-key-never-called';
+  try {
+    await asAdmin(request(app).post('/api/admin/routes/measure'))
+      .send({ checkpointIds: [byName(cps, 'Cubao Terminal')] })
+      .expect(400);
+  } finally {
+    delete process.env.TRAFFIC_API_KEY;
+  }
+
+  // Whatever is suggested, the route is saved from what the operator submits —
+  // an estimate is a starting point, never the stored value.
+  const route = await asAdmin(request(app).post('/api/admin/routes'))
+    .send({
+      name: 'Operator-corrected route',
+      checkpoints: [
+        { checkpoint: byName(cps, 'Cubao Terminal'), baselineMinutesFromPrevious: 0 },
+        { checkpoint: byName(cps, 'Balintawak'), baselineMinutesFromPrevious: 99 },
+      ],
+    })
+    .expect(201);
+
+  assert.equal(route.body.checkpoints[1].baselineMinutesFromPrevious, 99);
+});

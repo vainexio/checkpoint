@@ -131,6 +131,23 @@ Tiaong, Candelaria or Sariaya. The search returns nothing there rather than offe
 hall, and those points have to be pinned by hand on the admin map. That is the correct
 behaviour: no coordinate beats a confidently wrong one.
 
+### Travel times are measured, not guessed
+
+Typing a baseline for every leg is the tedious part of setting a route up, and a wrong one
+quietly corrupts every ETA on it. **Estimate travel times** in the route builder measures each
+leg against TomTom and fills the fields in.
+
+- It uses the **typical** time for the leg, plus dwell where passengers board — the same basis
+  as everything else here.
+- The values arrive **editable and marked "estimated"**. An operator who runs the route knows
+  things a routing engine does not: a terminal that always takes ten minutes to get out of,
+  market day, a school zone. Editing a field clears the badge.
+- It is an explicit button, not something that fires as you type, so it costs a handful of API
+  calls per route rather than one per keystroke, and results are cached for a day.
+- A leg whose stop has no pin yet comes back unmeasured with the reason, rather than failing
+  the whole route. Half a route measured beats an error.
+- With no `TRAFFIC_API_KEY` the button reports that plainly instead of inventing numbers.
+
 ## Starting from an empty database
 
 The seed is demo data, not a dependency — everything in it can be created through the admin

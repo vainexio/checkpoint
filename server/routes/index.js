@@ -54,6 +54,8 @@ router.post('/admin/checkpoints', ...adminOnly, admin.createCheckpoint);
 router.put('/admin/checkpoints/:id', ...adminOnly, admin.updateCheckpoint);
 router.delete('/admin/checkpoints/:id', ...adminOnly, admin.deleteCheckpoint);
 
+router.post('/admin/routes/measure', ...adminOnly, admin.measureRouteLegs);
+
 router.get('/admin/routes', ...adminOnly, admin.listRoutes);
 router.get('/admin/routes/:id', ...adminOnly, admin.getRoute);
 router.post('/admin/routes', ...adminOnly, admin.createRoute);

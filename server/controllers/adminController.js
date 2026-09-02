@@ -3,6 +3,7 @@ import { asyncHandler } from '../middleware/errorHandler.js';
 import { buildPlan } from '../services/etaEngine.js';
 import { presentTrip, presentTrips, TRIP_POPULATE } from '../services/tripService.js';
 import { geocode } from '../services/geocoder.js';
+import { canMeasure, measureLegs } from '../services/legMeasurer.js';
 
 /* ------------------------------------------------------------------ geocoding */
 
@@ -70,6 +71,44 @@ export const deleteCheckpoint = asyncHandler(async (req, res) => {
   const removed = await Checkpoint.findByIdAndDelete(req.params.id);
   if (!removed) return res.status(404).json({ error: 'Checkpoint not found.' });
   res.status(204).end();
+});
+
+/**
+ * Suggest how long each leg of a route being drawn normally takes.
+ *
+ * Typing a baseline for every leg is the tedious, error-prone part of setting a
+ * route up, and a wrong one quietly corrupts every ETA on it. So the system
+ * measures the legs and hands back numbers the operator can accept or correct —
+ * they know things a routing engine cannot, and the returned values are only a
+ * starting point.
+ */
+export const measureRouteLegs = asyncHandler(async (req, res) => {
+  if (!canMeasure()) {
+    return res.status(503).json({
+      error: 'No traffic provider is configured, so travel times cannot be estimated.',
+    });
+  }
+
+  const ids = Array.isArray(req.body?.checkpointIds) ? req.body.checkpointIds : [];
+  if (ids.length < 2) {
+    return res.status(400).json({ error: 'Add at least two stops before estimating times.' });
+  }
+
+  const found = await Checkpoint.find({ _id: { $in: ids } }).lean();
+  const byId = new Map(found.map((c) => [String(c._id), c]));
+
+  // Ordered as the caller sent them — the order is the route.
+  const stops = ids.map((id) => {
+    const cp = byId.get(String(id));
+    return {
+      id: String(id),
+      name: cp?.name ?? 'Unknown',
+      type: cp?.type ?? 'station',
+      location: cp?.location ?? null,
+    };
+  });
+
+  res.json({ legs: await measureLegs(stops) });
 });
 
 /* --------------------------------------------------------------------- routes */

@@ -8,8 +8,10 @@ import {
   Plus,
   Route as RouteIcon,
   Search,
+  Loader2,
   Trash2,
   TriangleAlert,
+  Wand2,
   X,
 } from 'lucide-react';
 import { useList } from '@/hooks/useList.js';
@@ -19,6 +21,7 @@ import {
   deleteCheckpoint,
   deleteRoute,
   geocodePlace,
+  measureRouteLegs,
   listCheckpoints,
   listRoutes,
 } from '@/api/adminApi.js';
@@ -198,6 +201,8 @@ export default function AdminRoutesPage() {
   const [name, setName] = useState('');
   const [stops, setStops] = useState([]); // [{ id, name, minutes }]
   const [saving, setSaving] = useState(false);
+  const [measuring, setMeasuring] = useState(false);
+  const [measureNote, setMeasureNote] = useState(null);
 
   const [draftPin, setDraftPin] = useState(null);
   const [suggested, setSuggested] = useState(null);
@@ -220,6 +225,41 @@ export default function AdminRoutesPage() {
   const previewPath = previewRoute
     ? previewRoute.checkpoints.map((e) => e.checkpoint).filter(Boolean)
     : chosen;
+
+  /**
+   * Fill in the travel times rather than making someone guess them.
+   *
+   * Typing a baseline per leg is the tedious part of setting a route up, and a
+   * wrong one quietly corrupts every ETA on it. These come back editable on
+   * purpose: an operator knows things a routing engine does not — a terminal
+   * that always takes ten minutes to get out of, market day, a school zone.
+   */
+  const estimateTimes = async () => {
+    setMeasuring(true);
+    setMeasureNote(null);
+    try {
+      const { legs } = await measureRouteLegs(stops.map((s) => s.id));
+
+      setStops((current) =>
+        current.map((stop, i) => {
+          const leg = legs[i];
+          if (!leg?.measured || i === 0) return stop;
+          return { ...stop, minutes: String(leg.baselineMinutes), estimated: true };
+        })
+      );
+
+      const missed = legs.filter((l) => !l.measured);
+      setMeasureNote(
+        missed.length
+          ? `Estimated all but ${missed.length} leg${missed.length === 1 ? '' : 's'} — ${missed[0].reason}`
+          : 'Estimated from typical traffic. Adjust any leg you know runs differently.'
+      );
+    } catch (err) {
+      setMeasureNote(err.message);
+    } finally {
+      setMeasuring(false);
+    }
+  };
 
   const addStop = (id) => {
     if (!id || stops.some((s) => s.id === id)) return;
@@ -453,6 +493,28 @@ export default function AdminRoutesPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Offered before the save, because it fills the fields above it. */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  disabled={measuring || stops.length < 2}
+                  onClick={estimateTimes}
+                >
+                  {measuring ? (
+                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Wand2 className="mr-1.5 h-4 w-4" />
+                  )}
+                  {measuring ? 'Measuring…' : 'Estimate travel times'}
+                </Button>
+
+                {measureNote && (
+                  <p className="text-[13px] leading-relaxed text-muted-foreground">
+                    {measureNote}
+                  </p>
+                )}
 
                 <Button type="submit" className="w-full" disabled={saving || stops.length < 2}>
                   {saving ? 'Saving…' : `Create route with ${stops.length} stops`}

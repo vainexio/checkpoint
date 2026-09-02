@@ -40,8 +40,14 @@
 }
 
 :root {
-  /* Warm, airy background */
-  --background: 35 30% 98%;
+  /*
+   * Light warm tan, not off-white.
+   *
+   * It also does a job: the cards are pure white, and against a near-white page
+   * they were invisible without piling on shadow. On a tan ground they separate
+   * on their own, the way paper does on a desk.
+   */
+  --background: 32 30% 91%;
   /* Deep warm slate foreground */
   --foreground: 220 20% 15%;
 
@@ -64,7 +70,8 @@
   --secondary: 180 40% 90%;
   --secondary-foreground: 180 70% 20%;
 
-  --muted: 35 20% 92%;
+  /* Kept a step below the page so muted fills still read as recessed. */
+  --muted: 33 24% 86%;
   --muted-foreground: 220 10% 45%;
 
   --destructive: 350 80% 55%;
@@ -79,8 +86,8 @@
      fails contrast badly, so warning *words* use this darker amber instead. */
   --warning-strong: 32 88% 30%;
 
-  --border: 35 15% 85%;
-  --input: 35 15% 85%;
+  --border: 32 20% 79%;
+  --input: 32 20% 79%;
   --ring: 217 90% 55%;
 
   --radius: 12px;

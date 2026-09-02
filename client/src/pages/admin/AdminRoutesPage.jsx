@@ -145,7 +145,7 @@ function GettingStarted({ checkpointCount, routeCount, stopsInBuilder }) {
               key={step.title}
               className={cn(
                 'flex gap-3 rounded-lg p-3 transition-colors',
-                step.active && 'bg-background shadow-sm ring-1 ring-primary/30'
+                step.active && 'bg-card shadow-sm ring-1 ring-primary/30'
               )}
             >
               <span

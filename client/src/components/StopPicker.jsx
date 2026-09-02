@@ -62,7 +62,7 @@ export function StopPicker({
             setActive(0);
           }}
           className={cn(
-            'flex h-11 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-left text-sm',
+            'flex h-11 w-full items-center justify-between gap-2 rounded-md border border-input bg-card px-3 text-left text-sm',
             'transition-colors hover:border-primary/40 focus:outline-none focus:ring-1 focus:ring-ring'
           )}
         >
@@ -132,7 +132,7 @@ export function StopPicker({
         // Leaflet stacks its own panes from z-index 400 and its controls at 1000,
         // so anything floating over a map has to clear that outright — a tasteful
         // z-30 loses to the tiles and the list gets sliced off mid-list.
-        <div className="absolute z-[1200] mt-1 max-h-[min(60vh,340px)] w-full overflow-y-auto overscroll-contain rounded-lg border border-border bg-background shadow-lg">
+        <div className="absolute z-[1200] mt-1 max-h-[min(60vh,340px)] w-full overflow-y-auto overscroll-contain rounded-lg border border-border bg-card shadow-lg">
           {extraOption && (
             <button
               type="button"

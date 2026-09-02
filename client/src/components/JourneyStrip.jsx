@@ -38,7 +38,7 @@ export function JourneyStrip({ journey }) {
                   ) : (
                     <span
                       className={cn(
-                        'h-3 w-3 rounded-full border-2 bg-background',
+                        'h-3 w-3 rounded-full border-2 bg-card',
                         done && 'border-success bg-success',
                         !done && 'border-border',
                         stop.isYourStop && 'h-4 w-4 border-primary bg-primary ring-4 ring-primary/20'

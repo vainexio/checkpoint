@@ -68,7 +68,7 @@ export function Timeline({ stops, isArrived = false, position = 'between' }) {
               ) : (
                 <span
                   className={cn(
-                    'relative mt-1.5 h-3 w-3 rounded-full border-2 bg-background',
+                    'relative mt-1.5 h-3 w-3 rounded-full border-2 bg-card',
                     stop.progress === 'passed' && 'border-success bg-success',
                     stop.progress === 'skipped' && 'border-dashed border-muted-foreground',
                     stop.progress === 'pending' && 'border-border'

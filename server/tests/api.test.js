@@ -670,3 +670,153 @@ test('route legs can be estimated, and the operator can still override them', as
 
   assert.equal(route.body.checkpoints[1].baselineMinutesFromPrevious, 99);
 });
+
+/* ------------------------------------------------------ destination search */
+// A stop board answers "what comes here", which only helps someone who has
+// already worked out where to stand. These cover the other direction.
+
+test('searching by destination names a bus and where to catch it', async () => {
+  const { cps, trip, conductorToken } = await setupWorld();
+  const asConductor = (req) => req.set('Authorization', `Bearer ${conductorToken}`);
+
+  await asConductor(request(app).post(`/api/conductor/trips/${trip.id}/checkpoint-logs`))
+    .send({ type: 'departed', reportedAt: minutesAgo(10), clientLogId: 'j1' })
+    .expect(201);
+
+  const res = await request(app)
+    .get(`/api/public/journeys?to=${byName(cps, 'Baguio Terminal')}`)
+    .expect(200);
+
+  assert.equal(res.body.destination.name, 'Baguio Terminal');
+  assert.equal(res.body.options.length, 1);
+
+  const option = res.body.options[0];
+  // The bus left Cubao, so the first stop it can still pick you up at is the
+  // next one — that, not the origin, is the useful answer.
+  assert.equal(option.boardAt.name, 'Balintawak');
+  assert.equal(option.terminatesAt, 'Baguio Terminal');
+  assert.ok(option.boardTime, 'must say when it reaches the boarding stop');
+  assert.ok(option.arriveTime, 'and when it would get you there');
+  assert.equal(option.rideMinutes, 165, '80 + 40 + 45 from Balintawak');
+  // The landmark is on the way but nobody boards at one.
+  assert.deepEqual(
+    option.alsoBoardableAt.map((a) => a.name),
+    ['Tarlac stop']
+  );
+});
+
+test('a stop the bus has already passed is not offered as a way to board', async () => {
+  const { cps, trip, conductorToken } = await setupWorld();
+  const asConductor = (req) => req.set('Authorization', `Bearer ${conductorToken}`);
+
+  await asConductor(request(app).post(`/api/conductor/trips/${trip.id}/checkpoint-logs`))
+    .send({ type: 'departed', reportedAt: minutesAgo(100), clientLogId: 'j1' })
+    .expect(201);
+  await asConductor(request(app).post(`/api/conductor/trips/${trip.id}/checkpoint-logs`))
+    .send({
+      type: 'passed_checkpoint',
+      checkpoint: byName(cps, 'Tarlac stop'),
+      reportedAt: minutesAgo(1),
+      clientLogId: 'j2',
+    })
+    .expect(201);
+
+  const res = await request(app)
+    .get(`/api/public/journeys?to=${byName(cps, 'Baguio Terminal')}`)
+    .expect(200);
+
+  const names = res.body.options.flatMap((o) => [
+    o.boardAt.name,
+    ...o.alsoBoardableAt.map((a) => a.name),
+  ]);
+  assert.ok(!names.includes('Balintawak'), 'gone past, so not an option');
+  // Standing at Tarlac right now is still catchable — that is the person
+  // sprinting for the door.
+  assert.ok(names.includes('Tarlac stop'));
+});
+
+test('asking to travel the wrong way down a route returns nothing', async () => {
+  const { cps, trip, conductorToken } = await setupWorld();
+  const asConductor = (req) => req.set('Authorization', `Bearer ${conductorToken}`);
+
+  await asConductor(request(app).post(`/api/conductor/trips/${trip.id}/checkpoint-logs`))
+    .send({ type: 'departed', reportedAt: minutesAgo(10), clientLogId: 'j1' })
+    .expect(201);
+
+  const res = await request(app)
+    .get(`/api/public/journeys?to=${byName(cps, 'Cubao Terminal')}`)
+    .expect(200);
+
+  assert.equal(res.body.options.length, 0, 'this bus is going the other way');
+});
+
+test('an explicit starting stop restricts the answer to that stop', async () => {
+  const { cps, trip, conductorToken } = await setupWorld();
+  const asConductor = (req) => req.set('Authorization', `Bearer ${conductorToken}`);
+
+  await asConductor(request(app).post(`/api/conductor/trips/${trip.id}/checkpoint-logs`))
+    .send({ type: 'departed', reportedAt: minutesAgo(10), clientLogId: 'j1' })
+    .expect(201);
+
+  const res = await request(app)
+    .get(
+      `/api/public/journeys?to=${byName(cps, 'Baguio Terminal')}&from=${byName(cps, 'Tarlac stop')}`
+    )
+    .expect(200);
+
+  assert.equal(res.body.origin.name, 'Tarlac stop');
+  assert.equal(res.body.options.length, 1);
+  assert.equal(res.body.options[0].boardAt.name, 'Tarlac stop');
+  assert.deepEqual(res.body.options[0].alsoBoardableAt, [], 'asked for one stop, told one stop');
+});
+
+test('a location keeps far-away stops out of the answer', async () => {
+  const { cps, trip, conductorToken } = await setupWorld();
+  const asConductor = (req) => req.set('Authorization', `Bearer ${conductorToken}`);
+
+  // Balintawak in Quezon City, Tarlac 100 km north of it.
+  await Checkpoint.updateOne(
+    { _id: byName(cps, 'Balintawak') },
+    { location: { lat: 14.6574221, lng: 121.0038959 } }
+  );
+  await Checkpoint.updateOne(
+    { _id: byName(cps, 'Tarlac stop') },
+    { location: { lat: 15.480646, lng: 120.594583 } }
+  );
+
+  await asConductor(request(app).post(`/api/conductor/trips/${trip.id}/checkpoint-logs`))
+    .send({ type: 'departed', reportedAt: minutesAgo(10), clientLogId: 'j1' })
+    .expect(201);
+
+  // Standing next to Balintawak.
+  const res = await request(app)
+    .get(`/api/public/journeys?to=${byName(cps, 'Baguio Terminal')}&lat=14.66&lng=121.00`)
+    .expect(200);
+
+  assert.equal(res.body.options.length, 1);
+  const option = res.body.options[0];
+  assert.equal(option.boardAt.name, 'Balintawak');
+  assert.ok(option.boardAt.distanceKm < 1, 'and it knows how far that is');
+  assert.deepEqual(option.alsoBoardableAt, [], 'Tarlac is 100 km away, not an option');
+});
+
+test('a destination nobody is heading for says so rather than erroring', async () => {
+  const { cps } = await setupWorld();
+
+  const res = await request(app)
+    .get(`/api/public/journeys?to=${byName(cps, 'Baguio Terminal')}`)
+    .expect(200);
+
+  // The trip exists but has not departed, so it is still boardable at Cubao.
+  assert.equal(res.body.options.length, 1);
+  assert.equal(res.body.options[0].boardAt.name, 'Cubao Terminal');
+  assert.equal(res.body.options[0].boardKind, 'departure');
+});
+
+test('a destination that is not a station is refused', async () => {
+  const { cps } = await setupWorld();
+  await request(app)
+    .get(`/api/public/journeys?to=${byName(cps, 'TPLEX – Rosario Exit')}`)
+    .expect(404);
+  await request(app).get('/api/public/journeys?to=not-an-id').expect(404);
+});

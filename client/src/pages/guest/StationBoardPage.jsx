@@ -16,6 +16,7 @@ import { fetchStationBoard } from '@/api/publicApi.js';
 import { StatusBadge } from '@/components/StatusBadge.jsx';
 import { SeatBadge } from '@/components/SeatPicker.jsx';
 import { JourneyStrip } from '@/components/JourneyStrip.jsx';
+import { ArrivalCountdown } from '@/components/ArrivalCountdown.jsx';
 import { PageHeader, LiveIndicator } from '@/components/layout/AppLayout.jsx';
 import { Card, CardContent } from '@/components/ui/card.tsx';
 import { Alert, AlertDescription } from '@/components/ui/alert.tsx';
@@ -23,7 +24,7 @@ import { Skeleton } from '@/components/ui/skeleton.tsx';
 import { Button } from '@/components/ui/button.tsx';
 import { cn } from '@/lib/utils.ts';
 import { directionsUrl } from '@/utils/directions.js';
-import { formatCountdown, formatElapsed, formatTime, relativeMinutes } from '@/utils/time.js';
+import { formatElapsed, formatTime } from '@/utils/time.js';
 
 const DELAY_TEXT = {
   traffic: 'heavy traffic',
@@ -131,11 +132,9 @@ export default function StationBoardPage() {
 
 function ArrivalRow({ arrival, now }) {
   const [open, setOpen] = useState(false);
-  const minutesAway = relativeMinutes(arrival.boardTime, now);
   const notDepartedYet = arrival.status === 'scheduled';
   const isDeparture = arrival.boardKind === 'departure';
   const hasArrived = arrival.boardKind === 'arrived';
-  const dimmed = arrival.isStale || notDepartedYet || hasArrived;
   const isFull = arrival.load === 'full';
 
   return (
@@ -272,49 +271,14 @@ function ArrivalRow({ arrival, now }) {
             </div>
           </div>
 
-          <div className="shrink-0 text-left sm:min-w-[160px] sm:text-right">
-            <div
-              className={cn(
-                'mb-1 text-[11px] font-bold uppercase tracking-[0.12em]',
-                arrival.isHereNow ? 'text-success' : 'text-muted-foreground'
-              )}
-            >
-              {arrival.isHereNow
-                ? 'At this stop now'
-                : hasArrived
-                  ? 'Arrived'
-                  : isDeparture
-                    ? 'Departs from here'
-                    : 'Expected arrival'}
-            </div>
-            <div
-              className={cn(
-                'font-mono tabular text-[38px] font-bold leading-none tracking-tight sm:text-[46px]',
-                arrival.isHereNow && 'text-success',
-                dimmed && !arrival.isHereNow && 'text-muted-foreground'
-              )}
-            >
-              {formatTime(arrival.boardTime)}
-            </div>
-            <div
-              className={cn(
-                'mt-2 text-[13px] font-medium',
-                arrival.isHereNow ? 'font-bold text-success' : 'text-muted-foreground'
-              )}
-            >
-              {arrival.isHereNow
-                ? 'boarding — pulled in at this time'
-                : hasArrived
-                  ? 'trip complete'
-                  : isDeparture
-                    ? 'scheduled departure'
-                    : arrival.isStale
-                      ? 'rough estimate'
-                      : minutesAway !== null && minutesAway > 1
-                        ? formatCountdown(arrival.boardTime, now)
-                        : 'arriving now'}
-            </div>
-          </div>
+          <ArrivalCountdown
+            className="shrink-0 sm:min-w-[150px]"
+            time={arrival.boardTime}
+            now={now}
+            kind={arrival.boardKind}
+            isHereNow={arrival.isHereNow}
+            isStale={arrival.isStale}
+          />
         </div>
 
         {arrival.isStale && (

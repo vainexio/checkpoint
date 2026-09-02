@@ -25,6 +25,8 @@ router.get('/public/stations', pub.listStations);
 router.get('/public/stations/nearby', pub.nearbyStations);
 router.get('/public/map', pub.mapData);
 router.get('/public/stations/:stationId/board', pub.stationBoard);
+// Destination-first: "which bus near me is going to Lipa".
+router.get('/public/journeys', pub.searchJourneys);
 router.get('/public/routes', pub.listRoutes);
 router.get('/public/trips', pub.listActiveTrips);
 router.get('/public/trips/:tripId', pub.tripDetail);

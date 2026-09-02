@@ -6,6 +6,7 @@ import {
   computeTripState,
   cumulativeBaseline,
   evaluateStaleness,
+  resolvePosition,
   addMinutes,
   DELAY_THRESHOLD_MINUTES,
 } from '../services/etaEngine.js';
@@ -643,4 +644,30 @@ test('a bad reading cannot excuse a delay past the threshold on the next leg', (
   assert.equal(state.cumulativeVarianceMinutes, 30);
   assert.equal(state.faultVarianceMinutes, 0);
   assert.ok(DELAY_THRESHOLD_MINUTES > 0);
+});
+
+test('departing is the pull-out from the origin, not a dwell at it', () => {
+  const state = computeTripState({ plan, logs: [departed()] });
+
+  assert.equal(state.position, 'between', 'a departed bus has left');
+  assert.deepEqual(state.leftLastCheckpointAt, DEPARTURE);
+
+  // And it stays a confirmed fact rather than decaying into a guess: the
+  // conductor said it left, so the board must never hedge that it "assumed" so.
+  const later = resolvePosition({ state, now: addMinutes(DEPARTURE, 45) });
+  assert.equal(later.position, 'between');
+  assert.equal(later.inferred, false);
+});
+
+test('reaching a stop still means standing at it until the pull-out', () => {
+  // The opposite case, so the fix above cannot quietly disable at-stop entirely.
+  const state = computeTripState({ plan, logs: [departed(), passed(CP.balintawak, 20)] });
+  assert.equal(state.position, 'at_stop');
+  assert.equal(state.leftLastCheckpointAt, null);
+
+  const left = computeTripState({
+    plan,
+    logs: [departed(), passed(CP.balintawak, 20), log('left_checkpoint', 24, { checkpoint: CP.balintawak })],
+  });
+  assert.equal(left.position, 'between');
 });

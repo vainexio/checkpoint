@@ -66,6 +66,21 @@ export function formatCountdown(value, now = new Date()) {
   return `in ${mins} min`;
 }
 
+/**
+ * A bare span — "12 min", "1h 20m" — with no "in" and no "ago".
+ *
+ * The prefix belongs in the label above it ("Arrives in"), not in the number
+ * itself: a countdown set large enough to read across a terminal hall should
+ * spend its width on the figure, not on a preposition.
+ */
+export function formatDuration(minutes) {
+  const m = Math.abs(Math.round(minutes ?? 0));
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60);
+  const rest = m % 60;
+  return rest ? `${h}h ${rest}m` : `${h}h`;
+}
+
 export function formatElapsed(minutes) {
   if (minutes === null || minutes === undefined) return '—';
   if (minutes < 60) return `${minutes} min`;

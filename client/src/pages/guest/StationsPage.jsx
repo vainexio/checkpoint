@@ -15,6 +15,7 @@ import { usePolling } from '@/hooks/usePolling.js';
 import { fetchMapData, fetchNearbyStations, fetchStations } from '@/api/publicApi.js';
 import { PageHeader } from '@/components/layout/AppLayout.jsx';
 import { CheckpointMap } from '@/components/CheckpointMap.jsx';
+import { JourneyPlanner } from '@/components/JourneyPlanner.jsx';
 import { Card, CardContent } from '@/components/ui/card.tsx';
 import { Input } from '@/components/ui/input.tsx';
 import { Button } from '@/components/ui/button.tsx';
@@ -53,7 +54,7 @@ export default function StationsPage() {
    * The passenger's own position, read once, used to rank stops, and never
    * stored or sent anywhere else. This is the rider's phone, not a bus.
    */
-  const findNearby = () => {
+  const findNearby = ({ listStops = true } = {}) => {
     if (!navigator.geolocation) {
       setLocationError('This browser cannot share a location.');
       return;
@@ -66,6 +67,12 @@ export default function StationsPage() {
       async ({ coords }) => {
         const here = { lat: coords.latitude, lng: coords.longitude };
         setYou(here);
+        // The journey planner only needs the fix itself; asking for the nearby
+        // list as well would scroll the page to a section nobody asked for.
+        if (!listStops) {
+          setLocating(false);
+          return;
+        }
         try {
           const res = await fetchNearbyStations(here.lat, here.lng);
           setNearby(res);
@@ -99,11 +106,22 @@ export default function StationsPage() {
     <>
       <PageHeader
         icon={Bus}
-        title="Where are you waiting?"
-        description="Find your stop to see every bus heading there, with a live arrival time for each."
+        title="Where are you going?"
+        description="Pick a destination to see which buses can take you there and where to catch them — or find a stop to see everything heading its way."
+      />
+
+      {/* --------------------------------------------------- journey planner */}
+      <JourneyPlanner
+        stations={all}
+        you={you}
+        locating={locating}
+        onRequestLocation={() => findNearby({ listStops: false })}
       />
 
       {/* ------------------------------------------------------------ search */}
+      <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
+        Or find a stop
+      </h2>
       <div className="mb-6 flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

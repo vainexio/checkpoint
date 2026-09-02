@@ -228,6 +228,16 @@ export function computeTripState({
         lastConfirmedIndex = 0;
         exactVariance = 0;
         conditionsAllowance = 0;
+        /**
+         * Departing *is* the pull-out from the origin — that is what the word
+         * means and what the conductor taps it to say.
+         *
+         * Leaving it unset made the origin's own board announce a bus that had
+         * gone as still boarding, and then, once the dwell grace expired, call
+         * its departure *inferred* — hedging over the one movement the
+         * conductor had explicitly confirmed.
+         */
+        leftLastCheckpointAt = actualDeparture;
         progress[0].progress = 'passed';
         progress[0].actualArrival = actualDeparture;
         break;

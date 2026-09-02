@@ -318,6 +318,191 @@ export const stationBoard = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * "I am here, I want to get to Lipa" — the question a passenger actually has.
+ *
+ * A station board answers "what comes here", which only helps someone who has
+ * already worked out which stop to stand at. That is the hard part of a
+ * provincial network: routes overlap, a bus to Lucena passes through the same
+ * three towns as a bus to Lipa, and the stop you want may not be the one you
+ * know the name of. So this searches the other way round — from a destination
+ * back to every stop within reach that has a bus heading there.
+ *
+ * A destination is any stop *later on the same trip*, never just the last one.
+ * A bus terminating in Lucena will happily drop you at Lipa on the way, and
+ * hiding it because Lipa is not its headline destination would be absurd.
+ */
+export const searchJourneys = asyncHandler(async (req, res) => {
+  const destination = await Checkpoint.findById(req.query.to).lean().catch(() => null);
+  if (!destination || destination.type !== 'station') {
+    return res.status(404).json({ error: 'Choose a destination stop.' });
+  }
+
+  const lat = Number(req.query.lat);
+  const lng = Number(req.query.lng);
+  const here = Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+
+  // An explicit origin wins over a location: someone who typed "Santo Tomas"
+  // means Santo Tomas, wherever their phone thinks they are.
+  const origin = req.query.from
+    ? await Checkpoint.findById(req.query.from).lean().catch(() => null)
+    : null;
+
+  const trips = await Trip.find({
+    // An arrived bus cannot take you anywhere, so unlike a station board this
+    // one genuinely only wants what is still running.
+    status: { $in: ACTIVE_STATUSES },
+    'plan.checkpoint': destination._id,
+  })
+    .populate(TRIP_POPULATE)
+    .lean();
+
+  const presented = await presentTrips(trips, { audience: 'public' });
+
+  // Distances are measured once per stop, not once per trip — the same terminal
+  // shows up on every route through it.
+  const distanceCache = new Map();
+  const distanceTo = (checkpointId, location) => {
+    if (!here || !location?.lat) return null;
+    if (!distanceCache.has(checkpointId)) {
+      distanceCache.set(
+        checkpointId,
+        Math.round(distanceKm(here, location) * 10) / 10
+      );
+    }
+    return distanceCache.get(checkpointId);
+  };
+
+  const stationLocations = new Map(
+    (await Checkpoint.find({ type: 'station' }).select('location').lean()).map((c) => [
+      String(c._id),
+      c.location,
+    ])
+  );
+
+  const options = [];
+
+  for (const trip of presented) {
+    const destIndex = trip.stops.findIndex((s) => s.checkpointId === String(destination._id));
+    if (destIndex <= 0) continue; // Not on this trip, or it starts there.
+
+    const destStop = trip.stops[destIndex];
+    // Already been and gone: this bus cannot deliver you there any more.
+    if (destStop.progress !== 'pending') continue;
+
+    /**
+     * Every stop before the destination you could still get on at.
+     *
+     * "Still" is doing the work: a stop the bus has already passed is not an
+     * option however near it is, and a bus standing at a stop right now is,
+     * which is exactly the one someone is running for.
+     */
+    const boardable = trip.stops
+      .map((stop, index) => ({ stop, index }))
+      .filter(({ stop, index }) => {
+        if (index >= destIndex || stop.type !== 'station') return false;
+        if (origin && stop.checkpointId !== String(origin._id)) return false;
+
+        const standingHere =
+          trip.position === 'at_stop' &&
+          trip.lastConfirmedCheckpoint?.checkpointId === stop.checkpointId;
+        return stop.progress === 'pending' || standingHere;
+      })
+      .map(({ stop, index }) => ({
+        stop,
+        index,
+        distanceKm: distanceTo(stop.checkpointId, stationLocations.get(stop.checkpointId)),
+      }))
+      // Out of range is out of the question — a stop 60 km away is not a way
+      // of catching this bus, it is a second journey.
+      .filter((c) => !here || c.distanceKm === null || c.distanceKm <= NEARBY_RADIUS_KM);
+
+    if (!boardable.length) continue;
+
+    /**
+     * One row per bus, not one per stop it passes.
+     *
+     * Several nearby stops often serve the same bus, and listing each as its
+     * own result reads like several buses. The nearest is the one a passenger
+     * would actually walk to; the rest are named on the row as alternatives.
+     */
+    const best = here
+      ? boardable.reduce((a, b) =>
+          (b.distanceKm ?? Infinity) < (a.distanceKm ?? Infinity) ? b : a
+        )
+      : boardable[0];
+
+    const isDeparture = best.index === 0 && !trip.actualDeparture;
+    const boardTime = isDeparture
+      ? trip.scheduledDeparture
+      : (best.stop.actualArrival ?? best.stop.projectedArrival ?? best.stop.scheduledArrival);
+    const arriveTime = destStop.projectedArrival ?? destStop.scheduledArrival;
+
+    options.push({
+      tripId: trip.id,
+      route: trip.route.name,
+      bus: trip.bus,
+      status: trip.status,
+      isStale: trip.isStale,
+      varianceMinutes: trip.varianceMinutes,
+      conditionsAllowanceMinutes: trip.conditionsAllowanceMinutes,
+      load: trip.load,
+      loadReportedAtName: trip.loadReportedAtName,
+      loadReportedAt: trip.loadReportedAt,
+
+      boardAt: {
+        id: best.stop.checkpointId,
+        name: best.stop.name,
+        distanceKm: best.distanceKm,
+        location: stationLocations.get(best.stop.checkpointId)?.lat
+          ? stationLocations.get(best.stop.checkpointId)
+          : null,
+      },
+      // Other stops on this same bus that are also within reach, so someone
+      // closer to a different one is not sent to the wrong curb.
+      alsoBoardableAt: boardable
+        .filter((c) => c.index !== best.index)
+        .map((c) => ({ id: c.stop.checkpointId, name: c.stop.name, distanceKm: c.distanceKm })),
+
+      boardKind: isDeparture ? 'departure' : 'arrival',
+      boardTime,
+      // The bus is standing at your stop right now — run.
+      isHereNow:
+        trip.position === 'at_stop' &&
+        trip.lastConfirmedCheckpoint?.checkpointId === best.stop.checkpointId,
+      arriveTime,
+      rideMinutes:
+        boardTime && arriveTime
+          ? Math.round((new Date(arriveTime) - new Date(boardTime)) / 60000)
+          : null,
+      stopsBetween: destIndex - best.index - 1,
+      // Where it ends up, which is often past where you are getting off.
+      terminatesAt: trip.stops.at(-1)?.name ?? null,
+    });
+  }
+
+  // Soonest first: the only ordering that answers "when can I leave".
+  options.sort((a, b) => {
+    if (a.isHereNow !== b.isHereNow) return a.isHereNow ? -1 : 1;
+    if (!a.boardTime) return 1;
+    if (!b.boardTime) return -1;
+    return new Date(a.boardTime) - new Date(b.boardTime);
+  });
+
+  res.json({
+    destination: {
+      id: String(destination._id),
+      name: destination.name,
+      area: destination.area || null,
+    },
+    origin: origin ? { id: String(origin._id), name: origin.name } : null,
+    from: here,
+    radiusKm: here ? NEARBY_RADIUS_KM : null,
+    generatedAt: new Date(),
+    options,
+  });
+});
+
 /** Everything currently moving, for the all-routes overview. */
 export const listActiveTrips = asyncHandler(async (req, res) => {
   const filter = { status: { $in: ACTIVE_STATUSES } };

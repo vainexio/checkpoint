@@ -233,6 +233,40 @@ Three rules keep it honest:
   "On time" about a bus that is twelve minutes away. When the road explains it, the board says
   `12 min late · traffic` — the number stays, the blame moves.
 
+### Asking the question the other way round
+
+A stop board answers "what comes here", which is only useful once you have
+already worked out where to stand. On a network where routes overlap, that is the
+genuinely hard part — three buses pass Santo Tomas and only two are any use to
+someone heading for Lipa.
+
+`GET /api/public/journeys?to=<stop>` takes the destination as the required field
+and returns the boarding stop as the *answer*:
+
+- A destination is **any stop later on the same trip**, never just the last one.
+  A bus terminating in Lucena will happily drop you at Lipa on the way.
+- Passing `lat`/`lng` keeps the answer to stops within 25 km, each with its
+  distance and a walking link. Passing `from` pins it to one stop instead.
+- Stops the bus has **already passed** are not offered, however near they are.
+  A bus standing at one right now still is — that is the person sprinting for
+  the door.
+- **One row per bus, not per stop it passes.** Several nearby stops often serve
+  the same bus, and listing each separately reads like several buses. The nearest
+  is the headline; the rest are named on the row.
+
+### Leading with the wait, not the clock
+
+The wall-clock arrival used to be the largest thing on a board, which made every
+reader do arithmetic: see 3:42, find the current time, subtract. The countdown is
+now the headline and the clock sits beneath it — still there, because it is what
+you match against a printed timetable or read out to someone meeting you.
+
+A bus long past its estimate with nobody confirming it does not get to say "Due
+now". Past ten minutes overdue *and* stale, the count flips to counting up —
+"Overdue by 50 min · may have passed" — which is not an answer, but is a true
+statement of what is known, and does not hold someone at a curb for a bus that
+already went by.
+
 ### Where a bus is, honestly
 
 A bus does two separate things at a stop where passengers board: it pulls in, and later it
@@ -245,7 +279,9 @@ a station is modelled as **two events**, not one:
 | `left_checkpoint` | pulled out. Now on the road to the next point. |
 
 A **landmark** is genuinely instantaneous — nobody boards at a toll exit — so it takes one tap
-and the bus is immediately "between".
+and the bus is immediately "between". **Departing is the pull-out from the origin**, for the same
+reason: it is what the word means, and treating it as a dwell made the origin's own board
+announce a bus that had gone as still boarding.
 
 This gives three honest positions, and the UI never shows anything else: `at_stop`, `between`,
 `arrived`. The bus marker sits *on* a stop only while it is standing there, and moves onto the
@@ -399,7 +435,7 @@ the viewer's device clock.
 cd server && npm test
 ```
 
-65 tests: the engine's arithmetic (variance, re-projection, skipped checkpoints, out-of-order
+74 tests: the engine's arithmetic (variance, re-projection, skipped checkpoints, out-of-order
 replay, staleness thresholds, traffic applying forward-only without touching a measured
 variance, and the delay flag surviving a slow road while still catching a slow bus) plus API
 integration against an in-memory MongoDB covering the shared login and its

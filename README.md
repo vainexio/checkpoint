@@ -267,6 +267,28 @@ now". Past ten minutes overdue *and* stale, the count flips to counting up —
 statement of what is known, and does not hold someone at a curb for a bus that
 already went by.
 
+### Finding the passenger, not the bus
+
+The one place a device location is read is the rider's own phone, to rank stops
+near them. No vehicle position is ever derived from it.
+
+Asking for a single fix means choosing a loser in advance. A plain request is
+fast and, on a laptop, usually a WiFi-derived fix good to a street. Asking for
+high accuracy is what makes a phone turn its GPS on — but on a machine with no
+GPS it also rejects the cached WiFi answer and waits for a precise provider that
+does not exist, then falls back to an IP lookup that can be a province out.
+Forcing high accuracy fixed phones and broke desktops.
+
+So both are used: take the fast answer, then let a better one overtake it. **A
+later fix only wins if its accuracy is genuinely smaller**, which is what makes
+it safe — a desktop keeps the good fix it already had, a phone starts with
+something on screen and sharpens to GPS a moment later.
+
+The accuracy radius is kept and drawn as a circle rather than thrown away. A
+guess good to a street address and one good to half a province are not the same
+claim, and a bare dot presents them identically — then feeds both to a 25 km
+"near me" search.
+
 ### Where a bus is, honestly
 
 A bus does two separate things at a stop where passengers board: it pulls in, and later it
@@ -435,11 +457,13 @@ the viewer's device clock.
 cd server && npm test
 ```
 
-74 tests: the engine's arithmetic (variance, re-projection, skipped checkpoints, out-of-order
+80 tests: the engine's arithmetic (variance, re-projection, skipped checkpoints, out-of-order
 replay, staleness thresholds, traffic applying forward-only without touching a measured
 variance, and the delay flag surviving a slow road while still catching a slow bus) plus API
 integration against an in-memory MongoDB covering the shared login and its
-role boundary, the frozen plan, offline sync, undo and its limits, at-stop versus on-the-road position, and the public board.
+role boundary, the frozen plan, offline sync, undo and its limits, at-stop versus on-the-road
+position, destination-first journey search, and the public board — plus `npm test` in `client/`
+for the locating strategy, where a coarse refinement must never displace a good fix.
 
 ## Project layout
 

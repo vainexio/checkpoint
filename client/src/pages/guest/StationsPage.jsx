@@ -11,6 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import { directionsUrl, walkMinutes } from '@/utils/directions.js';
+import { locate, metresBetween } from '@/utils/locate.js';
 import { usePolling } from '@/hooks/usePolling.js';
 import { fetchMapData, fetchNearbyStations, fetchStations } from '@/api/publicApi.js';
 import { PageHeader } from '@/components/layout/AppLayout.jsx';
@@ -37,6 +38,12 @@ import { cn } from '@/lib/utils.ts';
  */
 const COARSE_FIX_METRES = 2000;
 
+/**
+ * How far a refined fix has to have moved before the nearby list is worth
+ * asking for again. Below this the ranking cannot change.
+ */
+const NEARBY_REFETCH_METRES = 200;
+
 export default function StationsPage() {
   const stations = usePolling(fetchStations, { intervalMs: 120000 });
   const map = usePolling(fetchMapData, { intervalMs: 300000 });
@@ -58,59 +65,41 @@ export default function StationsPage() {
   }, [all, query]);
 
   /**
-   * The passenger's own position, read once, used to rank stops, and never
-   * stored or sent anywhere else. This is the rider's phone, not a bus.
+   * The passenger's own position, refined in place, and never stored or sent
+   * anywhere else. This is the rider's phone locating itself, not a bus.
+   *
+   * `locate` hands back a first fix quickly and then a better one if the device
+   * can manage it, so the list appears without a wait and sharpens underneath.
+   * The nearby list is only re-fetched when the position actually moved enough
+   * to change the answer — a fix that tightens from 900 m to 30 m without
+   * really moving does not need a second round trip.
    */
   const findNearby = ({ listStops = true } = {}) => {
-    if (!navigator.geolocation) {
-      setLocationError('This browser cannot share a location.');
-      return;
-    }
-
     setLocating(true);
     setLocationError(null);
 
-    navigator.geolocation.getCurrentPosition(
-      async ({ coords }) => {
-        /*
-         * `accuracy` is metres of radius, and it is not decoration.
-         *
-         * Without a GPS chip the browser falls back to WiFi and then to IP,
-         * and an IP fix lands on the ISP's exchange — routinely tens of
-         * kilometres out. Dropping the figure meant a guess that good as a
-         * street address and a guess accurate to half a province were drawn as
-         * the same confident dot, and then fed to a 25 km "near me" search.
-         */
-        const here = { lat: coords.latitude, lng: coords.longitude, accuracyM: coords.accuracy };
+    let fetchedFrom = null;
+
+    locate({
+      onFix: async (here) => {
         setYou(here);
         // The journey planner only needs the fix itself; asking for the nearby
         // list as well would scroll the page to a section nobody asked for.
-        if (!listStops) {
-          setLocating(false);
-          return;
-        }
+        if (!listStops) return;
+        if (fetchedFrom && metresBetween(fetchedFrom, here) < NEARBY_REFETCH_METRES) return;
+
+        fetchedFrom = here;
         try {
           const res = await fetchNearbyStations(here.lat, here.lng);
           setNearby(res);
           setQuery('');
         } catch (err) {
           setLocationError(err.message);
-        } finally {
-          setLocating(false);
         }
       },
-      (err) => {
-        setLocating(false);
-        setLocationError(
-          err.code === err.PERMISSION_DENIED
-            ? 'Location permission was declined. You can still search or use the map.'
-            : 'Could not get your location. You can still search or use the map.'
-        );
-      },
-      // Worth the extra seconds and battery: this decides which curb someone
-      // is sent to walk to.
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
-    );
+      onError: setLocationError,
+      onSettle: () => setLocating(false),
+    });
   };
 
   const terminals = all.filter((s) => s.isTerminal);

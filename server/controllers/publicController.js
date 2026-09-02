@@ -292,8 +292,21 @@ export const stationBoard = asyncHandler(async (req, res) => {
       };
     })
     .sort((a, b) => {
-      // Here now, then everything due, then what has already got in.
-      const rank = (x) => (x.isHereNow ? 0 : x.boardKind === 'arrived' ? 2 : 1);
+      /**
+       * Ordered by what a passenger can act on, not purely by time.
+       *
+       * Sorting on time alone put the least useful bus on the board at the very
+       * top: one that stopped reporting hours ago has an arrival time in the
+       * past, so "soonest first" ranks it above every bus actually coming. It
+       * may already have driven through. It belongs below the ones that have
+       * not.
+       */
+      const rank = (x) => {
+        if (x.isHereNow) return 0; // board it now
+        if (x.boardKind === 'arrived') return 3; // done, kept for context
+        if (x.isStale) return 2; // nobody can vouch for this time
+        return 1; // genuinely on the way
+      };
       if (rank(a) !== rank(b)) return rank(a) - rank(b);
       if (!a.boardTime) return 1;
       if (!b.boardTime) return -1;

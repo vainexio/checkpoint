@@ -181,98 +181,43 @@ function ArrivalRow({ arrival, now }) {
                 varianceMinutes={arrival.varianceMinutes}
                 conditionsAllowanceMinutes={arrival.conditionsAllowanceMinutes}
               />
-              <SeatBadge
-                load={arrival.load}
-                reportedAtName={arrival.loadReportedAtName}
-                reportedAt={arrival.loadReportedAt}
-              />
+              <SeatBadge load={arrival.load} showSource={false} />
             </div>
 
-            {/* One line on where it is. Everything else is behind "details". */}
-            <div className="mt-2 space-y-1 text-[13px] leading-relaxed">
-              {/*
-                * Three genuinely different situations, and a passenger acts
-                * differently on each. Standing at a stop means the doors may
-                * still be open; on the road means settle in.
-                */}
-              <div className="text-muted-foreground">
+            {/*
+              * Collapsed, this row answers two questions and no others: when
+              * can I get on, and can I get on at all. Where the bus is, when it
+              * last reported, and which stops it has behind it are all true and
+              * all beside the point while someone is deciding whether to keep
+              * waiting — they live under Details, where the same facts were
+              * being repeated a third time anyway.
+              *
+              * The exception is a bus that is here, or leaving from here. That
+              * changes what the passenger should do in the next few seconds, so
+              * it stays on the face of the card.
+              */}
+            {(arrival.isHereNow || isDeparture || hasArrived || notDepartedYet) && (
+              <div className="mt-2 text-[13px] leading-relaxed">
                 {hasArrived ? (
-                  <>
+                  <span className="text-muted-foreground">
                     Completed · arrived from{' '}
                     <span className="font-semibold text-foreground">{arrival.origin}</span>
-                  </>
+                  </span>
                 ) : isDeparture ? (
                   <span className="font-semibold text-primary">
                     Waiting here · departs for {arrival.destination}
                   </span>
-                ) : notDepartedYet ? (
-                  <>
-                    Still at <span className="font-semibold text-foreground">{arrival.origin}</span>{' '}
-                    · leaves {formatTime(arrival.scheduledDeparture)}
-                  </>
-                ) : arrival.position === 'at_stop' && arrival.lastConfirmedCheckpoint ? (
+                ) : arrival.isHereNow ? (
                   <span className="font-semibold text-success">
-                    At {arrival.lastConfirmedCheckpoint.name} now — boarding
+                    At this stop now — boarding
                   </span>
-                ) : arrival.lastConfirmedCheckpoint && arrival.nextCheckpoint ? (
-                  <>
-                    On the road between{' '}
-                    <span className="font-semibold text-foreground">
-                      {arrival.lastConfirmedCheckpoint.name}
-                    </span>{' '}
-                    and{' '}
-                    <span className="font-semibold text-foreground">
-                      {arrival.nextCheckpoint.name}
-                    </span>
-                    {arrival.stopsAway > 0 && (
-                      <>
-                        {' '}
-                        · {arrival.stopsAway} stop{arrival.stopsAway === 1 ? '' : 's'} away
-                      </>
-                    )}
-                  </>
-                ) : arrival.lastConfirmedCheckpoint ? (
-                  <>
-                    Past{' '}
-                    <span className="font-semibold text-foreground">
-                      {arrival.lastConfirmedCheckpoint.name}
-                    </span>
-                  </>
                 ) : (
-                  'Not yet departed'
+                  <span className="text-muted-foreground">
+                    Still at <span className="font-semibold text-foreground">{arrival.origin}</span>
+                  </span>
                 )}
               </div>
-
-              {arrival.lastConfirmedAt && !notDepartedYet && (
-                <div className="text-muted-foreground">
-                  {arrival.position === 'at_stop' ? (
-                    <>
-                      Pulled in at {formatTime(arrival.lastConfirmedAt)}
-                      {arrival.minutesSinceLastConfirm !== null && (
-                        <> · {formatElapsed(arrival.minutesSinceLastConfirm)} ago</>
-                      )}
-                    </>
-                  ) : (
-                    arrival.positionInferred ? (
-                      <>
-                        Reached {arrival.lastConfirmedCheckpoint?.name} at{' '}
-                        {formatTime(arrival.lastConfirmedAt)} — assumed to have left, though the
-                        conductor has not confirmed it
-                      </>
-                    ) : (
-                      <>
-                        Left {arrival.lastConfirmedCheckpoint?.name} at{' '}
-                        {formatTime(arrival.leftLastCheckpointAt ?? arrival.lastConfirmedAt)}
-                        {arrival.minutesSinceLastConfirm !== null && (
-                          <> · {formatElapsed(arrival.minutesSinceLastConfirm)} ago</>
-                        )}
-                      </>
-                    )
-                  )}
-                </div>
-              )}
-
-            </div>
+            )}
           </div>
 
           <ArrivalCountdown
@@ -310,19 +255,25 @@ function ArrivalRow({ arrival, now }) {
 
           {open && (
             <div className="mt-3 space-y-3 text-[13px] leading-relaxed">
+              {/*
+                * One line, and it deliberately names no stop.
+                *
+                * The strip below already draws every stop, its time, which one
+                * the bus has left and which one you are standing at — so
+                * repeating that in prose was how the same terminal ended up
+                * printed four times on one card. What the drawing cannot show
+                * is who runs the bus and how long ago anyone last heard from
+                * it, so that is all this says.
+                */}
               <div className="text-muted-foreground">
                 {arrival.bus?.operatorName}
-                {arrival.lastConfirmedAt && !notDepartedYet && (
+                {arrival.minutesSinceLastConfirm !== null && !notDepartedYet && (
+                  <> · last confirmed {formatElapsed(arrival.minutesSinceLastConfirm)} ago</>
+                )}
+                {arrival.stopsAway > 0 && (
                   <>
-                    {' · '}
-                    {arrival.position === 'at_stop'
-                      ? `pulled in ${formatTime(arrival.lastConfirmedAt)}`
-                      : `left ${arrival.lastConfirmedCheckpoint?.name} ${formatTime(
-                          arrival.leftLastCheckpointAt ?? arrival.lastConfirmedAt
-                        )}`}
-                    {arrival.minutesSinceLastConfirm !== null && (
-                      <> · {formatElapsed(arrival.minutesSinceLastConfirm)} ago</>
-                    )}
+                    {' '}
+                    · {arrival.stopsAway} stop{arrival.stopsAway === 1 ? '' : 's'} from here
                   </>
                 )}
               </div>
@@ -344,7 +295,10 @@ function ArrivalRow({ arrival, now }) {
                       Traffic {arrival.traffic.adjustmentMinutes > 0 ? '+' : ''}
                       {arrival.traffic.adjustmentMinutes} min
                     </strong>{' '}
-                    on {arrival.traffic.segment}, already included in the time shown.
+                    {/* The segment is the leg the bus is on, which the strip
+                        below already shows. Naming both its stops here made
+                        this the fourth mention of the same terminal. */}
+                    on the leg it is driving now, already included in the time shown.
                   </span>
                 </div>
               )}

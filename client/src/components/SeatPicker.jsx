@@ -97,7 +97,12 @@ export function SeatPicker({ value, onPick, disabled = false, compact = false })
 }
 
 /** How the board tells a passenger what they are walking towards. */
-export function SeatBadge({ load, reportedAtName, reportedAt, className }) {
+/**
+ * `showSource` exists because the attribution belongs wherever the badge is the
+ * whole story, and gets in the way where it is one line among several. On a
+ * board row the same "left Turbina, 01:05" was being printed three times over.
+ */
+export function SeatBadge({ load, reportedAtName, reportedAt, className, showSource = true }) {
   const level = loadLevel(load);
   if (!level) return null;
 
@@ -128,9 +133,10 @@ export function SeatBadge({ load, reportedAtName, reportedAt, className }) {
         {level.label}
       </span>
 
-      {/* Attribution, always. A seat count is a judgement made somewhere, at a
-          time — never a live measurement, and never presented as one. */}
-      {reportedAtName && (
+      {/* Attribution. A seat count is a judgement made somewhere, at a time —
+          never a live measurement, and never presented as one. Suppressed only
+          where the surrounding row already says where the bus last was. */}
+      {showSource && reportedAtName && (
         <span className="text-[12px] font-medium text-muted-foreground">
           as it left {reportedAtName}
           {reportedAt && `, ${formatTime(reportedAt)}`}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -90,18 +90,46 @@ const iconFor = (cp) =>
  * quota to manage, for decoration. The pins are what carry the information.
  */
 
-/** Keep the viewport on whatever is worth looking at right now. */
-function FitTo({ points }) {
+/**
+ * Frame everything once, then leave the map alone.
+ *
+ * Refitting whenever the points change sounds helpful and is maddening: the
+ * caller rebuilds its array every render, so the map snapped back to the whole
+ * country the instant you zoomed in to place a pin. The view belongs to the
+ * person using it — it is re-framed on first load, and after that only when the
+ * caller explicitly asks by changing `fitKey`.
+ */
+function FitTo({ points, fitKey = null }) {
   const map = useMap();
+  const framedOnce = useRef(false);
 
   useEffect(() => {
     if (!points.length) return;
-    if (points.length === 1) {
-      map.setView(points[0], 13);
-      return;
-    }
-    map.fitBounds(L.latLngBounds(points), { padding: [40, 40], maxZoom: 13 });
-  }, [map, points]);
+    if (framedOnce.current && fitKey === null) return;
+
+    if (points.length === 1) map.setView(points[0], 13);
+    else map.fitBounds(L.latLngBounds(points), { padding: [40, 40], maxZoom: 13 });
+
+    framedOnce.current = true;
+    // points is deliberately not a dependency — only its arrival and an
+    // explicit fitKey should move the map.
+  }, [map, fitKey, points.length]);
+
+  return null;
+}
+
+/**
+ * Pan to one place on request — a search result, say — without disturbing the
+ * zoom the person has chosen.
+ */
+function FocusOn({ point, zoom = 15 }) {
+  const map = useMap();
+  const key = point ? `${point.lat},${point.lng}` : null;
+
+  useEffect(() => {
+    if (point) map.setView([point.lat, point.lng], Math.max(map.getZoom(), zoom));
+    // Keyed by coordinate so re-renders with the same point do nothing.
+  }, [map, key]);
 
   return null;
 }
@@ -128,6 +156,8 @@ export function CheckpointMap({
   onSelect = null,
   onPick = null,
   draft = null,
+  focusOn = null,
+  fitKey = null,
   className,
   height = 340,
 }) {
@@ -136,9 +166,10 @@ export function CheckpointMap({
   const fitPoints = useMemo(() => {
     const pts = placed.map((c) => [c.location.lat, c.location.lng]);
     if (you) pts.push([you.lat, you.lng]);
-    if (draft) pts.push([draft.lat, draft.lng]);
+    // The draft pin is deliberately excluded: you just clicked there, so it is
+    // already on screen, and including it would re-frame the map on every click.
     return pts;
-  }, [placed, you, draft]);
+  }, [placed, you]);
 
   return (
     <div
@@ -156,7 +187,8 @@ export function CheckpointMap({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        <FitTo points={fitPoints} />
+        <FitTo points={fitPoints} fitKey={fitKey} />
+        <FocusOn point={focusOn} />
         <ClickToPlace onPick={onPick} />
 
         {placed.map((cp) => (

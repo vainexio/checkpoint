@@ -3,6 +3,7 @@ import {
   AlertCircle,
   ArrowDown,
   Check,
+  HelpCircle,
   MapPin,
   Plus,
   Route as RouteIcon,
@@ -70,6 +71,116 @@ const kindOf = (cp) =>
   cp.type === 'landmark' ? 'timing' : cp.isTerminal ? 'terminal' : 'stop';
 
 /**
+ * What to do, in order, for somebody who has never seen this page.
+ *
+ * The screen has a map, a checkpoint form, a route builder and two lists, and
+ * shown all at once to a first-time user that is just noise — none of it says
+ * which thing to touch first or why any of it exists. This narrates the three
+ * steps, marks where you actually are, and collapses itself once you have a
+ * working route, because after that it is clutter.
+ */
+function GettingStarted({ checkpointCount, routeCount, stopsInBuilder }) {
+  const [open, setOpen] = useState(true);
+
+  const steps = [
+    {
+      title: 'Place your stops',
+      body: 'Click the map where a bus actually pulls in, or search for it by name. A stop is anywhere a bus stops or passes — a terminal, a roadside pick-up point, or a toll exit used only for timing.',
+      done: checkpointCount >= 2,
+      active: checkpointCount < 2,
+    },
+    {
+      title: 'Put them in order',
+      body: 'Click your pins in the order the bus drives them. The first one is where the trip starts, the last is where it ends.',
+      done: routeCount > 0 || stopsInBuilder >= 2,
+      active: checkpointCount >= 2 && routeCount === 0 && stopsInBuilder < 2,
+    },
+    {
+      title: 'Say how long each leg takes',
+      body: 'For each stop, how many minutes the bus normally needs to get there from the one before. This is the yardstick every ETA is measured against — roughly right is fine, it corrects itself as trips run.',
+      done: routeCount > 0,
+      active: stopsInBuilder >= 2 && routeCount === 0,
+    },
+  ];
+
+  // Once a route exists they have done this; do not keep lecturing them.
+  const settled = routeCount > 0;
+
+  if (settled && !open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="mb-4 inline-flex cursor-pointer items-center gap-1.5 text-[13px] font-semibold text-muted-foreground hover:text-foreground"
+      >
+        <HelpCircle className="h-3.5 w-3.5" />
+        How this page works
+      </button>
+    );
+  }
+
+  return (
+    <Card className="mb-4 border-primary/30 bg-primary/[0.03]">
+      <CardContent className="p-5">
+        <div className="mb-3 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-[15px] font-bold">Setting up a route</h2>
+            <p className="text-[13px] text-muted-foreground">
+              A route is a list of stops in order, with how long the bus normally takes between
+              each. Trips are then scheduled onto it.
+            </p>
+          </div>
+          {settled && (
+            <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
+              Hide
+            </Button>
+          )}
+        </div>
+
+        <ol className="space-y-2">
+          {steps.map((step, i) => (
+            <li
+              key={step.title}
+              className={cn(
+                'flex gap-3 rounded-lg p-3 transition-colors',
+                step.active && 'bg-background shadow-sm ring-1 ring-primary/30'
+              )}
+            >
+              <span
+                className={cn(
+                  'grid h-6 w-6 shrink-0 place-items-center rounded-full text-[12px] font-bold',
+                  step.done
+                    ? 'bg-success text-success-foreground'
+                    : step.active
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground'
+                )}
+              >
+                {step.done ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : i + 1}
+              </span>
+              <div className="min-w-0">
+                <div
+                  className={cn(
+                    'text-[14px] font-semibold',
+                    !step.active && !step.done && 'text-muted-foreground'
+                  )}
+                >
+                  {step.title}
+                </div>
+                {(step.active || open) && (
+                  <p className="mt-0.5 text-[13px] leading-relaxed text-muted-foreground">
+                    {step.body}
+                  </p>
+                )}
+              </div>
+            </li>
+          ))}
+        </ol>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
  * Routes and the checkpoints they are made of, on one page.
  *
  * These were two separate tabs, which made the job confusing: you cannot build
@@ -91,6 +202,9 @@ export default function AdminRoutesPage() {
   const [draftPin, setDraftPin] = useState(null);
   const [suggested, setSuggested] = useState(null);
   const [previewRouteId, setPreviewRouteId] = useState(null);
+  // Set only when the map should move on purpose — a search result. Clicking
+  // the map must never move it.
+  const [focusOn, setFocusOn] = useState(null);
 
   const byId = useMemo(
     () => new Map(checkpoints.items.map((c) => [c._id, c])),
@@ -150,6 +264,12 @@ export default function AdminRoutesPage() {
         description="A route is an ordered chain of checkpoints with the usual travel time between each. Place the points on the map, put them in order, and give each leg its normal duration."
       />
 
+      <GettingStarted
+        checkpointCount={checkpoints.items.length}
+        routeCount={routes.items.length}
+        stopsInBuilder={stops.length}
+      />
+
       {(error || routes.error || checkpoints.error) && (
         <Alert variant="destructive" className="mb-4">
           <AlertCircle className="h-4 w-4" />
@@ -178,6 +298,8 @@ export default function AdminRoutesPage() {
                 onPick={(hit) => {
                   setDraftPin(hit.location);
                   setSuggested({ name: hit.name, area: hit.area, hit });
+                  // A search result is a deliberate "take me there".
+                  setFocusOn(hit.location);
                 }}
               />
             </div>
@@ -185,6 +307,9 @@ export default function AdminRoutesPage() {
               checkpoints={checkpoints.items.map((c) => ({ ...c, id: c._id }))}
               routePath={previewPath}
               draft={draftPin}
+              focusOn={focusOn}
+              // Re-frame only when a route is previewed, never on a pin drop.
+              fitKey={previewRouteId}
               onPick={previewRoute ? null : setDraftPin}
               onSelect={previewRoute ? null : (cp) => addStop(cp.id ?? cp._id)}
               height={420}

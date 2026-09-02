@@ -149,6 +149,8 @@ export default function StationsPage() {
             checkpoints={mapCheckpoints}
             routePath={routePath}
             you={you}
+            // Re-frame when what is being shown changes, not on every render.
+            fitKey={matches ? `search:${query}` : nearby ? 'nearby' : 'all'}
             height={320}
             className="rounded-none border-0"
           />

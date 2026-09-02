@@ -44,130 +44,149 @@ const CONDUCTORS = [
   { name: 'Joel Ramirez', username: 'joel', password: 'checkpoint123' },
 ];
 
-/** `baseline` is minutes from the previous checkpoint on this route. */
+/**
+ * Every stop is a real place a bus actually pulls into.
+ *
+ * This matters more than it sounds. Geocoding a town name returns its municipal
+ * hall — and no bus on the Maharlika Highway goes to Santo Tomas City Hall. A
+ * checkpoint sited there puts the pin where nobody can wait, sends walking
+ * directions to a town hall, and makes the measured leg include a detour off
+ * the highway that the bus never drives, so the baseline is wrong too.
+ *
+ * Each of these was verified against OpenStreetMap's `amenity=bus_station`
+ * tag rather than a name search (see scripts/findTerminals.js). Calamba is the
+ * clearest example: its real stop is Turbina, on the highway, about 3 km from
+ * the city hall a name search returns.
+ */
+const STOPS = {
+  araneta: {
+    name: 'Araneta City Bus Station',
+    type: 'station',
+    isTerminal: true,
+    area: 'Cubao, Quezon City',
+    location: { lat: 14.621413, lng: 121.055331 },
+  },
+  balintawak: {
+    name: 'Balintawak Interchange',
+    type: 'station',
+    // A roadside pick-up on EDSA before NLEX rather than a terminal building.
+    // OSM has no bus_station here, but buses stop and board — which is the
+    // test that matters.
+    area: 'EDSA Cloverleaf, Quezon City',
+    location: { lat: 14.6574221, lng: 121.0038959 },
+  },
+  tarlac: {
+    name: 'Victory Liner Tarlac Terminal',
+    type: 'station',
+    area: 'Tarlac City, Tarlac',
+    location: { lat: 15.480646, lng: 120.594583 },
+  },
+  tplex: {
+    name: 'TPLEX – Rosario Exit',
+    // A toll exit: buses pass it at speed and nobody boards, so it is a timing
+    // point and gets no arrivals board.
+    type: 'landmark',
+    area: 'Rosario, La Union',
+    location: { lat: 16.2299397, lng: 120.487704 },
+  },
+  baguio: {
+    name: 'Genesis Bus Terminal Baguio',
+    type: 'station',
+    isTerminal: true,
+    area: 'Governor Pack Road, Baguio',
+    location: { lat: 16.410282, lng: 120.598534 },
+  },
+
+  pitx: {
+    name: 'PITX',
+    type: 'station',
+    isTerminal: true,
+    area: 'Parañaque, Metro Manila',
+    location: { lat: 14.509965, lng: 120.991373 },
+  },
+  alabang: {
+    name: 'Alabang South Station',
+    type: 'station',
+    area: 'Filinvest City, Muntinlupa',
+    location: { lat: 14.421736, lng: 121.043574 },
+  },
+  turbina: {
+    name: 'Turbina Bus Terminal',
+    type: 'station',
+    area: 'Maharlika Highway, Calamba, Laguna',
+    location: { lat: 14.186853, lng: 121.13603 },
+  },
+  santoTomas: {
+    name: 'SM Santo Tomas Terminal',
+    type: 'station',
+    area: 'Maharlika Highway, Santo Tomas, Batangas',
+    location: { lat: 14.105756, lng: 121.152073 },
+  },
+  tanauan: {
+    name: 'Tanauan City Transport Terminal',
+    type: 'station',
+    area: 'Tanauan, Batangas',
+    location: { lat: 14.082933, lng: 121.145362 },
+  },
+  lipa: {
+    name: 'Lipa City Grand Terminal',
+    type: 'station',
+    isTerminal: true,
+    area: 'Lipa, Batangas',
+    location: { lat: 13.954528, lng: 121.161748 },
+  },
+};
+
+/** Resolve a stop and attach its baseline for this particular route. */
+const leg = (key, baseline) => ({ ...STOPS[key], baseline });
+
+/**
+ * Baselines are measured between these exact points, in each direction
+ * separately — the road is not symmetric. Baguio → TPLEX is 71 minutes
+ * descending against 81 climbing, and Tarlac → Balintawak is 133 inbound
+ * against 127 outbound.
+ */
 const ROUTES = [
   {
     name: 'Cubao – Baguio',
     checkpoints: [
-      {
-        name: 'Cubao Terminal',
-        type: 'station',
-        isTerminal: true,
-        area: 'Quezon City, Metro Manila',
-        location: { lat: 14.6217, lng: 121.053 },
-        baseline: 0,
-      },
-      {
-        name: 'Balintawak',
-        type: 'station',
-        area: 'Quezon City, Metro Manila',
-        location: { lat: 14.6574221, lng: 121.0038959 },
-        baseline: 20,
-      },
-      {
-        name: 'Tarlac stop',
-        type: 'station',
-        area: 'Tarlac City, Tarlac',
-        location: { lat: 15.486869, lng: 120.5898647 },
-        baseline: 122,
-      },
-      {
-        name: 'TPLEX – Rosario Exit',
-        type: 'landmark',
-        area: 'Rosario, La Union',
-        location: { lat: 16.2299397, lng: 120.487704 },
-        baseline: 77,
-      },
-      {
-        name: 'Baguio Terminal',
-        type: 'station',
-        isTerminal: true,
-        area: 'Baguio, Benguet',
-        location: { lat: 16.4138341, lng: 120.5914077 },
-        baseline: 74,
-      },
-    ],
-  },
-  {
-    name: 'PITX – Lipa',
-    checkpoints: [
-      {
-        name: 'PITX',
-        type: 'station',
-        isTerminal: true,
-        area: 'Parañaque, Metro Manila',
-        location: { lat: 14.5099649, lng: 120.9913732 },
-        baseline: 0,
-      },
-      {
-        name: 'Alabang',
-        type: 'station',
-        area: 'Muntinlupa, Metro Manila',
-        location: { lat: 14.4190326, lng: 121.044338 },
-        baseline: 36,
-      },
-      {
-        name: 'Calamba Crossing',
-        type: 'station',
-        area: 'Calamba, Laguna',
-        location: { lat: 14.1940522, lng: 121.1596881 },
-        baseline: 39,
-      },
-      {
-        name: 'Santo Tomas',
-        type: 'station',
-        area: 'Santo Tomas, Batangas',
-        location: { lat: 14.110721, lng: 121.1423512 },
-        baseline: 27,
-      },
-      {
-        name: 'Tanauan',
-        type: 'station',
-        area: 'Tanauan, Batangas',
-        location: { lat: 14.0865988, lng: 121.1258532 },
-        baseline: 19,
-      },
-      {
-        name: 'Lipa City',
-        type: 'station',
-        isTerminal: true,
-        area: 'Lipa, Batangas',
-        location: { lat: 13.9572279, lng: 121.1646223 },
-        baseline: 27,
-      },
+      leg('araneta', 0),
+      leg('balintawak', 29),
+      leg('tarlac', 127),
+      leg('tplex', 84),
+      leg('baguio', 81),
     ],
   },
   {
     name: 'Baguio – Cubao',
     checkpoints: [
-      { name: 'Baguio Terminal', type: 'station', isTerminal: true, area: 'Baguio, Benguet',
-        location: { lat: 16.4138341, lng: 120.5914077 }, baseline: 0 },
-      { name: 'TPLEX – Rosario Exit', type: 'landmark', area: 'Rosario, La Union',
-        location: { lat: 16.2299397, lng: 120.487704 }, baseline: 64 },
-      { name: 'Tarlac stop', type: 'station', area: 'Tarlac City, Tarlac',
-        location: { lat: 15.486869, lng: 120.5898647 }, baseline: 81 },
-      { name: 'Balintawak', type: 'station', area: 'Quezon City, Metro Manila',
-        location: { lat: 14.6574221, lng: 121.0038959 }, baseline: 138 },
-      { name: 'Cubao Terminal', type: 'station', isTerminal: true,
-        area: 'Quezon City, Metro Manila',
-        location: { lat: 14.6217, lng: 121.053 }, baseline: 20 },
+      leg('baguio', 0),
+      leg('tplex', 71),
+      leg('tarlac', 89),
+      leg('balintawak', 133),
+      leg('araneta', 37),
+    ],
+  },
+  {
+    name: 'PITX – Lipa',
+    checkpoints: [
+      leg('pitx', 0),
+      leg('alabang', 42),
+      leg('turbina', 38),
+      leg('santoTomas', 26),
+      leg('tanauan', 17),
+      leg('lipa', 33),
     ],
   },
   {
     name: 'Lipa – PITX',
     checkpoints: [
-      { name: 'Lipa City', type: 'station', isTerminal: true, area: 'Lipa, Batangas',
-        location: { lat: 13.9572279, lng: 121.1646223 }, baseline: 0 },
-      { name: 'Tanauan', type: 'station', area: 'Tanauan, Batangas',
-        location: { lat: 14.0865988, lng: 121.1258532 }, baseline: 26 },
-      { name: 'Santo Tomas', type: 'station', area: 'Santo Tomas, Batangas',
-        location: { lat: 14.110721, lng: 121.1423512 }, baseline: 18 },
-      { name: 'Calamba Crossing', type: 'station', area: 'Calamba, Laguna',
-        location: { lat: 14.1940522, lng: 121.1596881 }, baseline: 25 },
-      { name: 'Alabang', type: 'station', area: 'Muntinlupa, Metro Manila',
-        location: { lat: 14.4190326, lng: 121.044338 }, baseline: 39 },
-      { name: 'PITX', type: 'station', isTerminal: true, area: 'Parañaque, Metro Manila',
-        location: { lat: 14.5099649, lng: 120.9913732 }, baseline: 37 },
+      leg('lipa', 0),
+      leg('tanauan', 32),
+      leg('santoTomas', 15),
+      leg('turbina', 24),
+      leg('alabang', 42),
+      leg('pitx', 41),
     ],
   },
 ];
@@ -190,6 +209,13 @@ const BUSES = [
  * confirm is [checkpoint, minutes ago]; the engine works out whether that adds
  * up to early, late or quiet.
  */
+/**
+ * Trips described by what the board should show, not by raw timestamps.
+ *
+ * Each confirm is [stop, minutes ago]. The engine derives whether that adds up
+ * to early, late or quiet, so these numbers are chosen against the measured
+ * baselines above — change a baseline and these need retuning with it.
+ */
 const TRIPS = [
   // ---------------------------------------------------------- Cubao – Baguio
   {
@@ -197,7 +223,7 @@ const TRIPS = [
     bus: 'NRT 8821',
     conductor: 'rey',
     departedAgo: 60,
-    confirms: [['Balintawak', 38]], // 22 min in, against a 20 min baseline
+    confirms: [['Balintawak Interchange', 29]], // 31 min in against a 29 baseline
     note: 'past Balintawak, near enough on time',
   },
   {
@@ -206,12 +232,12 @@ const TRIPS = [
     conductor: 'marlon',
     departedAgo: 205,
     confirms: [
-      ['Balintawak', 183],
-      ['Tarlac stop', 15],
+      ['Balintawak Interchange', 174],
+      ['Victory Liner Tarlac Terminal', 36],
     ],
-    left: ['Tarlac stop', 6],
-    load: ['few', 6],
-    delay: ['traffic', 40],
+    left: ['Victory Liner Tarlac Terminal', 34],
+    load: ['few', 34],
+    delay: ['traffic', 45],
     note: 'left Tarlac filling up, running late',
   },
   {
@@ -219,7 +245,7 @@ const TRIPS = [
     bus: 'NRT 2093',
     conductor: 'rey',
     scheduledInMinutes: 45,
-    note: 'still at Cubao',
+    note: 'still at Araneta, boarding',
   },
 
   // ------------------------------------------------------------- PITX – Lipa
@@ -228,9 +254,9 @@ const TRIPS = [
     bus: 'SBL 1174',
     conductor: 'dennis',
     departedAgo: 55,
-    confirms: [['Alabang', 13]], // 42 min in, against a 40 min baseline
-    // No pull-out reported yet: this bus is standing at Alabang boarding, and
-    // the board should tell anyone waiting there to hurry.
+    confirms: [['Alabang South Station', 13]], // 42 min in against a 42 baseline
+    // No pull-out reported: standing at Alabang, and the board should tell
+    // anyone waiting there to hurry.
     note: 'AT Alabang, boarding right now',
   },
   {
@@ -239,40 +265,40 @@ const TRIPS = [
     conductor: 'joel',
     departedAgo: 120,
     confirms: [
-      ['Alabang', 75],
-      ['Calamba Crossing', 25],
+      ['Alabang South Station', 74],
+      ['Turbina Bus Terminal', 32],
     ],
-    left: ['Calamba Crossing', 19],
-    load: ['full', 19],
-    delay: ['loading', 18],
-    note: 'left Calamba FULL — should warn people not to wait',
+    left: ['Turbina Bus Terminal', 29],
+    load: ['full', 29],
+    delay: ['loading', 25],
+    note: 'left Turbina FULL — should warn people not to wait',
   },
   {
     route: 'PITX – Lipa',
     bus: 'SBL 5629',
     conductor: 'dennis',
-    departedAgo: 160,
+    departedAgo: 130,
     confirms: [
-      ['Alabang', 123],
-      ['Calamba Crossing', 79],
-      ['Santo Tomas', 42],
-      ['Tanauan', 22],
+      ['Alabang South Station', 90],
+      ['Turbina Bus Terminal', 55],
+      ['SM Santo Tomas Terminal', 30],
+      ['Tanauan City Transport Terminal', 14],
     ],
-    left: ['Tanauan', 17],
-    load: ['seats', 17],
+    left: ['Tanauan City Transport Terminal', 10],
+    load: ['seats', 10],
     note: 'left Tanauan with seats, running early',
   },
   {
     route: 'PITX – Lipa',
     bus: 'SBL 7742',
     conductor: 'joel',
-    // Confirmed Santo Tomas and nothing since. The next leg is 23 minutes, so
+    // Confirmed Santo Tomas and nothing since. The next leg is 17 minutes, so
     // this is far past its grace window and must be flagged, not guessed at.
     departedAgo: 240,
     confirms: [
-      ['Alabang', 197],
-      ['Calamba Crossing', 148],
-      ['Santo Tomas', 105],
+      ['Alabang South Station', 192],
+      ['Turbina Bus Terminal', 152],
+      ['SM Santo Tomas Terminal', 126],
     ],
     note: 'quiet since Santo Tomas — should read as unconfirmed',
   },
@@ -280,22 +306,21 @@ const TRIPS = [
     route: 'PITX – Lipa',
     bus: 'SBL 9015',
     conductor: 'marlon',
-    departedAgo: 205,
+    departedAgo: 178,
     confirms: [
-      ['Alabang', 163],
-      ['Calamba Crossing', 117],
-      ['Santo Tomas', 75],
-      ['Tanauan', 53],
+      ['Alabang South Station', 133],
+      ['Turbina Bus Terminal', 94],
+      ['SM Santo Tomas Terminal', 68],
+      ['Tanauan City Transport Terminal', 51],
     ],
-    // Recent enough that it is still on the stand at Lipa.
     arrivedAgo: 18,
     note: 'just arrived — still on the stand at Lipa',
   },
 
   // ------------------------------------------------- the way back
-  // A terminal is not the end of the line, it is a turnaround. SBL 9015 has
-  // just got in from PITX and goes back out as the next southbound departure —
-  // the same physical bus, a separate trip on the reverse route.
+  // A terminal is a turnaround, not the end of the line. This is the same
+  // physical bus that just got in, going back out as a separate trip on the
+  // reverse route.
   {
     route: 'Lipa – PITX',
     bus: 'SBL 9015',
@@ -309,13 +334,13 @@ const TRIPS = [
     conductor: 'joel',
     departedAgo: 95,
     confirms: [
-      ['Tanauan', 68],
-      ['Santo Tomas', 49],
-      ['Calamba Crossing', 22],
+      ['Tanauan City Transport Terminal', 59],
+      ['SM Santo Tomas Terminal', 44],
+      ['Turbina Bus Terminal', 16],
     ],
-    left: ['Calamba Crossing', 16],
-    load: ['few', 16],
-    note: 'northbound to PITX, past Calamba',
+    left: ['Turbina Bus Terminal', 13],
+    load: ['few', 13],
+    note: 'northbound to PITX, past Turbina',
   },
   {
     route: 'Baguio – Cubao',
@@ -491,11 +516,15 @@ async function seed() {
   const summary = await Trip.find({})
     .populate('bus', 'plateNumber')
     .populate('route', 'name')
+    // Insertion order, so the summary lines up with TRIPS above.
+    .sort({ _id: 1 })
     .lean();
 
   console.log(`\nTrips  ${summary.length}`);
-  for (const spec of TRIPS) {
-    const t = summary.find((s) => s.bus.plateNumber === spec.bus);
+  // Matched by position, not plate: a bus doing a turnaround has two trips,
+  // and looking up by plate would report the first one twice.
+  for (const [i, spec] of TRIPS.entries()) {
+    const t = summary[i];
     const v = t.cumulativeVarianceMinutes;
     const variance = t.actualDeparture ? (v === 0 ? 'on baseline' : `${v > 0 ? '+' : ''}${v} min`) : '—';
     console.log(

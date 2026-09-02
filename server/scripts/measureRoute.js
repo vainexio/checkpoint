@@ -1,19 +1,20 @@
 /**
- * Measure a route's real geography instead of guessing it.
+ * Measure each leg between the *actual* stops a bus uses.
  *
- * Given a list of place names, this geocodes each one (OpenStreetMap, free) and
- * then asks TomTom how long each leg takes with no traffic on it. Free-flow is
- * the right number for a baseline: the baseline is what a segment *usually*
- * costs, and the live traffic layer exists precisely to say how today differs
- * from that. Seeding baselines from a congested measurement would bake one
- * afternoon's jam into the route forever.
+ * The coordinates below are not city centres. Geocoding "Santo Tomas, Batangas"
+ * returns the municipal hall — a place no bus on the Maharlika Highway ever
+ * goes — which puts the pin where passengers cannot wait, sends walking
+ * directions to a town hall, and makes TomTom measure a leg that detours off
+ * the highway and back. Every point here is a real terminal, verified against
+ * OpenStreetMap's `amenity=bus_station` tag (see scripts/findTerminals.js),
+ * except where noted.
  *
- * A few minutes of dwell is added at each stop where passengers board, because
- * a bus does not pass a terminal at speed.
+ * Baselines use TomTom's *historic* time — what the leg typically takes — plus
+ * dwell where passengers board. Not free-flow: an empty road is a time a bus in
+ * Metro Manila never achieves, and measuring against it would leave every trip
+ * permanently "late".
  *
  *   node scripts/measureRoute.js
- *
- * Prints a ready-to-paste checkpoint array. Requires TRAFFIC_API_KEY.
  */
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -23,125 +24,141 @@ dotenv.config({
   path: path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '.env'),
 });
 
-import { geocode } from '../services/geocoder.js';
-
 const DWELL_MINUTES = { station: 4, landmark: 0 };
 
-/** Places to measure, in the order a bus drives them. */
-const ROUTES = {
-  'PITX – Lipa': [
-    { query: 'Parañaque Integrated Terminal Exchange', name: 'PITX', type: 'station', terminal: true },
-    { query: 'Alabang, Muntinlupa', name: 'Alabang', type: 'station' },
-    { query: 'Calamba City Hall, Calamba, Laguna', name: 'Calamba Crossing', type: 'station' },
-    { query: 'Santo Tomas City Hall, Batangas', name: 'Santo Tomas', type: 'station' },
-    { query: 'Tanauan City Hall, Tanauan, Batangas', name: 'Tanauan', type: 'station' },
-    { query: 'Lipa City Hall, Batangas', name: 'Lipa City', type: 'station', terminal: true },
-  ],
-  'Lipa – PITX': [
-    { query: 'Lipa City Hall, Batangas', name: 'Lipa City', type: 'station', terminal: true },
-    { query: 'Tanauan City Hall, Tanauan, Batangas', name: 'Tanauan', type: 'station' },
-    { query: 'Santo Tomas City Hall, Batangas', name: 'Santo Tomas', type: 'station' },
-    { query: 'Calamba City Hall, Calamba, Laguna', name: 'Calamba Crossing', type: 'station' },
-    { query: 'Alabang, Muntinlupa', name: 'Alabang', type: 'station' },
-    { query: 'Parañaque Integrated Terminal Exchange', name: 'PITX', type: 'station', terminal: true },
-  ],
-  'Baguio – Cubao': [
-    { query: 'Baguio City Hall, Baguio', name: 'Baguio Terminal', type: 'station', terminal: true },
-    { query: 'Rosario, La Union', name: 'TPLEX – Rosario Exit', type: 'landmark' },
-    { query: 'Tarlac City Hall, Tarlac', name: 'Tarlac stop', type: 'station' },
-    { query: 'Balintawak, Quezon City', name: 'Balintawak', type: 'station' },
-  ],
-  'Cubao – Baguio': [
-    { query: 'Araneta City Bus Port, Cubao, Quezon City', name: 'Cubao Terminal', type: 'station', terminal: true },
-    { query: 'Balintawak, Quezon City', name: 'Balintawak', type: 'station' },
-    { query: 'Tarlac City Hall, Tarlac', name: 'Tarlac stop', type: 'station' },
-    { query: 'Rosario, La Union', name: 'TPLEX – Rosario Exit', type: 'landmark' },
-    { query: 'Baguio City Hall, Baguio', name: 'Baguio Terminal', type: 'station', terminal: true },
-  ],
+/** Verified stops. `osm` records what OpenStreetMap calls the place. */
+const STOPS = {
+  araneta: {
+    name: 'Araneta City Bus Station',
+    area: 'Cubao, Quezon City',
+    location: { lat: 14.621413, lng: 121.055331 },
+    osm: 'amenity=bus_station',
+  },
+  balintawak: {
+    name: 'Balintawak Interchange',
+    area: 'EDSA Cloverleaf, Quezon City',
+    location: { lat: 14.6574221, lng: 121.0038959 },
+    // A roadside pick-up point on EDSA before NLEX, not a terminal building —
+    // OSM has no bus_station here, but buses genuinely stop and board.
+    osm: 'roadside stop (no OSM terminal)',
+  },
+  tarlac: {
+    name: 'Victory Liner Tarlac Terminal',
+    area: 'Tarlac City, Tarlac',
+    location: { lat: 15.480646, lng: 120.594583 },
+    osm: 'amenity=bus_station',
+  },
+  tplex: {
+    name: 'TPLEX – Rosario Exit',
+    area: 'Rosario, La Union',
+    location: { lat: 16.2299397, lng: 120.487704 },
+    // A toll exit. Buses pass it at speed; nobody boards.
+    osm: 'toll exit (timing point only)',
+    type: 'landmark',
+  },
+  baguio: {
+    name: 'Genesis Bus Terminal Baguio',
+    area: 'Governor Pack Road, Baguio',
+    location: { lat: 16.410282, lng: 120.598534 },
+    osm: 'amenity=bus_station',
+  },
+
+  pitx: {
+    name: 'PITX',
+    area: 'Parañaque, Metro Manila',
+    location: { lat: 14.509965, lng: 120.991373 },
+    osm: 'Parañaque Integrated Terminal Exchange',
+  },
+  alabang: {
+    name: 'Alabang South Station',
+    area: 'Filinvest City, Muntinlupa',
+    location: { lat: 14.421736, lng: 121.043574 },
+    osm: 'amenity=bus_station',
+  },
+  turbina: {
+    name: 'Turbina Bus Terminal',
+    area: 'Maharlika Highway, Calamba, Laguna',
+    location: { lat: 14.186853, lng: 121.13603 },
+    // The real Calamba stop is on the highway at Turbina, ~3 km from the city
+    // hall a name search returns.
+    osm: 'amenity=bus_station',
+  },
+  santoTomas: {
+    name: 'SM Santo Tomas Terminal',
+    area: 'Maharlika Highway, Santo Tomas, Batangas',
+    location: { lat: 14.105756, lng: 121.152073 },
+    osm: 'amenity=bus_station',
+  },
+  tanauan: {
+    name: 'Tanauan City Transport Terminal',
+    area: 'Tanauan, Batangas',
+    location: { lat: 14.082933, lng: 121.145362 },
+    osm: 'amenity=bus_station',
+  },
+  lipa: {
+    name: 'Lipa City Grand Terminal',
+    area: 'Lipa, Batangas',
+    location: { lat: 13.954528, lng: 121.161748 },
+    osm: 'amenity=bus_station',
+  },
 };
 
-async function freeFlowMinutes(from, to) {
+const ROUTES = {
+  'Cubao – Baguio': ['araneta', 'balintawak', 'tarlac', 'tplex', 'baguio'],
+  'Baguio – Cubao': ['baguio', 'tplex', 'tarlac', 'balintawak', 'araneta'],
+  'PITX – Lipa': ['pitx', 'alabang', 'turbina', 'santoTomas', 'tanauan', 'lipa'],
+  'Lipa – PITX': ['lipa', 'tanauan', 'santoTomas', 'turbina', 'alabang', 'pitx'],
+};
+
+async function legMinutes(from, to) {
   const url =
     `https://api.tomtom.com/routing/1/calculateRoute/` +
     `${from.lat},${from.lng}:${to.lat},${to.lng}/json` +
     `?key=${process.env.TRAFFIC_API_KEY}&traffic=true&travelMode=bus&routeType=fastest` +
-    // Without this TomTom returns only the live time, and the breakdown fields
+    // Without this TomTom returns only the live time and the breakdown fields
     // come back undefined.
     `&computeTravelTimeFor=all`;
 
   const res = await fetch(url);
   if (!res.ok) throw new Error(`TomTom ${res.status}`);
 
-  const summary = (await res.json()).routes?.[0]?.summary;
-  if (summary.historicTrafficTravelTimeInSeconds == null) {
-    throw new Error('TomTom returned no historic time — is computeTravelTimeFor=all set?');
+  const s = (await res.json()).routes?.[0]?.summary;
+  if (s?.historicTrafficTravelTimeInSeconds == null) {
+    throw new Error('No historic time — is computeTravelTimeFor=all set?');
   }
 
   return {
-    /**
-     * The baseline is the *typical* time, not the best possible one.
-     *
-     * Free-flow is what an empty road costs, which a bus in Metro Manila never
-     * achieves — using it would leave every trip permanently "late" and make
-     * the delayed status meaningless. Historic is what this leg normally takes,
-     * so variance reads as "worse than usual", which is the thing anyone
-     * actually wants to know.
-     */
-    typical: summary.historicTrafficTravelTimeInSeconds / 60,
-    freeFlow: summary.noTrafficTravelTimeInSeconds / 60,
-    live: summary.travelTimeInSeconds / 60,
-    km: summary.lengthInMeters / 1000,
+    typical: s.historicTrafficTravelTimeInSeconds / 60,
+    freeFlow: s.noTrafficTravelTimeInSeconds / 60,
+    live: s.travelTimeInSeconds / 60,
+    km: s.lengthInMeters / 1000,
   };
 }
 
-for (const [routeName, places] of Object.entries(ROUTES)) {
-  console.log(`\n=== ${routeName} ===\n`);
-
-  const located = [];
-  for (const place of places) {
-    const [hit] = await geocode(place.query, { limit: 1 });
-    if (!hit) {
-      console.error(`  !! could not locate ${place.query}`);
-      continue;
-    }
-    located.push({ ...place, location: hit.location, area: hit.area });
-    console.log(`  ${place.name.padEnd(20)} ${hit.location.lat}, ${hit.location.lng}  (${hit.area})`);
-  }
-
-  console.log('\n  legs:');
+for (const [routeName, keys] of Object.entries(ROUTES)) {
+  console.log(`\n=== ${routeName} ===`);
   const rows = [];
-  for (let i = 0; i < located.length; i += 1) {
+
+  for (let i = 0; i < keys.length; i += 1) {
+    const stop = STOPS[keys[i]];
     if (i === 0) {
-      rows.push({ ...located[i], baseline: 0 });
+      rows.push({ key: keys[i], baseline: 0 });
       continue;
     }
-    const leg = await freeFlowMinutes(located[i - 1].location, located[i].location);
-    const dwell = DWELL_MINUTES[located[i].type] ?? 0;
+
+    const prev = STOPS[keys[i - 1]];
+    const leg = await legMinutes(prev.location, stop.location);
+    const dwell = DWELL_MINUTES[stop.type ?? 'station'] ?? 0;
     const baseline = Math.round(leg.typical + dwell);
 
     console.log(
-      `  ${located[i - 1].name} → ${located[i].name}: ` +
-        `${leg.km.toFixed(1)} km · typical ${leg.typical.toFixed(0)}m ` +
-        `(+${dwell} dwell) = ${baseline}m · free-flow ${leg.freeFlow.toFixed(0)}m ` +
-        `· live now ${leg.live.toFixed(0)}m`
+      `  ${prev.name} → ${stop.name}: ${leg.km.toFixed(1)} km · ` +
+        `typical ${leg.typical.toFixed(0)}m (+${dwell} dwell) = ${baseline}m`
     );
-    rows.push({ ...located[i], baseline });
+    rows.push({ key: keys[i], baseline });
   }
 
-  console.log('\n  paste into seed.js:\n');
-  console.log(
-    JSON.stringify(
-      rows.map((r) => ({
-        name: r.name,
-        type: r.type,
-        isTerminal: !!r.terminal,
-        area: r.area,
-        location: r.location,
-        baseline: r.baseline,
-      })),
-      null,
-      2
-    )
-  );
-  console.log(`\n  total baseline: ${rows.reduce((s, r) => s + r.baseline, 0)} min`);
+  const total = rows.reduce((s, r) => s + r.baseline, 0);
+  console.log(`  → ${Math.floor(total / 60)}h ${String(total % 60).padStart(2, '0')}m total`);
+  console.log(`  baselines: [${rows.map((r) => r.baseline).join(', ')}]`);
 }

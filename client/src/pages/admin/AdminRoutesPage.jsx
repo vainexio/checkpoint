@@ -8,6 +8,7 @@ import {
   Route as RouteIcon,
   Search,
   Trash2,
+  TriangleAlert,
   X,
 } from 'lucide-react';
 import { useList } from '@/hooks/useList.js';
@@ -147,7 +148,7 @@ export default function AdminRoutesPage() {
               <PlaceSearch
                 onPick={(hit) => {
                   setDraftPin(hit.location);
-                  setSuggested({ name: hit.name, area: hit.area });
+                  setSuggested({ name: hit.name, area: hit.area, hit });
                 }}
               />
             </div>
@@ -569,6 +570,24 @@ function NewCheckpointCard({ draftPin, suggested, onClear, onCreated, onError })
           <p className="font-mono text-xs text-muted-foreground">
             {draftPin.lat.toFixed(4)}, {draftPin.lng.toFixed(4)}
           </p>
+
+          {/*
+            * The single most damaging data mistake here is siting a stop at a
+            * town centre. The bus never goes there, so the pin is wrong, the
+            * walking directions are wrong, and the measured leg detours off
+            * the highway — which makes the baseline wrong too.
+            */}
+          {suggested?.hit && !suggested.hit.isTransit && (
+            <div className="flex items-start gap-2 rounded-lg border border-warning/50 bg-warning/15 px-3 py-2 text-[13px]">
+              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning-strong" />
+              <span>
+                <strong className="font-bold">This is a {suggested.hit.kind.toLowerCase()}.</strong>{' '}
+                Buses may not actually stop here. A checkpoint should be a terminal or a
+                roadside stop the bus really pulls into — drag the pin onto it if you are not
+                sure.
+              </span>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="cp-name">Name</Label>

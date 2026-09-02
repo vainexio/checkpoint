@@ -66,17 +66,57 @@ function describeArea(hit) {
     .join(', ');
 }
 
-export async function geocode(query, { limit = 5 } = {}) {
+/**
+ * Say what OpenStreetMap thinks a place actually is.
+ *
+ * This is the guard against the most damaging kind of bad data here. Searching
+ * "Santo Tomas, Batangas" returns the municipal hall, and siting a checkpoint
+ * there puts the pin where no bus goes, sends walking directions to a town
+ * hall, and makes the measured leg detour off the highway — so the baseline is
+ * wrong as well as the map. Naming the kind lets an operator see the difference
+ * before they place it.
+ */
+function classify(hit) {
+  const t = `${hit.category}=${hit.type}`;
+
+  if (hit.type === 'bus_station' || t === 'amenity=bus_station') {
+    return { isTransit: true, kind: 'Bus terminal' };
+  }
+  if (hit.type === 'bus_stop' || t === 'highway=bus_stop') {
+    return { isTransit: true, kind: 'Roadside bus stop' };
+  }
+  if (hit.category === 'public_transport' || hit.type === 'station') {
+    return { isTransit: true, kind: 'Transport station' };
+  }
+  if (['city', 'town', 'municipality', 'village', 'administrative'].includes(hit.type)) {
+    return { isTransit: false, kind: 'Town centre — buses may not stop here' };
+  }
+  return { isTransit: false, kind: 'Not a recognised stop' };
+}
+
+/**
+ * Search near a point rather than everywhere, so "bus terminal" finds the one
+ * on this corridor instead of one three provinces away.
+ */
+export async function findTerminalsNear({ lat, lng, radiusDeg = 0.06, limit = 8 }) {
+  const viewbox = [lng - radiusDeg, lat + radiusDeg, lng + radiusDeg, lat - radiusDeg].join(',');
+  const hits = await geocode('bus terminal', { limit, viewbox });
+  return hits.filter((h) => h.isTransit);
+}
+
+export async function geocode(query, { limit = 5, viewbox = null } = {}) {
   const q = String(query || '').trim();
   if (q.length < 3) return [];
 
-  const key = q.toLowerCase();
+  const key = `${q.toLowerCase()}|${viewbox ?? ''}`;
   const cached = cache.get(key);
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.results;
 
   const url =
     `${ENDPOINT}?format=jsonv2&limit=${limit}` +
-    `&countrycodes=ph&addressdetails=1&q=${encodeURIComponent(q)}`;
+    `&countrycodes=ph&addressdetails=1&q=${encodeURIComponent(q)}` +
+    // Bounded to a corridor when given, so "bus terminal" finds the local one.
+    (viewbox ? `&viewbox=${viewbox}&bounded=1` : '');
 
   const results = await polite(async () => {
     const controller = new AbortController();
@@ -89,14 +129,20 @@ export async function geocode(query, { limit = 5 } = {}) {
       if (!res.ok) throw new Error(`Nominatim responded ${res.status}`);
 
       const body = await res.json();
-      return body.map((hit) => ({
-        label: hit.display_name,
-        // The leading component is the recognisable bit; the rest is context.
-        name: hit.display_name.split(',')[0].trim(),
-        area: describeArea(hit),
-        type: hit.type,
-        location: { lat: Number(hit.lat), lng: Number(hit.lon) },
-      }));
+      return body
+        .map((hit) => ({
+          label: hit.display_name,
+          // The leading component is the recognisable bit; the rest is context.
+          name: hit.display_name.split(',')[0].trim(),
+          area: describeArea(hit),
+          type: hit.type,
+          category: hit.category,
+          ...classify(hit),
+          location: { lat: Number(hit.lat), lng: Number(hit.lon) },
+        }))
+        // Real terminals first. A search for a town otherwise returns its
+        // municipal hall, and that is exactly the place a bus never goes.
+        .sort((a, b) => Number(b.isTransit) - Number(a.isTransit));
     } finally {
       clearTimeout(timer);
     }

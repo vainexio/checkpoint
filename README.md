@@ -87,6 +87,24 @@ Two things that will otherwise bite:
 On the free plan the service sleeps after ~15 minutes idle and takes ~50s to wake, which looks
 like a broken board to anyone opening it cold.
 
+## A stop must be somewhere a bus actually stops
+
+The most damaging data mistake in this system is siting a checkpoint by name.
+Geocoding "Santo Tomas, Batangas" returns the **municipal hall** — a place no bus on the
+Maharlika Highway ever goes. That single error breaks four things at once: the pin is where
+nobody can wait, the walking directions send someone to a town hall, the stop is invisible to
+people at the real terminal, and TomTom measures a leg that detours off the highway and back,
+so the **baseline is wrong too**.
+
+Every seeded stop is therefore a real terminal, verified against OpenStreetMap's
+`amenity=bus_station` tag rather than a name search (`scripts/findTerminals.js`). Calamba is
+the clearest case: its real stop is **Turbina, on Maharlika Highway**, about 3 km from the city
+hall a name search returns.
+
+To stop it recurring, the admin place search now says what OpenStreetMap thinks each result
+*is* — "Bus terminal", "Roadside bus stop", or "Town centre — buses may not stop here" —
+ranks real terminals first, and warns before a non-transit place is saved as a checkpoint.
+
 ## Starting from an empty database
 
 The seed is demo data, not a dependency — everything in it can be created through the admin

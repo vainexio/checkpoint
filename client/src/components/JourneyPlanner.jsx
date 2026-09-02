@@ -61,7 +61,7 @@ export function JourneyPlanner({ stations, you, onRequestLocation, locating }) {
   }, [run, to]);
 
   return (
-    <Card className="mb-6 border-primary/25 tint-primary">
+    <Card className="mb-4">
       <CardContent className="p-5">
         <div className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
           <Route className="h-3.5 w-3.5" />

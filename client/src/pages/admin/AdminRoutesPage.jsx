@@ -122,7 +122,7 @@ function GettingStarted({ checkpointCount, routeCount, stopsInBuilder }) {
   }
 
   return (
-    <Card className="mb-4 border-primary/30 tint-primary">
+    <Card className="mb-4">
       <CardContent className="p-5">
         <div className="mb-3 flex items-start justify-between gap-4">
           <div>

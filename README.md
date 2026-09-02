@@ -105,6 +105,32 @@ To stop it recurring, the admin place search now says what OpenStreetMap thinks 
 *is* — "Bus terminal", "Roadside bus stop", or "Town centre — buses may not stop here" —
 ranks real terminals first, and warns before a non-transit place is saved as a checkpoint.
 
+### Three kinds of place, in an operator's own words
+
+Real operators publish exactly this distinction — JAC Liner's route map legends "Major
+Terminal" against "Bus Drop-off" — so the app uses it too:
+
+| Kind | Means |
+|---|---|
+| **Terminal** | Buses are based here and tickets are sold. Somewhere you can wait out an hour. |
+| **Pick-up & drop-off point** | The bus stops to let people on and off. No facility. |
+| **Timing point** | A toll exit the bus passes. Nobody boards; it exists to sharpen the ETA. |
+
+Underneath, the first two are both `station` — the engine only cares whether the bus dwells and
+whether anyone can board — and `isTerminal` separates them. But a passenger badly needs the
+difference, so nothing in the UI says "station" any more.
+
+**Routes share checkpoints and branch.** An operator runs a common trunk out of the city and
+splits at the far end, and checkpoints are shared records rather than copies, so this needs no
+special support: `PITX – Lipa` and `PITX – Lucena` share PITX → Alabang → Turbina → Santo
+Tomas, then deviate. A bus on either appears on all four shared boards.
+
+**A caveat found while doing this:** OpenStreetMap has good coverage of major Philippine
+terminals and almost none of roadside drop-off points — nothing tagged at Alaminos, San Pablo,
+Tiaong, Candelaria or Sariaya. The search returns nothing there rather than offering a town
+hall, and those points have to be pinned by hand on the admin map. That is the correct
+behaviour: no coordinate beats a confidently wrong one.
+
 ## Starting from an empty database
 
 The seed is demo data, not a dependency — everything in it can be created through the admin

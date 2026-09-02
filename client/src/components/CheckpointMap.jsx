@@ -171,7 +171,11 @@ export function CheckpointMap({
               <strong>{cp.name}</strong>
               {cp.area && <div>{cp.area}</div>}
               <div style={{ color: '#64748b' }}>
-                {cp.type === 'landmark' ? 'Timing point — no boarding' : 'Stop'}
+                {cp.type === 'landmark'
+                  ? 'Timing point — nobody boards'
+                  : cp.isTerminal
+                    ? 'Terminal'
+                    : 'Pick-up & drop-off point'}
                 {cp.distanceKm != null && ` · ${cp.distanceKm} km away`}
               </div>
             </Popup>

@@ -157,14 +157,14 @@ export default function StationsPage() {
               <span className="grid h-3.5 w-3.5 place-items-center rounded-full bg-[#1d4ed8]">
                 <span className="h-1.5 w-1.5 rounded-full bg-white" />
               </span>
-              Terminal — route starts or ends
+              Terminal — buses based here, somewhere to wait
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-[#3b82f6]" /> Stop you can board at
+              <span className="h-2.5 w-2.5 rounded-full bg-[#3b82f6]" /> Pick-up &amp; drop-off point
             </span>
             <span className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full border-2 border-dashed border-muted-foreground" />{' '}
-              Timing point — no boarding
+              Timing point — nobody boards
             </span>
             <span className="ml-auto">
               Stops only. Buses are not tracked on this map.
@@ -230,7 +230,7 @@ export default function StationsPage() {
             </Section>
           )}
           {stops.length > 0 && (
-            <Section title="Stops along the way">
+            <Section title="Pick-up &amp; drop-off points">
               {stops.map((s) => (
                 <StationCard key={s.id} station={s} />
               ))}

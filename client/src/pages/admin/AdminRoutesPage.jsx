@@ -41,6 +41,35 @@ import { cn } from '@/lib/utils.ts';
 const asHours = (m) => (m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`);
 
 /**
+ * The three kinds of place an operator actually has, in their language.
+ *
+ * Underneath these are two fields — a terminal and a roadside stop are both
+ * `station`, because the engine only cares whether the bus dwells and whether
+ * anyone can board. But a passenger badly needs to know the difference: one is
+ * somewhere to wait out an hour, the other is a spot on a highway shoulder.
+ */
+const KINDS = {
+  terminal: {
+    label: 'Terminal',
+    hint: 'Buses are based here and tickets are sold. Somewhere you can wait.',
+    fields: { type: 'station', isTerminal: true },
+  },
+  stop: {
+    label: 'Pick-up & drop-off point',
+    hint: 'The bus stops here to let people on and off, but there is no terminal.',
+    fields: { type: 'station', isTerminal: false },
+  },
+  timing: {
+    label: 'Timing point — nobody boards',
+    hint: 'A toll exit or junction the bus passes. Improves the ETA, gets no board.',
+    fields: { type: 'landmark', isTerminal: false },
+  },
+};
+
+const kindOf = (cp) =>
+  cp.type === 'landmark' ? 'timing' : cp.isTerminal ? 'terminal' : 'stop';
+
+/**
  * Routes and the checkpoints they are made of, on one page.
  *
  * These were two separate tabs, which made the job confusing: you cannot build
@@ -407,11 +436,12 @@ export default function AdminRoutesPage() {
                   )}
                 />
                 {cp.name}
-                {cp.type === 'landmark' && (
-                  <Badge variant="muted" className="text-[10px]">
-                    timing
-                  </Badge>
-                )}
+                <Badge
+                  variant={cp.type === 'landmark' ? 'muted' : cp.isTerminal ? 'default' : 'secondary'}
+                  className="text-[10px]"
+                >
+                  {KINDS[kindOf(cp)].label.split(' —')[0]}
+                </Badge>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -612,27 +642,24 @@ function NewCheckpointCard({ draftPin, suggested, onClear, onCreated, onError })
           </div>
 
           <div className="space-y-2">
-            <Label>Type</Label>
-            <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
+            <Label>What kind of place is this?</Label>
+            <Select
+              value={kindOf(form)}
+              onValueChange={(v) => setForm({ ...form, ...KINDS[v].fields })}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="station">Stop — passengers board, gets a board</SelectItem>
-                <SelectItem value="landmark">Timing point — no boarding</SelectItem>
+                {Object.entries(KINDS).map(([value, k]) => (
+                  <SelectItem key={value} value={value}>
+                    {k.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">{KINDS[kindOf(form)].hint}</p>
           </div>
-
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
-            <input
-              type="checkbox"
-              className="h-4 w-4 accent-primary"
-              checked={form.isTerminal}
-              onChange={(e) => setForm({ ...form, isTerminal: e.target.checked })}
-            />
-            This is an official terminal
-          </label>
 
           <Button type="submit" className="w-full" disabled={busy}>
             <Check className="mr-1.5 h-4 w-4" />

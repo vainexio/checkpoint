@@ -128,6 +128,20 @@ const STOPS = {
     area: 'Tanauan, Batangas',
     location: { lat: 14.082933, lng: 121.145362 },
   },
+  binan: {
+    name: 'JAC Liner Biñan Terminal',
+    type: 'station',
+    isTerminal: true,
+    area: 'Sto. Domingo, Biñan, Laguna',
+    location: { lat: 14.339342, lng: 121.081717 },
+  },
+  lucena: {
+    name: 'Lucena Grand Central Terminal',
+    type: 'station',
+    isTerminal: true,
+    area: 'Ilayang Dupay, Lucena City, Quezon',
+    location: { lat: 13.958498, lng: 121.617955 },
+  },
   lipa: {
     name: 'Lipa City Grand Terminal',
     type: 'station',
@@ -179,6 +193,22 @@ const ROUTES = [
     ],
   },
   {
+    /**
+     * Shares PITX → Alabang → Turbina → Santo Tomas with the Lipa run, then
+     * deviates east to Quezon. This is how an operator's network is really
+     * shaped — a common trunk out of the city and branches at the far end —
+     * and it works because checkpoints are shared records, not copies.
+     */
+    name: 'PITX – Lucena',
+    checkpoints: [
+      leg('pitx', 0),
+      leg('alabang', 42),
+      leg('turbina', 38),
+      leg('santoTomas', 26),
+      leg('lucena', 135),
+    ],
+  },
+  {
     name: 'Lipa – PITX',
     checkpoints: [
       leg('lipa', 0),
@@ -202,6 +232,7 @@ const BUSES = [
   { plateNumber: 'SBL 9015', operatorName: 'Southbound Lines' },
   { plateNumber: 'SBL 4820', operatorName: 'Southbound Lines' },
   { plateNumber: 'NRT 5507', operatorName: 'Northline Express' },
+  { plateNumber: 'SBL 6631', operatorName: 'Southbound Lines' },
 ];
 
 /**
@@ -341,6 +372,20 @@ const TRIPS = [
     left: ['Turbina Bus Terminal', 13],
     load: ['few', 13],
     note: 'northbound to PITX, past Turbina',
+  },
+  {
+    // On the shared trunk: appears on the PITX, Alabang, Turbina and Santo
+    // Tomas boards alongside the Lipa buses, then goes somewhere else entirely.
+    route: 'PITX – Lucena',
+    bus: 'SBL 6631',
+    conductor: 'dennis',
+    departedAgo: 85,
+    confirms: [
+      ['Alabang South Station', 41],
+      ['Turbina Bus Terminal', 3],
+    ],
+    load: ['seats', 3],
+    note: 'branches east at Santo Tomas — shares the trunk with the Lipa runs',
   },
   {
     route: 'Baguio – Cubao',

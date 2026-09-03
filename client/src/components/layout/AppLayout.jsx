@@ -166,20 +166,27 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
                 * the detail — tyre, pale rim, hub and lug nuts, each reading
                 * against the one outside it.
                 */}
+              {/*
+                * Wheels, drawn over the body rather than behind it.
+                *
+                * Tucked behind, only the lower half ever showed, and half a
+                * wheel cannot carry any detail — which is why stripping the
+                * rim left nothing but a dark blob. Sitting on top, the whole
+                * circle reads, so the structure can be concentric and stay in
+                * a dark range: tyre, a steel ring, and a hub.
+                */}
               {WHEEL_AT.map((pct) => (
                 <span
                   key={pct}
-                  className="absolute -bottom-[21px] z-0 grid h-11 w-11 -translate-x-1/2 place-items-center rounded-full bg-[#141A17] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.10)] sm:-bottom-[30px] sm:h-[62px] sm:w-[62px]"
+                  className="absolute -bottom-[22px] z-20 grid h-11 w-11 -translate-x-1/2 place-items-center rounded-full bg-[#141A17] sm:-bottom-[31px] sm:h-[62px] sm:w-[62px]"
                   style={{ left: `${pct}%` }}
                   aria-hidden
                 >
-                  {/*
-                    * Tyre and rim only, both dark. A pale rim separated the
-                    * wheel from the road but read as a bright disc stuck on
-                    * the side of the bus; keeping the whole wheel in one dark
-                    * range lets it stay a wheel.
-                    */}
-                  <span className="h-[26px] w-[26px] rounded-full bg-[#2A332E] sm:h-[34px] sm:w-[34px]" />
+                  <span className="grid h-6 w-6 place-items-center rounded-full bg-[#93A29C] sm:h-[34px] sm:w-[34px]">
+                    <span className="grid h-[13px] w-[13px] place-items-center rounded-full bg-[#141A17] sm:h-[18px] sm:w-[18px]">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#93A29C] sm:h-2 sm:w-2" />
+                    </span>
+                  </span>
                 </span>
               ))}
 
@@ -240,19 +247,6 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
                   <span className="absolute bottom-[3px] right-3 h-1.5 w-5 rounded-[2px] bg-warning/85 sm:right-4 sm:w-6" />
                 </div>
 
-                {/*
-                  * Wheel arches, last so they cut through the sill rather than
-                  * sitting under it. The body clips them, which is what turns a
-                  * circle into an arch and stops the wheel looking stuck on.
-                  */}
-                {WHEEL_AT.map((pct) => (
-                  <span
-                    key={pct}
-                    className="pointer-events-none absolute bottom-0 h-[19px] w-[52px] -translate-x-1/2 rounded-t-full bg-accent/70 sm:h-[28px] sm:w-[76px]"
-                    style={{ left: `${pct}%` }}
-                    aria-hidden
-                  />
-                ))}
               </div>
             </div>
 

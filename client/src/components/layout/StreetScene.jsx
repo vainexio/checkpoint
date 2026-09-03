@@ -16,16 +16,16 @@ import { cn } from '@/lib/utils';
 
 /* Ten wide towers, not eighteen thin ones. Fixed so the city never reshuffles. */
 const BUILDINGS = [
-  { w: 58, h: 182, cols: 3, rows: 7, tone: 'far' },
-  { w: 44, h: 185, cols: 2, rows: 7, tone: 'mid' },
-  { w: 72, h: 148, cols: 4, rows: 5, tone: 'far' },
-  { w: 50, h: 160, cols: 3, rows: 6, tone: 'near' },
-  { w: 64, h: 210, cols: 3, rows: 8, tone: 'far' },
-  { w: 46, h: 120, cols: 2, rows: 4, tone: 'mid' },
-  { w: 68, h: 172, cols: 4, rows: 6, tone: 'far' },
-  { w: 42, h: 140, cols: 2, rows: 5, tone: 'near' },
-  { w: 60, h: 198, cols: 3, rows: 7, tone: 'mid' },
-  { w: 52, h: 112, cols: 3, rows: 4, tone: 'far' },
+  { w: 58, h: 235, cols: 3, rows: 9, tone: 'far' },
+  { w: 44, h: 240, cols: 2, rows: 9, tone: 'mid' },
+  { w: 72, h: 195, cols: 4, rows: 7, tone: 'far' },
+  { w: 50, h: 208, cols: 3, rows: 8, tone: 'near' },
+  { w: 64, h: 268, cols: 3, rows: 10, tone: 'far' },
+  { w: 46, h: 158, cols: 2, rows: 6, tone: 'mid' },
+  { w: 68, h: 222, cols: 4, rows: 8, tone: 'far' },
+  { w: 42, h: 182, cols: 2, rows: 7, tone: 'near' },
+  { w: 60, h: 255, cols: 3, rows: 9, tone: 'mid' },
+  { w: 52, h: 148, cols: 3, rows: 5, tone: 'far' },
 ];
 
 const TONE = {
@@ -63,7 +63,7 @@ function Building({ spec, index }) {
           />
         ))}
       </span>
-      {h > 180 && (
+      {h > 230 && (
         <span className="absolute -top-4 left-1/2 h-4 w-[2px] -translate-x-1/2 rounded-full bg-foreground/20" />
       )}
     </span>
@@ -74,11 +74,11 @@ function Tree({ big = false }) {
   return (
     <span className="flex shrink-0 flex-col items-center">
       <span className={cn('relative', big ? 'h-[52px] w-14' : 'h-10 w-11')}>
-        <span className="absolute bottom-0 left-0 h-[70%] w-[70%] rounded-full bg-accent/40" />
-        <span className="absolute bottom-0 right-0 h-[66%] w-[66%] rounded-full bg-accent/35" />
-        <span className="absolute left-1/2 top-0 h-[74%] w-[74%] -translate-x-1/2 rounded-full bg-accent/50" />
+        <span className="absolute bottom-0 left-0 h-[70%] w-[70%] rounded-full scene-canopy-mid" />
+        <span className="absolute bottom-0 right-0 h-[66%] w-[66%] rounded-full scene-canopy-back" />
+        <span className="absolute left-1/2 top-0 h-[74%] w-[74%] -translate-x-1/2 rounded-full scene-canopy" />
       </span>
-      <span className={cn('rounded-sm bg-foreground/35', big ? 'h-6 w-[5px]' : 'h-5 w-1')} />
+      <span className={cn('rounded-sm scene-trunk', big ? 'h-6 w-[5px]' : 'h-5 w-1')} />
     </span>
   );
 }
@@ -90,19 +90,19 @@ function Tree({ big = false }) {
 function StreetLamp() {
   return (
     <span className="flex shrink-0 flex-col items-center">
-      <span className="relative h-[92px] w-[3px] rounded-t-full bg-foreground/35">
-        <span className="absolute left-0 top-0 h-[3px] w-8 rounded-full bg-foreground/35" />
-        <span className="absolute left-[22px] top-[3px] h-2.5 w-5 rounded-b-[5px] bg-warning/90" />
+      <span className="relative h-[92px] w-[3px] rounded-t-full scene-pole">
+        <span className="absolute left-0 top-0 h-[3px] w-8 rounded-full scene-pole" />
+        <span className="absolute left-[22px] top-[3px] h-2.5 w-5 rounded-b-[5px] scene-lamp" />
         <span className="absolute left-[18px] top-[5px] h-8 w-8 rounded-full bg-warning/35 blur-[9px]" />
       </span>
-      <span className="h-1.5 w-4 rounded-t-[2px] bg-foreground/30" />
+      <span className="h-1.5 w-4 rounded-t-[2px] scene-pole-dark" />
     </span>
   );
 }
 
 function Person({ tone = 'accent', h = 34 }) {
-  const head = tone === 'accent' ? 'bg-accent/80' : 'bg-primary/70';
-  const body = tone === 'accent' ? 'bg-accent/65' : 'bg-primary/55';
+  const head = tone === 'accent' ? 'scene-person-head' : 'scene-person-head-alt';
+  const body = tone === 'accent' ? 'scene-person-body' : 'scene-person-body-alt';
   return (
     <span className="flex shrink-0 flex-col items-center" style={{ height: h }}>
       <span className={cn('rounded-full', head)} style={{ height: h * 0.28, width: h * 0.28 }} />
@@ -123,28 +123,28 @@ function Shelter() {
   return (
     <span className="relative flex h-[92px] w-[132px] shrink-0 items-end">
       {/* Back wall, set behind everything else in the shed. */}
-      <span className="absolute bottom-0 left-2 right-2 top-3 rounded-t-[3px] bg-primary/[0.16]" />
+      <span className="absolute bottom-0 left-2 right-2 top-3 rounded-t-[3px] scene-shed-wall" />
 
       {/* Canopy, with a lip under it so it does not read as a floating bar. */}
-      <span className="absolute inset-x-0 top-0 h-2.5 rounded-[3px] bg-primary/60" />
-      <span className="absolute left-0 right-0 top-[10px] h-1 bg-primary/35" />
+      <span className="absolute inset-x-0 top-0 h-2.5 rounded-[3px] scene-shed" />
+      <span className="absolute left-0 right-0 top-[10px] h-1 scene-shed-post" />
 
       {/* Posts, running the full drop to the kerb. */}
-      <span className="absolute bottom-0 left-[3px] top-[10px] w-[4px] rounded-b-[2px] bg-primary/55" />
-      <span className="absolute bottom-0 right-[3px] top-[10px] w-[4px] rounded-b-[2px] bg-primary/55" />
+      <span className="absolute bottom-0 left-[3px] top-[10px] w-[4px] rounded-b-[2px] scene-shed-post" />
+      <span className="absolute bottom-0 right-[3px] top-[10px] w-[4px] rounded-b-[2px] scene-shed-post" />
 
       {/* Route board. */}
       <span className="absolute right-3 top-[22px] grid h-11 w-[42px] content-start gap-[4px] rounded-[3px] bg-card p-2">
-        <span className="h-[3px] w-full rounded-full bg-primary/60" />
-        <span className="h-[3px] w-3/4 rounded-full bg-foreground/25" />
-        <span className="h-[3px] w-5/6 rounded-full bg-foreground/25" />
-        <span className="h-[3px] w-2/3 rounded-full bg-foreground/25" />
+        <span className="h-[3px] w-full rounded-full scene-shed" />
+        <span className="h-[3px] w-3/4 rounded-full scene-pole" />
+        <span className="h-[3px] w-5/6 rounded-full scene-pole" />
+        <span className="h-[3px] w-2/3 rounded-full scene-pole" />
       </span>
 
       {/* Bench on its legs, then the people standing in front of it. */}
-      <span className="absolute bottom-[14px] left-3 h-[4px] w-[46px] rounded-full bg-primary/50" />
-      <span className="absolute bottom-0 left-[18px] h-[14px] w-[3px] bg-primary/40" />
-      <span className="absolute bottom-0 left-[46px] h-[14px] w-[3px] bg-primary/40" />
+      <span className="absolute bottom-[14px] left-3 h-[4px] w-[46px] rounded-full scene-shed-post" />
+      <span className="absolute bottom-0 left-[18px] h-[14px] w-[3px] scene-shed-post" />
+      <span className="absolute bottom-0 left-[46px] h-[14px] w-[3px] scene-shed-post" />
       <span className="absolute bottom-0 left-4 flex items-end gap-2">
         <Person tone="accent" h={40} />
         <Person tone="primary" h={33} />
@@ -156,13 +156,13 @@ function Shelter() {
 function TrafficLight() {
   return (
     <span className="flex shrink-0 flex-col items-center">
-      <span className="flex h-12 w-[22px] flex-col items-center justify-center gap-[5px] rounded-[5px] bg-foreground/35">
-        <span className="h-2.5 w-2.5 rounded-full bg-destructive/45" />
-        <span className="h-2.5 w-2.5 rounded-full bg-warning/45" />
+      <span className="flex h-12 w-[22px] flex-col items-center justify-center gap-[5px] rounded-[5px] scene-pole-dark">
+        <span className="h-2.5 w-2.5 rounded-full scene-signal-off" />
+        <span className="h-2.5 w-2.5 rounded-full scene-signal-off" />
         <span className="h-2.5 w-2.5 rounded-full bg-success" />
       </span>
-      <span className="h-[62px] w-[4px] bg-foreground/30" />
-      <span className="h-1.5 w-4 rounded-t-[2px] bg-foreground/30" />
+      <span className="h-[62px] w-[4px] scene-pole" />
+      <span className="h-1.5 w-4 rounded-t-[2px] scene-pole-dark" />
     </span>
   );
 }
@@ -176,7 +176,7 @@ export function Skyline() {
         // A phone gets half the city, near full height, so the towers clear
         // the roof of the bus instead of hiding behind it.
         '[&>*:nth-child(even)]:hidden sm:[&>*:nth-child(even)]:block',
-        'scale-y-[0.85] sm:scale-y-[0.72] lg:scale-y-100'
+        'scale-y-[1.25] sm:scale-y-100'
       )}
       aria-hidden
     >
@@ -200,7 +200,6 @@ export function BusStop() {
       <Tree big />
       <Shelter />
       <StreetLamp />
-      <Tree />
       <TrafficLight />
     </div>
   );

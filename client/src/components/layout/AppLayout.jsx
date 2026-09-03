@@ -1,5 +1,5 @@
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Skyline, BusStop } from './StreetScene.jsx';
 import { MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils.ts';
@@ -92,30 +92,36 @@ export function AppLayout({ children, navbar }) {
 
       <main className="relative z-10 mx-auto w-full max-w-7xl flex-1 px-4 py-10 sm:px-6">
         {/*
-          * No `mode="wait"`, and no exit animation.
+          * No AnimatePresence around the route.
           *
-          * With both, the incoming route could not mount until the outgoing
-          * one had finished animating away — and an exit that gets
-          * interrupted, which is exactly what the browser back button does,
-          * leaves the presence tracking with nothing on screen. That is the
-          * blank page you had to refresh out of. The entrance is what gives
-          * the transition its polish; the exit was only ever buying the bug.
+          * It was tracking an element it never needed to. With `mode="wait"`
+          * an interrupted exit — which is exactly what the back button
+          * causes — left nothing on screen at all; without it, the outgoing
+          * route stayed mounted beside the incoming one and the page came
+          * back doubled. Both are the same mistake: presence tracking only
+          * earns its keep when something has to animate *out*, and nothing
+          * here does.
+          *
+          * Changing the key is enough. React unmounts the old route and
+          * mounts the new one, and the new one plays its own entrance. One
+          * route on screen, always.
           */}
-        <AnimatePresence initial={false}>
-          <motion.div
-            key={location.pathname}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-            className="h-full w-full"
-          >
-            {children}
-          </motion.div>
-        </AnimatePresence>
+        <motion.div
+          key={location.pathname}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+          className="h-full w-full"
+        >
+          {children}
+        </motion.div>
       </main>
     </div>
   );
 }
+
+/* Axle positions along the coach, as a percentage of its length. */
+const WHEEL_AT = [20, 80];
 
 export function PageHeader({ title, description, actions, icon: Icon }) {
   return (
@@ -149,20 +155,37 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
 
           <div className="relative z-10 flex items-end gap-5 xl:gap-7">
             {/* -------------------------------------------------------- the bus */}
-            <div className="relative w-full max-w-[620px] shrink-0">
-              {/* Tyres, behind the body so only their lower halves show. */}
-              <span
-                className="absolute -bottom-[13px] left-[16%] z-0 grid h-8 w-8 place-items-center rounded-full bg-[#171D1B] sm:-bottom-[16px] sm:h-10 sm:w-10"
-                aria-hidden
-              >
-                <span className="h-2.5 w-2.5 rounded-full bg-background/85 sm:h-3 sm:w-3" />
-              </span>
-              <span
-                className="absolute -bottom-[13px] right-[18%] z-0 grid h-8 w-8 place-items-center rounded-full bg-[#171D1B] sm:-bottom-[16px] sm:h-10 sm:w-10"
-                aria-hidden
-              >
-                <span className="h-2.5 w-2.5 rounded-full bg-background/85 sm:h-3 sm:w-3" />
-              </span>
+            <div className="relative w-full max-w-[820px] shrink-0">
+              {/*
+                * Wheels.
+                *
+                * The old pair were 40px on an 820px coach, near-black against
+                * a dark road, with only a sliver showing below the body: a
+                * smudge, not a wheel. These are sized to the vehicle and built
+                * in rings, so the part that does show below the arch carries
+                * the detail — tyre, pale rim, hub and lug nuts, each reading
+                * against the one outside it.
+                */}
+              {WHEEL_AT.map((pct) => (
+                <span
+                  key={pct}
+                  className="absolute -bottom-[21px] z-0 grid h-11 w-11 -translate-x-1/2 place-items-center rounded-full bg-[#141A17] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.10)] sm:-bottom-[30px] sm:h-[62px] sm:w-[62px]"
+                  style={{ left: `${pct}%` }}
+                  aria-hidden
+                >
+                  {/* Rim: the pale ring is what separates the wheel from the road. */}
+                  <span className="relative grid h-[26px] w-[26px] place-items-center rounded-full bg-[#E2E8E1] shadow-[inset_0_-2px_3px_rgba(20,26,23,0.28)] sm:h-[34px] sm:w-[34px]">
+                    {[0, 60, 120, 180, 240, 300].map((deg) => (
+                      <span
+                        key={deg}
+                        className="absolute h-[3px] w-[3px] rounded-full bg-[#8D9A94] sm:h-[4px] sm:w-[4px]"
+                        style={{ transform: `rotate(${deg}deg) translateY(-9px)` }}
+                      />
+                    ))}
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#6F7C77] sm:h-3.5 sm:w-3.5" />
+                  </span>
+                </span>
+              ))}
 
               <div className="relative z-10 overflow-hidden rounded-[12px] bg-primary text-primary-foreground sm:rounded-[14px]">
                 <div className="flex items-center gap-2 px-3 pt-3 sm:gap-2.5 sm:px-4 sm:pt-4" aria-hidden>
@@ -184,21 +207,56 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
                   </span>
                 </div>
 
-                <div className="flex items-center gap-3 px-4 py-3.5 sm:gap-4 sm:px-5 sm:py-4">
-                  {Icon && (
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-foreground/20 sm:h-11 sm:w-11">
-                      <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
+                {/*
+                  * The flank carries the name, the line under it, and the
+                  * controls. Laid out in bands rather than overlays: the icon
+                  * and the words in one column, the actions in another, so
+                  * nothing can land on top of the text the way it used to.
+                  */}
+                <div className="flex flex-col gap-3 px-4 pb-6 pt-4 sm:gap-4 sm:px-5 sm:pb-7 sm:pt-[18px] md:flex-row md:items-end md:justify-between md:gap-6">
+                  <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+                    {Icon && (
+                      <div className="mt-[3px] flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-foreground/20 sm:h-11 sm:w-11">
+                        <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <h1 className="text-[21px] font-black leading-tight tracking-tight sm:text-[27px]">
+                        {title}
+                      </h1>
+                      {description && (
+                        <div className="mt-1.5 max-w-2xl text-[13.5px] font-medium leading-relaxed text-primary-foreground sm:text-[14.5px]">
+                          {description}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {actions && (
+                    <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">
+                      {actions}
                     </div>
                   )}
-                  <h1 className="min-w-0 text-[21px] font-black leading-tight tracking-tight sm:text-[27px]">
-                    {title}
-                  </h1>
                 </div>
 
                 <div className="relative h-3 bg-accent/25 sm:h-4" aria-hidden>
                   <span className="absolute bottom-[3px] left-3 h-1.5 w-3.5 rounded-[2px] bg-destructive/75 sm:left-4 sm:w-4" />
                   <span className="absolute bottom-[3px] right-3 h-1.5 w-5 rounded-[2px] bg-warning/85 sm:right-4 sm:w-6" />
                 </div>
+
+                {/*
+                  * Wheel arches, last so they cut through the sill rather than
+                  * sitting under it. The body clips them, which is what turns a
+                  * circle into an arch and stops the wheel looking stuck on.
+                  */}
+                {WHEEL_AT.map((pct) => (
+                  <span
+                    key={pct}
+                    className="pointer-events-none absolute bottom-0 h-[19px] w-[52px] -translate-x-1/2 rounded-t-full bg-accent/70 sm:h-[28px] sm:w-[76px]"
+                    style={{ left: `${pct}%` }}
+                    aria-hidden
+                  />
+                ))}
               </div>
             </div>
 
@@ -208,7 +266,7 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
 
         {/* ------------------------------------------------------------ road */}
         <div
-          className="relative z-10 mt-[6px] h-3.5 rounded-[3px] bg-foreground/[0.22] sm:mt-2 sm:h-4"
+          className="relative z-10 mt-[5px] h-[19px] rounded-[3px] bg-foreground/[0.22] sm:mt-[6px] sm:h-7"
           aria-hidden
         >
           <div className="absolute inset-x-4 top-1/2 flex -translate-y-1/2 gap-4">
@@ -219,19 +277,6 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
         </div>
       </motion.div>
 
-      {/* Everything that is not the name lives on the page, below the street. */}
-      {(description || actions) && (
-        <div className="mt-5 flex flex-col justify-between gap-3 sm:mt-6 sm:flex-row sm:items-end sm:gap-6">
-          {description && (
-            <p className="m-0 max-w-2xl text-[14px] font-medium text-muted-foreground sm:text-[15px]">
-              {description}
-            </p>
-          )}
-          {actions && (
-            <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">{actions}</div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -243,7 +288,7 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
  */
 export function LiveIndicator({ lastUpdated }) {
   return (
-    <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+    <span className="flex items-center gap-2 text-xs font-medium text-primary-foreground">
       <span className="relative flex h-2 w-2">
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />
         <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />

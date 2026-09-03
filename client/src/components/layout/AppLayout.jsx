@@ -113,72 +113,83 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
     <motion.div
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
-      /*
-       * The header is a card like everything else on the page.
-       *
-       * Sitting bare on the background it read as a separate kind of thing from
-       * the content below it. One surface for every block is the pattern people
-       * already know from Facebook, and knowing where a block starts and stops
-       * without being told is most of what makes an interface easy.
-       *
-       * Tightened hard on phones: at 375px the old header used almost half the
-       * screen before the first bus appeared, which is the one thing anyone
-       * opened the page for.
-       */
-      className="relative z-0 mb-4 flex flex-col justify-between gap-4 overflow-hidden rounded-t-[28px] bg-primary px-5 pb-14 pt-6 text-primary-foreground sm:mb-6 sm:gap-6 sm:px-7 sm:pb-16 sm:pt-8 md:flex-row md:items-end"
+      transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+      className="relative mb-9 sm:mb-11"
     >
       {/*
-        * A bus driving off the right edge of the header.
+        * The header is drawn as the side of a bus.
         *
-        * Big, faint and cropped, so it reads as part of the surface rather than
-        * an icon someone placed on it. It says what this product is before a
-        * single word has been read.
+        * Not an icon dropped onto a panel — the panel itself is the vehicle:
+        * a long body with a row of windows across the top, a livery stripe
+        * down the flank, and wheels sitting under it on the page. The
+        * proportions of a page header happen to be the proportions of a bus
+        * seen from the side, which is the whole reason this works.
         */}
-      <Bus
-        className="pointer-events-none absolute -right-8 top-1/2 h-44 w-44 -translate-y-1/2 rotate-[-8deg] text-primary-foreground/[0.13] sm:-right-6 sm:h-56 sm:w-56"
-        strokeWidth={1.1}
-        aria-hidden
-      />
 
-      <div className="relative z-10 flex min-w-0 max-w-2xl items-start gap-3 sm:gap-4">
-        {Icon && (
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-foreground/20 text-primary-foreground sm:h-13 sm:w-13">
-            <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
+      {/* Wheels, behind the body so only their lower halves show. */}
+      <span
+        className="absolute -bottom-5 left-[15%] z-0 grid h-12 w-12 place-items-center rounded-full bg-accent sm:-bottom-6 sm:h-15 sm:w-15"
+        aria-hidden
+      >
+        <span className="h-4 w-4 rounded-full bg-background/70 sm:h-5 sm:w-5" />
+      </span>
+      <span
+        className="absolute -bottom-5 right-[17%] z-0 grid h-12 w-12 place-items-center rounded-full bg-accent sm:-bottom-6 sm:h-15 sm:w-15"
+        aria-hidden
+      >
+        <span className="h-4 w-4 rounded-full bg-background/70 sm:h-5 sm:w-5" />
+      </span>
+
+      {/* The body. */}
+      <div className="relative z-10 overflow-hidden rounded-[30px] bg-primary px-5 pb-7 pt-5 text-primary-foreground sm:rounded-[38px] sm:px-8 sm:pb-9 sm:pt-7">
+        {/*
+          * The window line: a darker band of glass with the panes set into it,
+          * then a livery stripe under it. Read together they are unmistakably
+          * the side of a bus; the panes alone looked like content still
+          * loading.
+          */}
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-[62px] bg-accent/25 sm:h-[76px]"
+          aria-hidden
+        >
+          <div className="flex h-full items-center gap-2.5 px-5 sm:gap-3 sm:px-8">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <span
+                key={i}
+                className="h-7 flex-1 rounded-lg bg-primary-foreground/[0.16] sm:h-10 sm:rounded-xl"
+              />
+            ))}
           </div>
-        )}
-        <div className="min-w-0">
-          <h1 className="text-[26px] font-black leading-tight tracking-tight sm:text-[34px]">
-            {title}
-          </h1>
-          {description && (
-            <div className="mt-1.5 text-[14px] font-medium text-primary-foreground/80 sm:mt-2 sm:text-[15px]">
-              {description}
+        </div>
+        <div
+          className="pointer-events-none absolute inset-x-0 top-[62px] h-[3px] bg-primary-foreground/25 sm:top-[76px] sm:h-1"
+          aria-hidden
+        />
+
+        <div className="relative flex flex-col justify-between gap-4 pt-11 sm:gap-6 sm:pt-14 md:flex-row md:items-end">
+          <div className="flex min-w-0 max-w-2xl items-start gap-3 sm:gap-4">
+            {Icon && (
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-foreground/20 sm:h-13 sm:w-13">
+                <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
+              </div>
+            )}
+            <div className="min-w-0">
+              <h1 className="text-[26px] font-black leading-tight tracking-tight sm:text-[34px]">
+                {title}
+              </h1>
+              {description && (
+                <div className="mt-1.5 text-[14px] font-medium text-primary-foreground/80 sm:mt-2 sm:text-[15px]">
+                  {description}
+                </div>
+              )}
             </div>
+          </div>
+
+          {actions && (
+            <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">{actions}</div>
           )}
         </div>
       </div>
-      {/* Actions wrap into a row on a phone instead of stacking full-width. */}
-      {actions && (
-        <div className="relative z-10 flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">
-          {actions}
-        </div>
-      )}
-
-      {/*
-        * The bottom edge is a drawn curve, not a corner radius. A radius stops
-        * square against the content below it; this sweeps away from it, which
-        * is what makes the cards read as sitting *on* something rather than
-        * merely underneath it.
-        */}
-      <svg
-        className="pointer-events-none absolute inset-x-0 bottom-[-1px] h-9 w-full text-background sm:h-11"
-        viewBox="0 0 1440 60"
-        preserveAspectRatio="none"
-        aria-hidden
-      >
-        <path d="M0 60V26C240 2 480 -8 720 6c240 14 480 24 720 12v42Z" fill="currentColor" />
-      </svg>
     </motion.div>
   );
 }

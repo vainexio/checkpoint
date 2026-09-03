@@ -93,7 +93,7 @@ export default function StationBoardPage() {
               href={`/display/${stationId}`}
               target="_blank"
               rel="noreferrer noopener"
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-primary-foreground/15 px-3.5 py-1.5 text-[13px] font-semibold text-primary-foreground transition-colors hover:bg-primary-foreground/25"
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-[13px] font-semibold text-foreground transition-colors hover:border-primary/50 hover:text-primary"
             >
               <MonitorPlay className="h-3.5 w-3.5" />
               Terminal display
@@ -103,7 +103,7 @@ export default function StationBoardPage() {
                 href={directionsUrl(data.station.location)}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-primary-foreground/15 px-3.5 py-1.5 text-[13px] font-semibold text-primary-foreground transition-colors hover:bg-primary-foreground/25"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-[13px] font-semibold text-foreground transition-colors hover:border-primary/50 hover:text-primary"
               >
                 <Footprints className="h-3.5 w-3.5" />
                 {/* Two buttons only fit side by side on a phone if the second

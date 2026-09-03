@@ -1,5 +1,6 @@
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
+import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
 import { Skyline, BusStop } from './StreetScene.jsx';
 import { MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils.ts';
@@ -123,7 +124,63 @@ export function AppLayout({ children, navbar }) {
 /* Axle positions along the coach, as a percentage of its length. */
 const WHEEL_AT = [20, 80];
 
+/* Never tie the drive to a span so short that a nudge throws the bus off. */
+const MIN_DRIVE_SPAN = 260;
+
+/**
+ * Drives the header bus off to the right as the page scrolls, and rolls its
+ * wheels at the rate the distance actually calls for.
+ *
+ * The span is measured rather than guessed: the bus should be gone at roughly
+ * the moment the header itself clears the top of the window, which depends on
+ * how many lines the description wraps to. A ResizeObserver keeps that honest
+ * when the height settles after the first paint — reading the box once and
+ * caching it is exactly how this kind of effect ends up mistimed.
+ *
+ * Rotation is derived from x rather than from scroll, so the wheels can only
+ * ever turn in the direction the bus is moving, at the speed it is moving.
+ * Scroll back up and the bus reverses in with its wheels turning backwards,
+ * which is what a bus pulling back to the kerb does.
+ */
+function useBusDrive(ref) {
+  const { scrollY } = useScroll();
+  const [drive, setDrive] = useState({ span: 480, travel: 1440, wheel: 62 });
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+
+    const measure = () => {
+      const rect = el.getBoundingClientRect();
+      setDrive({
+        span: Math.max(MIN_DRIVE_SPAN, rect.top + window.scrollY + rect.height),
+        // Past the right edge of the window, whatever the container is doing.
+        travel: window.innerWidth + 160,
+        wheel: window.matchMedia('(min-width: 640px)').matches ? 62 : 44,
+      });
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    window.addEventListener('resize', measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [ref]);
+
+  const x = useTransform(scrollY, [0, drive.span], [0, drive.travel], { clamp: true });
+  const spin = useTransform(x, (px) => (px / (Math.PI * drive.wheel)) * 360);
+
+  return { x, spin };
+}
+
 export function PageHeader({ title, description, actions, icon: Icon }) {
+  const sceneRef = useRef(null);
+  const { x, spin } = useBusDrive(sceneRef);
+  const stillness = useReducedMotion();
+
   return (
     <div className="mb-5 sm:mb-7">
       {/*
@@ -139,7 +196,9 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
-        className="relative pt-16 sm:pt-16 lg:pt-24"
+        ref={sceneRef}
+        // Clipped, so a bus on its way out cannot widen the page.
+        className="relative overflow-hidden pt-16 sm:pt-16 lg:pt-24"
       >
         {/*
           * The ground line.
@@ -155,7 +214,10 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
 
           <div className="relative z-10 flex items-end gap-5 xl:gap-7">
             {/* -------------------------------------------------------- the bus */}
-            <div className="relative w-full max-w-[820px] shrink-0">
+            <motion.div
+              style={stillness ? undefined : { x }}
+              className="relative z-20 w-full max-w-[820px] shrink-0"
+            >
               {/*
                 * Wheels.
                 *
@@ -175,10 +237,10 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
                 * nuts and a hub.
                 */}
               {WHEEL_AT.map((pct) => (
-                <span
+                <motion.span
                   key={pct}
-                  className="absolute -bottom-[22px] z-20 grid h-11 w-11 -translate-x-1/2 place-items-center rounded-full bg-[#141A17] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.10)] sm:-bottom-[31px] sm:h-[62px] sm:w-[62px]"
-                  style={{ left: `${pct}%` }}
+                  className="absolute -bottom-[22px] z-20 grid h-11 w-11 place-items-center rounded-full bg-[#141A17] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.10)] sm:-bottom-[31px] sm:h-[62px] sm:w-[62px]"
+                  style={{ left: `${pct}%`, x: '-50%', rotate: stillness ? 0 : spin }}
                   aria-hidden
                 >
                   {/* Rim, lug nuts and hub, lit from above by the inset shade. */}
@@ -192,7 +254,7 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
                     ))}
                     <span className="h-2.5 w-2.5 rounded-full bg-[#6F7C77] sm:h-3.5 sm:w-3.5" />
                   </span>
-                </span>
+                </motion.span>
               ))}
 
               <div className="relative z-10 overflow-hidden rounded-[12px] bg-primary text-primary-foreground sm:rounded-[14px]">
@@ -253,7 +315,7 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
                 </div>
 
               </div>
-            </div>
+            </motion.div>
 
             <BusStop />
           </div>

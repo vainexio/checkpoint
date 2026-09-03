@@ -143,26 +143,75 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
       {/* The body. */}
       <div className="relative z-10 overflow-hidden rounded-[30px] bg-primary px-5 pb-7 pt-5 text-primary-foreground sm:rounded-[38px] sm:px-8 sm:pb-9 sm:pt-7">
         {/*
-          * The window line: a darker band of glass with the panes set into it,
-          * then a livery stripe under it. Read together they are unmistakably
-          * the side of a bus; the panes alone looked like content still
-          * loading.
+          * The bodywork, drawn front-to-the-right so it reads in the direction
+          * of travel: saloon windows, then a wider windscreen at the nose, a
+          * boarding door behind the front axle, a livery stripe along the
+          * flank, and lamps at both ends.
+          *
+          * All of it is set well back in opacity. It is the panel the title
+          * sits on, not an illustration the title has to compete with.
           */}
         <div
           className="pointer-events-none absolute inset-x-0 top-0 h-[62px] bg-accent/25 sm:h-[76px]"
           aria-hidden
         >
           <div className="flex h-full items-center gap-2.5 px-5 sm:gap-3 sm:px-8">
-            {Array.from({ length: 6 }).map((_, i) => (
+            {Array.from({ length: 5 }).map((_, i) => (
               <span
                 key={i}
-                className="h-7 flex-1 rounded-lg bg-primary-foreground/[0.16] sm:h-10 sm:rounded-xl"
-              />
+                className="relative h-7 flex-1 overflow-hidden rounded-lg bg-primary-foreground/[0.16] sm:h-10 sm:rounded-xl"
+              >
+                {/* The light catching the top of the glass. */}
+                <span className="absolute inset-x-0 top-0 h-1/3 bg-primary-foreground/[0.13]" />
+                {/* Sliding pane: the vertical bar every bus window has. */}
+                <span className="absolute inset-y-1 right-1/3 w-px bg-primary/25" />
+              </span>
             ))}
+            {/* The windscreen: wider, and raked at the nose. */}
+            <span className="relative h-7 flex-[1.55] overflow-hidden rounded-lg rounded-tr-[18px] bg-primary-foreground/[0.2] sm:h-10 sm:rounded-xl sm:rounded-tr-[26px]">
+              <span className="absolute inset-x-0 top-0 h-1/3 bg-primary-foreground/[0.14]" />
+            </span>
           </div>
         </div>
         <div
           className="pointer-events-none absolute inset-x-0 top-[62px] h-[3px] bg-primary-foreground/25 sm:top-[76px] sm:h-1"
+          aria-hidden
+        />
+
+        {/*
+          * Boarding door, behind the front axle.
+          *
+          * It runs the full height of the body rather than starting below the
+          * glass — a door that stops short of the window line reads as a box
+          * someone left on the panel, which is exactly how the first attempt
+          * looked. The glazed upper half lines up with the saloon windows.
+          */}
+        <div
+          className="pointer-events-none absolute inset-y-0 right-[26%] w-[42px] bg-accent/[0.18] sm:right-[28%] sm:w-[56px]"
+          aria-hidden
+        >
+          {/* Leading and trailing edges, so it reads as an opening. */}
+          <span className="absolute inset-y-0 left-0 w-px bg-primary/25" />
+          <span className="absolute inset-y-0 right-0 w-px bg-primary/25" />
+          {/* Door glass, aligned to the window band above it. */}
+          <span className="absolute inset-x-1.5 top-2 h-[46px] rounded-md bg-primary-foreground/[0.13] sm:inset-x-2 sm:top-2.5 sm:h-[62px]" />
+          {/* The split where the two leaves meet. */}
+          <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-primary/20" />
+        </div>
+
+        {/* Livery stripe along the flank. */}
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-9 h-1.5 bg-primary-foreground/[0.1] sm:bottom-11 sm:h-2"
+          aria-hidden
+        />
+
+        {/* Lamps: warm at the nose, red at the tail. */}
+        <span
+          className="pointer-events-none absolute bottom-3.5 right-3 h-2.5 w-5 rounded-md bg-warning/70 sm:bottom-5 sm:right-5 sm:h-3 sm:w-7"
+          aria-hidden
+        />
+        <span
+          className="pointer-events-none absolute bottom-3.5 left-3 h-2.5 w-4 rounded-md bg-destructive/60 sm:bottom-5 sm:left-5 sm:h-3 sm:w-5"
           aria-hidden
         />
 

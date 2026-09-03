@@ -130,32 +130,32 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
 
       {/* Wheels, behind the body so only their lower halves show. */}
       <span
-        className="absolute -bottom-5 left-[14%] z-0 grid h-12 w-12 place-items-center rounded-full bg-accent sm:-bottom-6 sm:h-15 sm:w-15"
+        className="absolute -bottom-5 left-[14%] z-0 grid h-12 w-12 place-items-center rounded-full bg-[#171D1B] sm:-bottom-6 sm:h-15 sm:w-15"
         aria-hidden
       >
-        <span className="h-4 w-4 rounded-full bg-background/70 sm:h-5 sm:w-5" />
+        <span className="h-4 w-4 rounded-full bg-background/85 sm:h-5 sm:w-5" />
       </span>
       <span
-        className="absolute -bottom-5 right-[16%] z-0 grid h-12 w-12 place-items-center rounded-full bg-accent sm:-bottom-6 sm:h-15 sm:w-15"
+        className="absolute -bottom-5 right-[16%] z-0 grid h-12 w-12 place-items-center rounded-full bg-[#171D1B] sm:-bottom-6 sm:h-15 sm:w-15"
         aria-hidden
       >
-        <span className="h-4 w-4 rounded-full bg-background/70 sm:h-5 sm:w-5" />
+        <span className="h-4 w-4 rounded-full bg-background/85 sm:h-5 sm:w-5" />
       </span>
 
-      <div className="relative z-10 overflow-hidden rounded-[30px] bg-primary text-primary-foreground sm:rounded-[38px]">
+      <div className="relative z-10 overflow-hidden rounded-[14px] bg-primary text-primary-foreground sm:rounded-[18px]">
         {/* ---------------------------------------------------- glazing band */}
         <div className="flex items-center gap-2.5 bg-accent/25 px-4 py-3 sm:gap-3 sm:px-6 sm:py-4" aria-hidden>
           {Array.from({ length: 5 }).map((_, i) => (
             <span
               key={i}
-              className="relative h-7 flex-1 overflow-hidden rounded-lg bg-primary-foreground/[0.16] sm:h-9 sm:rounded-xl"
+              className="relative h-7 flex-1 overflow-hidden rounded-[5px] bg-primary-foreground/[0.16] sm:h-9 sm:rounded-md"
             >
               <span className="absolute inset-x-0 top-0 h-1/3 bg-primary-foreground/[0.12]" />
               <span className="absolute inset-y-1 right-1/3 w-px bg-primary/20" />
             </span>
           ))}
           {/* The windscreen: wider, and raked at the nose. */}
-          <span className="relative h-7 flex-[1.5] overflow-hidden rounded-lg rounded-tr-[16px] bg-primary-foreground/[0.2] sm:h-9 sm:rounded-xl sm:rounded-tr-[22px]">
+          <span className="relative h-7 flex-[1.5] overflow-hidden rounded-[5px] rounded-tr-[14px] bg-primary-foreground/[0.2] sm:h-9 sm:rounded-md sm:rounded-tr-[18px]">
             <span className="absolute inset-x-0 top-0 h-1/3 bg-primary-foreground/[0.12]" />
           </span>
         </div>
@@ -164,7 +164,7 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
         <div className="flex items-stretch gap-3 px-4 pb-4 pt-4 sm:gap-4 sm:px-6 sm:pb-5 sm:pt-5">
           {/* The advertising panel every bus carries, which is also the only
               surface any text sits on. */}
-          <div className="min-w-0 flex-1 rounded-2xl bg-primary-foreground/[0.08] px-4 py-4 sm:rounded-3xl sm:px-6 sm:py-5">
+          <div className="min-w-0 flex-1 rounded-lg bg-primary-foreground/[0.08] px-4 py-4 sm:rounded-xl sm:px-6 sm:py-5">
             <div className="flex flex-col justify-between gap-4 sm:gap-6 md:flex-row md:items-end">
               <div className="flex min-w-0 max-w-2xl items-start gap-3 sm:gap-4">
                 {Icon && (
@@ -192,10 +192,10 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
 
           {/* Boarding door, in its own column so it can never sit under a word. */}
           <div
-            className="relative w-9 shrink-0 rounded-2xl bg-accent/25 sm:w-12 sm:rounded-3xl"
+            className="relative hidden w-12 shrink-0 rounded-md bg-accent/25 sm:block"
             aria-hidden
           >
-            <span className="absolute inset-x-1.5 top-2 bottom-10 rounded-md bg-primary-foreground/[0.14] sm:inset-x-2 sm:top-2.5 sm:bottom-12" />
+            <span className="absolute inset-x-2 top-2.5 bottom-12 rounded-[4px] bg-primary-foreground/[0.14]" />
             <span className="absolute inset-y-3 left-1/2 w-px -translate-x-1/2 bg-primary/25" />
             <span className="absolute bottom-3 left-1/2 h-1 w-4 -translate-x-1/2 rounded-full bg-primary-foreground/25 sm:bottom-4 sm:w-5" />
           </div>

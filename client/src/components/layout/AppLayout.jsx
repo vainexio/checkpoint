@@ -1,6 +1,5 @@
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { BusSide } from '@/components/BusSide.jsx';
 import { MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils.ts';
 import { formatTime } from '@/utils/time.js';
@@ -110,53 +109,93 @@ export function AppLayout({ children, navbar }) {
 
 export function PageHeader({ title, description, actions, icon: Icon }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
-      /*
-       * A plain panel with a bus on it, rather than a panel pretending to be
-       * one.
-       *
-       * Making the panel itself the vehicle meant the bus inherited the
-       * layout's shape: stretched to six-to-one across a desktop, and portrait
-       * on a phone, where it stopped reading as a bus at all. The drawing has
-       * its own fixed proportions and simply sits on the panel, so it is the
-       * same bus at every width and the panel is free to be whatever size the
-       * content needs.
-       */
-      className="relative z-0 mb-4 overflow-hidden rounded-2xl bg-primary px-5 py-5 text-primary-foreground sm:mb-6 sm:px-7 sm:py-6"
-    >
-      <div className="flex flex-col gap-5 sm:gap-6 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 flex-col justify-between gap-4 sm:gap-5 md:flex-row md:items-end lg:flex-1">
-          <div className="flex min-w-0 max-w-2xl items-start gap-3 sm:gap-4">
-            {Icon && (
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-foreground/20 sm:h-13 sm:w-13">
-                <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
-              </div>
-            )}
-            <div className="min-w-0">
-              <h1 className="text-[26px] font-black leading-tight tracking-tight sm:text-[34px]">
-                {title}
-              </h1>
-              {description && (
-                <div className="mt-1.5 text-[14px] font-medium text-primary-foreground/80 sm:mt-2 sm:text-[15px]">
-                  {description}
-                </div>
-              )}
-            </div>
+    <div className="mb-5 sm:mb-7">
+      {/*
+        * The panel *is* the bus. Two rules keep it that way at every width.
+        *
+        * It is capped, because a header stretched across a wide desktop was
+        * running to six-to-one and reading as a strip rather than a vehicle.
+        * And it carries only the name — the description and the buttons sit
+        * below it on the page. Loading those into the body is what pushed it
+        * portrait on a phone, which is where it started looking like luggage.
+        */}
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+        className="relative w-full max-w-[680px]"
+      >
+        {/* Tyres, behind the body so only their lower halves show. */}
+        <span
+          className="absolute -bottom-[15px] left-[16%] z-0 grid h-9 w-9 place-items-center rounded-full bg-[#171D1B] sm:-bottom-[18px] sm:h-11 sm:w-11"
+          aria-hidden
+        >
+          <span className="h-3 w-3 rounded-full bg-background/85 sm:h-3.5 sm:w-3.5" />
+        </span>
+        <span
+          className="absolute -bottom-[15px] right-[18%] z-0 grid h-9 w-9 place-items-center rounded-full bg-[#171D1B] sm:-bottom-[18px] sm:h-11 sm:w-11"
+          aria-hidden
+        >
+          <span className="h-3 w-3 rounded-full bg-background/85 sm:h-3.5 sm:w-3.5" />
+        </span>
+
+        <div className="relative z-10 overflow-hidden rounded-[12px] bg-primary text-primary-foreground sm:rounded-[14px]">
+          {/* ------------------------------------------------ glazing band */}
+          <div className="flex items-center gap-2 px-3 pt-3 sm:gap-2.5 sm:px-4 sm:pt-4" aria-hidden>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <span
+                key={i}
+                className="relative h-8 flex-1 overflow-hidden rounded-[4px] bg-primary-foreground/[0.18] sm:h-10"
+              >
+                <span className="absolute inset-x-0 top-0 h-1/3 bg-primary-foreground/[0.12]" />
+                <span className="absolute inset-y-1 right-1/3 w-px bg-primary/25" />
+              </span>
+            ))}
+            {/* Door, glazed to match the saloon windows. */}
+            <span className="relative h-8 w-6 shrink-0 overflow-hidden rounded-[4px] bg-accent/40 sm:h-10 sm:w-8">
+              <span className="absolute inset-x-1 top-1 bottom-1 rounded-[3px] bg-primary-foreground/[0.14]" />
+              <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-primary/30" />
+            </span>
+            {/* Windscreen, raked at the nose. */}
+            <span className="relative h-8 flex-[1.35] overflow-hidden rounded-[4px] rounded-tr-[10px] bg-primary-foreground/[0.24] sm:h-10 sm:rounded-tr-[12px]">
+              <span className="absolute inset-x-0 top-0 h-1/3 bg-primary-foreground/[0.12]" />
+            </span>
           </div>
 
+          {/* ----------------------------------------- flank: the name only */}
+          <div className="flex items-center gap-3 px-4 py-3.5 sm:gap-4 sm:px-5 sm:py-4">
+            {Icon && (
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-foreground/20 sm:h-11 sm:w-11">
+                <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
+              </div>
+            )}
+            <h1 className="min-w-0 text-[21px] font-black leading-tight tracking-tight sm:text-[27px]">
+              {title}
+            </h1>
+          </div>
+
+          {/* ------------------------------------------------ sill and lamps */}
+          <div className="relative h-3 bg-accent/25 sm:h-4" aria-hidden>
+            <span className="absolute bottom-[3px] left-3 h-1.5 w-3.5 rounded-[2px] bg-destructive/75 sm:left-4 sm:w-4" />
+            <span className="absolute bottom-[3px] right-3 h-1.5 w-5 rounded-[2px] bg-warning/85 sm:right-4 sm:w-6" />
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Everything that is not the name lives on the page, below the bus. */}
+      {(description || actions) && (
+        <div className="mt-6 flex flex-col justify-between gap-3 sm:mt-7 sm:flex-row sm:items-end sm:gap-6">
+          {description && (
+            <p className="m-0 max-w-2xl text-[14px] font-medium text-muted-foreground sm:text-[15px]">
+              {description}
+            </p>
+          )}
           {actions && (
             <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">{actions}</div>
           )}
         </div>
-
-        {/* Capped, never stretched. It is decoration and gives up its space
-            first when the panel gets tight. */}
-        <BusSide className="w-full max-w-[280px] shrink-0 self-end text-primary-foreground lg:w-[260px] xl:w-[300px]" />
-      </div>
-    </motion.div>
+      )}
+    </div>
   );
 }
 

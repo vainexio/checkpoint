@@ -173,17 +173,13 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
                   style={{ left: `${pct}%` }}
                   aria-hidden
                 >
-                  {/* Rim: the pale ring is what separates the wheel from the road. */}
-                  <span className="relative grid h-[26px] w-[26px] place-items-center rounded-full bg-[#E2E8E1] shadow-[inset_0_-2px_3px_rgba(20,26,23,0.28)] sm:h-[34px] sm:w-[34px]">
-                    {[0, 60, 120, 180, 240, 300].map((deg) => (
-                      <span
-                        key={deg}
-                        className="absolute h-[3px] w-[3px] rounded-full bg-[#8D9A94] sm:h-[4px] sm:w-[4px]"
-                        style={{ transform: `rotate(${deg}deg) translateY(-9px)` }}
-                      />
-                    ))}
-                    <span className="h-2.5 w-2.5 rounded-full bg-[#6F7C77] sm:h-3.5 sm:w-3.5" />
-                  </span>
+                  {/*
+                    * Tyre and rim only, both dark. A pale rim separated the
+                    * wheel from the road but read as a bright disc stuck on
+                    * the side of the bus; keeping the whole wheel in one dark
+                    * range lets it stay a wheel.
+                    */}
+                  <span className="h-[26px] w-[26px] rounded-full bg-[#2A332E] sm:h-[34px] sm:w-[34px]" />
                 </span>
               ))}
 
@@ -266,7 +262,7 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
 
         {/* ------------------------------------------------------------ road */}
         <div
-          className="relative z-10 mt-[5px] h-[19px] rounded-[3px] bg-foreground/[0.22] sm:mt-[6px] sm:h-7"
+          className="relative z-0 mt-[5px] h-[19px] rounded-[3px] bg-foreground/[0.22] sm:mt-[6px] sm:h-7"
           aria-hidden
         >
           <div className="absolute inset-x-4 top-1/2 flex -translate-y-1/2 gap-4">

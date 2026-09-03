@@ -170,22 +170,27 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
                 * Wheels, drawn over the body rather than behind it.
                 *
                 * Tucked behind, only the lower half ever showed, and half a
-                * wheel cannot carry any detail — which is why stripping the
-                * rim left nothing but a dark blob. Sitting on top, the whole
-                * circle reads, so the structure can be concentric and stay in
-                * a dark range: tyre, a steel ring, and a hub.
+                * wheel cannot carry any detail. Sitting on top, the whole
+                * circle reads, so it gets the full build: tyre, rim, six lug
+                * nuts and a hub.
                 */}
               {WHEEL_AT.map((pct) => (
                 <span
                   key={pct}
-                  className="absolute -bottom-[22px] z-20 grid h-11 w-11 -translate-x-1/2 place-items-center rounded-full bg-[#141A17] sm:-bottom-[31px] sm:h-[62px] sm:w-[62px]"
+                  className="absolute -bottom-[22px] z-20 grid h-11 w-11 -translate-x-1/2 place-items-center rounded-full bg-[#141A17] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.10)] sm:-bottom-[31px] sm:h-[62px] sm:w-[62px]"
                   style={{ left: `${pct}%` }}
                   aria-hidden
                 >
-                  <span className="grid h-6 w-6 place-items-center rounded-full bg-[#93A29C] sm:h-[34px] sm:w-[34px]">
-                    <span className="grid h-[13px] w-[13px] place-items-center rounded-full bg-[#141A17] sm:h-[18px] sm:w-[18px]">
-                      <span className="h-1.5 w-1.5 rounded-full bg-[#93A29C] sm:h-2 sm:w-2" />
-                    </span>
+                  {/* Rim, lug nuts and hub, lit from above by the inset shade. */}
+                  <span className="relative grid h-[26px] w-[26px] place-items-center rounded-full bg-[#E2E8E1] shadow-[inset_0_-2px_3px_rgba(20,26,23,0.28)] sm:h-[34px] sm:w-[34px]">
+                    {[0, 60, 120, 180, 240, 300].map((deg) => (
+                      <span
+                        key={deg}
+                        className="absolute h-[3px] w-[3px] rounded-full bg-[#8D9A94] sm:h-[4px] sm:w-[4px]"
+                        style={{ transform: `rotate(${deg}deg) translateY(-9px)` }}
+                      />
+                    ))}
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#6F7C77] sm:h-3.5 sm:w-3.5" />
                   </span>
                 </span>
               ))}

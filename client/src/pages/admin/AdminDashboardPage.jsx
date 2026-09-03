@@ -159,7 +159,7 @@ function Stat({ label, value, icon: Icon, tone }) {
           </div>
           <Icon className={cn('h-4 w-4 text-muted-foreground', tone)} />
         </div>
-        <div className={cn('mt-2 font-mono tabular text-[34px] font-bold leading-none', tone)}>
+        <div className={cn('mt-2 tabular text-[34px] font-extrabold leading-none tracking-[-0.02em]', tone)}>
           {value}
         </div>
       </CardContent>

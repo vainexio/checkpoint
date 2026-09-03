@@ -111,7 +111,7 @@ export function Timeline({ stops, isArrived = false, position = 'between' }) {
             <div className="flex flex-col items-end gap-0.5 text-right">
               <span
                 className={cn(
-                  'font-mono tabular text-[15px] font-medium',
+                  'tabular text-[15px] font-semibold',
                   stop.progress === 'pending' && 'text-muted-foreground'
                 )}
               >

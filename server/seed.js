@@ -233,6 +233,14 @@ const BUSES = [
   { plateNumber: 'SBL 4820', operatorName: 'Southbound Lines' },
   { plateNumber: 'NRT 5507', operatorName: 'Northline Express' },
   { plateNumber: 'SBL 6631', operatorName: 'Southbound Lines' },
+  { plateNumber: 'NRT 3140', operatorName: 'Northline Express' },
+  { plateNumber: 'NRT 6712', operatorName: 'Northline Express' },
+  { plateNumber: 'NRT 9284', operatorName: 'Northline Express' },
+  { plateNumber: 'SBL 2255', operatorName: 'Southbound Lines' },
+  { plateNumber: 'SBL 4471', operatorName: 'Southbound Lines' },
+  { plateNumber: 'SBL 8806', operatorName: 'Southbound Lines' },
+  { plateNumber: 'SBL 1390', operatorName: 'Southbound Lines' },
+  { plateNumber: 'SBL 7024', operatorName: 'Southbound Lines' },
 ];
 
 /**
@@ -394,6 +402,101 @@ const TRIPS = [
     scheduledInMinutes: 40,
     note: 'southbound departure from Baguio',
   },
+  /* ------------------------------------------------------------ second wave
+   * The first twelve trips each demonstrate one behaviour. These exist for a
+   * different reason: so that whichever pair of stops someone picks in the
+   * journey search, there is a bus somewhere on that stretch rather than an
+   * empty result. They are spread along each route and staggered in time.
+   */
+
+  // --------------------------------------------------------- Cubao – Baguio
+  {
+    route: 'Cubao – Baguio',
+    bus: 'NRT 3140',
+    conductor: 'rey',
+    departedAgo: 150,
+    confirms: [
+      ['Balintawak Interchange', 121],
+      ['Victory Liner Tarlac Terminal', 0],
+    ],
+    note: 'just reached Tarlac, most of the route still ahead',
+  },
+  {
+    route: 'Cubao – Baguio',
+    bus: 'NRT 6712',
+    conductor: 'marlon',
+    scheduledInMinutes: 95,
+    note: 'later Baguio departure, still boarding at Araneta',
+  },
+
+  // --------------------------------------------------------- Baguio – Cubao
+  {
+    route: 'Baguio – Cubao',
+    bus: 'NRT 9284',
+    conductor: 'joel',
+    departedAgo: 170,
+    confirms: [
+      ['TPLEX – Rosario Exit', 95], // 75 min in against a 71 baseline
+      ['Victory Liner Tarlac Terminal', 5], // 165 against 160
+    ],
+    note: 'southbound, past Tarlac and heading for Balintawak',
+  },
+
+  // ------------------------------------------------------------ PITX – Lipa
+  {
+    route: 'PITX – Lipa',
+    bus: 'SBL 2255',
+    conductor: 'dennis',
+    departedAgo: 22,
+    confirms: [],
+    load: ['seats', 20],
+    note: 'just left PITX, whole southbound run still ahead',
+  },
+  {
+    route: 'PITX – Lipa',
+    bus: 'SBL 4471',
+    conductor: 'joel',
+    departedAgo: 90,
+    confirms: [
+      ['Alabang South Station', 42], // 48 min in against a 42 baseline
+      ['Turbina Bus Terminal', 4], // 86 against 80
+    ],
+    left: ['Turbina Bus Terminal', 1],
+    note: 'mid-route, between Turbina and Santo Tomas',
+  },
+  {
+    route: 'PITX – Lipa',
+    bus: 'SBL 8806',
+    conductor: 'marlon',
+    scheduledInMinutes: 35,
+    note: 'next PITX southbound departure',
+  },
+
+  // ------------------------------------------------------------ Lipa – PITX
+  {
+    route: 'Lipa – PITX',
+    bus: 'SBL 1390',
+    conductor: 'rey',
+    departedAgo: 40,
+    confirms: [['Tanauan City Transport Terminal', 5]], // 35 min in against 32
+    load: ['few', 6],
+    note: 'northbound, just past Tanauan',
+  },
+
+  // ---------------------------------------------------------- PITX – Lucena
+  {
+    route: 'PITX – Lucena',
+    bus: 'SBL 7024',
+    conductor: 'dennis',
+    departedAgo: 150,
+    confirms: [
+      ['Alabang South Station', 105], // 45 min in against a 42 baseline
+      ['Turbina Bus Terminal', 68], // 82 against 80
+      ['SM Santo Tomas Terminal', 40], // 110 against 106
+    ],
+    note: 'past Santo Tomas, on the long leg to Lucena',
+  },
+
 ];
 
 const minutesAgo = (m) => new Date(Date.now() - m * 60_000);

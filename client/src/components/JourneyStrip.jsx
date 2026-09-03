@@ -57,7 +57,7 @@ export function JourneyStrip({ journey }) {
                   {stop.name}
                 </span>
 
-                <span className="mt-0.5 font-mono tabular text-[10px] text-muted-foreground">
+                <span className="mt-0.5 tabular text-[10px] font-medium text-muted-foreground">
                   {formatTime(stop.eta)}
                 </span>
 

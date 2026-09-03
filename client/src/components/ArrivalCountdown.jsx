@@ -92,7 +92,7 @@ export function ArrivalCountdown({
 
       <div
         className={cn(
-          'font-mono tabular text-[32px] font-bold leading-none tracking-tight sm:text-[38px]',
+          'tabular text-[34px] font-extrabold leading-none tracking-[-0.03em] sm:text-[40px]',
           tone
         )}
       >
@@ -104,7 +104,7 @@ export function ArrivalCountdown({
 
       {/* Still shown, just no longer shouted: this is the number you match
           against a printed timetable or read out to someone meeting you. */}
-      <div className="mt-1.5 font-mono text-[15px] font-semibold tabular text-muted-foreground">
+      <div className="mt-1.5 text-[15px] font-semibold tabular text-muted-foreground">
         {formatTime(time)}
       </div>
 

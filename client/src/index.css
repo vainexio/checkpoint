@@ -33,10 +33,10 @@
   --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 10px;
-  --radius-xl: 12px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
 }
 
 :root {
@@ -93,7 +93,7 @@
   --input: 212 24% 80%;
   --ring: 217 90% 55%;
 
-  --radius: 8px;
+  --radius: 14px;
 }
 
 .dark {
@@ -186,6 +186,8 @@
    */
   .tabular {
     font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1, 'ss01' 1;
+    letter-spacing: -0.01em;
   }
 
   /*
@@ -209,12 +211,37 @@
    * where the sense of a finished product actually comes from, without putting
    * a single new colour on the screen.
    */
+  /*
+   * Depth that reads as soft rather than engineered: a wide, low-opacity
+   * shadow instead of a hairline, and a small lift on hover so the surface
+   * feels like something you can touch.
+   */
   .card {
-    @apply border border-border bg-card transition-shadow duration-200;
-    box-shadow: 0 1px 2px hsl(214 30% 25% / 0.08);
+    @apply border border-border bg-card;
+    box-shadow:
+      0 1px 2px hsl(214 30% 25% / 0.05),
+      0 6px 18px -8px hsl(214 30% 25% / 0.14);
+    transition:
+      box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
   }
   .card:hover {
-    box-shadow: 0 2px 6px hsl(214 30% 25% / 0.12);
+    box-shadow:
+      0 2px 4px hsl(214 30% 25% / 0.06),
+      0 14px 32px -10px hsl(214 30% 25% / 0.2);
+  }
+
+  /* Rows a passenger can actually pick out of a list. */
+  .card-lift:hover {
+    transform: translateY(-2px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .card,
+    .card-lift:hover {
+      transition: none;
+      transform: none;
+    }
   }
   .card:hover {
     @apply shadow-md border-border/80;

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { Link, useParams } from 'react-router-dom';
 import {
   AlertCircle,
@@ -125,9 +126,28 @@ export default function StationBoardPage() {
         </Card>
       )}
 
+      {/*
+        * Rows ease in one after another when the board first draws.
+        *
+        * Short and staggered, so the eye is walked down the list in the order
+        * that matters — soonest bus first — rather than being handed the whole
+        * page at once. It runs on load only; a poll that changes a time must
+        * never make the list dance.
+        */}
       <div className="space-y-3">
-        {arrivals.map((arrival) => (
-          <ArrivalRow key={arrival.tripId} arrival={arrival} now={now} />
+        {arrivals.map((arrival, i) => (
+          <motion.div
+            key={arrival.tripId}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{
+              duration: 0.32,
+              delay: Math.min(i * 0.045, 0.36),
+              ease: [0.22, 1, 0.36, 1],
+            }}
+          >
+            <ArrivalRow arrival={arrival} now={now} />
+          </motion.div>
         ))}
       </div>
     </>
@@ -144,7 +164,7 @@ function ArrivalRow({ arrival, now }) {
   return (
     <Card
       className={cn(
-        'overflow-hidden',
+        'card-lift overflow-hidden',
         arrival.isHereNow && 'border-success/60 tint-success',
         isDeparture && 'border-primary/50 tint-primary',
         hasArrived && 'opacity-70',

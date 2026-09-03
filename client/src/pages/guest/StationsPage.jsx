@@ -196,13 +196,13 @@ export default function StationsPage() {
           />
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border px-5 py-3 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
-              <span className="grid h-3.5 w-3.5 place-items-center rounded-full bg-[#1d4ed8]">
+              <span className="grid h-3.5 w-3.5 place-items-center rounded-full bg-[#3E7A66]">
                 <span className="h-1.5 w-1.5 rounded-full bg-white" />
               </span>
               Terminal — buses based here, somewhere to wait
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-[#3b82f6]" /> Pick-up &amp; drop-off point
+              <span className="h-2.5 w-2.5 rounded-full bg-[#6BA893]" /> Pick-up &amp; drop-off point
             </span>
             <span className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full border-2 border-dashed border-muted-foreground" />{' '}

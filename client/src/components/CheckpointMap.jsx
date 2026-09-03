@@ -49,15 +49,15 @@ const ICONS = {
     className: '',
     html: `<svg width="34" height="42" viewBox="0 0 34 42" xmlns="http://www.w3.org/2000/svg">
       <path d="M17 41C17 41 31 26 31 17A14 14 0 1 0 3 17c0 9 14 24 14 24z"
-            fill="#1d4ed8" stroke="#1e3a8a" stroke-width="2"/>
+            fill="#3E7A66" stroke="#2A5A4B" stroke-width="2"/>
       <circle cx="17" cy="17" r="7" fill="#fff"/>
-      <circle cx="17" cy="17" r="3.5" fill="#1d4ed8"/>
+      <circle cx="17" cy="17" r="3.5" fill="#3E7A66"/>
     </svg>`,
     iconSize: [34, 42],
     iconAnchor: [17, 41],
     popupAnchor: [0, -38],
   }),
-  station: pin('#3b82f6', '#2563eb'),
+  station: pin('#6BA893', '#4A8570'),
   landmark: L.divIcon({
     className: '',
     html: `<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
@@ -227,7 +227,7 @@ export function CheckpointMap({
               <Circle
                 center={[you.lat, you.lng]}
                 radius={you.accuracyM}
-                pathOptions={{ color: '#2563eb', weight: 1, fillOpacity: 0.08 }}
+                pathOptions={{ color: '#3E7A66', weight: 1, fillOpacity: 0.1 }}
               />
             )}
             <Marker position={[you.lat, you.lng]} icon={youAreHere}>

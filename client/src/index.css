@@ -33,10 +33,10 @@
   --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
-  --radius-sm: 10px;
-  --radius-md: 14px;
-  --radius-lg: 18px;
-  --radius-xl: 24px;
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
 }
 
 :root {
@@ -50,89 +50,88 @@
    * The hue sits just under the primary blue, so the page and the interface
    * colour read as one family rather than two decisions.
    */
-  --background: 212 38% 92%;
-  /* Deep warm slate foreground */
-  --foreground: 220 20% 15%;
+  --background: 158 32% 91%;
+  /* Deep sage-ink, so text belongs to the same family as everything else. */
+  --foreground: 168 26% 14%;
 
-  /* Cards are slightly elevated and pure */
+  /* Cards are pure white and float over the mint. */
   --card: 0 0% 100%;
-  --card-foreground: 220 20% 15%;
+  --card-foreground: 168 26% 14%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 220 20% 15%;
+  --popover-foreground: 168 26% 14%;
 
-  /* Vivid Blue Primary */
-  --primary: 217 90% 55%;
+  /* Muted sage. Anything active or selected wears this. */
+  --primary: 160 26% 40%;
   --primary-foreground: 0 0% 100%;
 
-  /* Fresh Green Accent */
-  --accent: 152 65% 40%;
+  /* A deeper sage for the second voice, used sparingly. */
+  --accent: 168 32% 32%;
   --accent-foreground: 0 0% 100%;
 
-  /* Deep Teal Secondary */
-  --secondary: 180 40% 90%;
-  --secondary-foreground: 180 70% 20%;
+  /* The pale block a card sits on, one step in from the page. */
+  --secondary: 158 34% 86%;
+  --secondary-foreground: 168 30% 22%;
 
-  /* Kept a step below the page so muted fills still read as recessed. */
-  --muted: 213 30% 87%;
-  --muted-foreground: 220 10% 45%;
+  --muted: 158 26% 88%;
+  --muted-foreground: 168 12% 42%;
 
-  --destructive: 350 80% 55%;
+  --destructive: 358 58% 52%;
   --destructive-foreground: 0 0% 100%;
 
-  --success: 150 60% 40%;
+  --success: 152 44% 38%;
   --success-foreground: 0 0% 100%;
 
-  --warning: 40 90% 55%;
+  --warning: 36 78% 56%;
   --warning-foreground: 220 20% 15%;
   /* The bright amber above is a fill colour. As text on a near-white card it
      fails contrast badly, so warning *words* use this darker amber instead. */
   --warning-strong: 32 88% 30%;
 
-  --border: 212 24% 80%;
-  --input: 212 24% 80%;
+  --border: 158 22% 82%;
+  --input: 158 22% 82%;
   --ring: 217 90% 55%;
 
-  --radius: 14px;
+  --radius: 20px;
 }
 
 .dark {
-  /* Rich, deep warm dark mode */
-  --background: 220 30% 10%;
-  --foreground: 40 20% 95%;
+  /* The same family after dark: deep sage rather than neutral charcoal. */
+  --background: 170 22% 9%;
+  --foreground: 158 20% 94%;
 
-  --card: 220 25% 14%;
-  --card-foreground: 40 20% 95%;
+  --card: 170 20% 13%;
+  --card-foreground: 158 20% 94%;
 
-  --popover: 220 25% 14%;
-  --popover-foreground: 40 20% 95%;
+  --popover: 170 20% 13%;
+  --popover-foreground: 158 20% 94%;
 
-  --primary: 217 90% 65%;
-  --primary-foreground: 0 0% 100%;
+  --primary: 158 38% 58%;
+  --primary-foreground: 170 30% 10%;
 
-  --accent: 152 60% 50%;
-  --accent-foreground: 0 0% 100%;
+  --accent: 160 34% 52%;
+  --accent-foreground: 170 30% 10%;
 
-  --secondary: 180 50% 25%;
-  --secondary-foreground: 180 60% 90%;
+  --secondary: 170 18% 18%;
+  --secondary-foreground: 158 20% 90%;
 
-  --muted: 220 20% 20%;
-  --muted-foreground: 220 10% 70%;
+  --muted: 170 16% 18%;
+  --muted-foreground: 158 12% 62%;
 
-  --destructive: 350 70% 50%;
+  --destructive: 358 62% 62%;
   --destructive-foreground: 0 0% 100%;
 
-  --success: 150 50% 45%;
-  --success-foreground: 0 0% 100%;
+  --success: 152 44% 52%;
+  --success-foreground: 170 30% 10%;
 
-  --warning: 40 80% 60%;
-  --warning-foreground: 220 30% 10%;
+  --warning: 36 74% 60%;
+  --warning-foreground: 170 30% 10%;
   /* Inverted for a dark ground: text needs to be lighter, not darker. */
-  --warning-strong: 40 90% 72%;
+  --warning-strong: 36 78% 68%;
 
-  --border: 220 20% 25%;
-  --input: 220 20% 25%;
-  --ring: 217 90% 65%;
+  --border: 170 14% 24%;
+  --input: 170 14% 24%;
+  --ring: 158 38% 58%;
 }
 
 @layer base {
@@ -219,16 +218,16 @@
   .card {
     @apply border border-border bg-card;
     box-shadow:
-      0 1px 2px hsl(214 30% 25% / 0.05),
-      0 6px 18px -8px hsl(214 30% 25% / 0.14);
+      0 1px 2px hsl(168 24% 20% / 0.04),
+      0 10px 26px -10px hsl(168 26% 22% / 0.16);
     transition:
       box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1),
       transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
   }
   .card:hover {
     box-shadow:
-      0 2px 4px hsl(214 30% 25% / 0.06),
-      0 14px 32px -10px hsl(214 30% 25% / 0.2);
+      0 2px 5px hsl(168 24% 20% / 0.05),
+      0 18px 38px -12px hsl(168 26% 22% / 0.24);
   }
 
   /* Rows a passenger can actually pick out of a list. */

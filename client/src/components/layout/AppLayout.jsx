@@ -125,20 +125,20 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
        * screen before the first bus appeared, which is the one thing anyone
        * opened the page for.
        */
-      className="relative mb-4 flex flex-col justify-between gap-4 rounded-lg border border-border bg-card p-4 shadow-sm sm:mb-6 sm:gap-6 sm:p-5 md:flex-row md:items-end"
+      className="relative z-0 mb-4 flex flex-col justify-between gap-4 rounded-t-[28px] bg-primary px-5 pb-14 pt-6 text-primary-foreground sm:mb-6 sm:gap-6 sm:px-7 sm:pb-16 sm:pt-8 md:flex-row md:items-end"
     >
       <div className="flex min-w-0 max-w-2xl items-start gap-3 sm:gap-4">
         {Icon && (
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-accent/15 text-primary shadow-sm sm:h-12 sm:w-12 sm:rounded-2xl">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-foreground/20 text-primary-foreground sm:h-13 sm:w-13">
             <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
           </div>
         )}
         <div className="min-w-0">
-          <h1 className="text-[26px] font-black leading-tight tracking-tight text-foreground sm:text-[34px]">
+          <h1 className="text-[26px] font-black leading-tight tracking-tight sm:text-[34px]">
             {title}
           </h1>
           {description && (
-            <div className="mt-1.5 text-[14px] font-medium text-muted-foreground sm:mt-2 sm:text-[15px]">
+            <div className="mt-1.5 text-[14px] font-medium text-primary-foreground/80 sm:mt-2 sm:text-[15px]">
               {description}
             </div>
           )}
@@ -148,6 +148,21 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
       {actions && (
         <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">{actions}</div>
       )}
+
+      {/*
+        * The bottom edge is a drawn curve, not a corner radius. A radius stops
+        * square against the content below it; this sweeps away from it, which
+        * is what makes the cards read as sitting *on* something rather than
+        * merely underneath it.
+        */}
+      <svg
+        className="pointer-events-none absolute inset-x-0 bottom-[-1px] h-9 w-full text-background sm:h-11"
+        viewBox="0 0 1440 60"
+        preserveAspectRatio="none"
+        aria-hidden
+      >
+        <path d="M0 60V26C240 2 480 -8 720 6c240 14 480 24 720 12v42Z" fill="currentColor" />
+      </svg>
     </motion.div>
   );
 }
@@ -159,7 +174,7 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
  */
 export function LiveIndicator({ lastUpdated }) {
   return (
-    <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+    <span className="flex items-center gap-2 text-xs font-medium opacity-80">
       <span className="relative flex h-2 w-2">
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />
         <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />

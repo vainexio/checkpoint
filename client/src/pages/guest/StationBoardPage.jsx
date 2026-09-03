@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
+import { SegmentedTabs } from '@/components/SegmentedTabs.jsx';
 import { Link, useParams } from 'react-router-dom';
 import {
   AlertCircle,
@@ -54,6 +55,20 @@ export default function StationBoardPage() {
   });
 
   const arrivals = data?.arrivals ?? [];
+  const [filter, setFilter] = useState('all');
+
+  // "Leaving" is a bus that starts its run here; everything else is inbound.
+  const counts = {
+    arriving: arrivals.filter((a) => a.boardKind !== 'departure').length,
+    departing: arrivals.filter((a) => a.boardKind === 'departure').length,
+  };
+  const shown = arrivals.filter((a) =>
+    filter === 'all'
+      ? true
+      : filter === 'departing'
+        ? a.boardKind === 'departure'
+        : a.boardKind !== 'departure'
+  );
 
   return (
     <>
@@ -78,7 +93,7 @@ export default function StationBoardPage() {
               href={`/display/${stationId}`}
               target="_blank"
               rel="noreferrer noopener"
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-primary-foreground/15 px-3.5 py-1.5 text-[13px] font-semibold text-primary-foreground transition-colors hover:bg-primary-foreground/25"
             >
               <MonitorPlay className="h-3.5 w-3.5" />
               Terminal display
@@ -88,7 +103,7 @@ export default function StationBoardPage() {
                 href={directionsUrl(data.station.location)}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-primary-foreground/15 px-3.5 py-1.5 text-[13px] font-semibold text-primary-foreground transition-colors hover:bg-primary-foreground/25"
               >
                 <Footprints className="h-3.5 w-3.5" />
                 {/* Two buttons only fit side by side on a phone if the second
@@ -126,29 +141,46 @@ export default function StationBoardPage() {
         </Card>
       )}
 
+      {arrivals.length > 0 && (
+        <div className="relative z-10 -mt-7 mb-3 flex justify-center sm:-mt-9">
+          <SegmentedTabs
+            options={[
+              { value: 'all', label: 'All', count: arrivals.length },
+              { value: 'arriving', label: 'Arriving', count: counts.arriving },
+              { value: 'departing', label: 'Leaving', count: counts.departing },
+            ]}
+            value={filter}
+            onChange={setFilter}
+          />
+        </div>
+      )}
+
       {/*
-        * Rows ease in one after another when the board first draws.
-        *
-        * Short and staggered, so the eye is walked down the list in the order
-        * that matters — soonest bus first — rather than being handed the whole
-        * page at once. It runs on load only; a poll that changes a time must
-        * never make the list dance.
+        * Rows ease in one after another when the board first draws, and move to
+        * their new places rather than jumping when the filter changes. The
+        * layout animation is what makes a filter feel like the same list being
+        * sorted instead of a different page arriving.
         */}
-      <div className="space-y-3">
-        {arrivals.map((arrival, i) => (
-          <motion.div
-            key={arrival.tripId}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{
-              duration: 0.32,
-              delay: Math.min(i * 0.045, 0.36),
-              ease: [0.22, 1, 0.36, 1],
-            }}
-          >
-            <ArrivalRow arrival={arrival} now={now} />
-          </motion.div>
-        ))}
+      <div className="relative z-10 space-y-3">
+        <AnimatePresence initial={false} mode="popLayout">
+          {shown.map((arrival, i) => (
+            <motion.div
+              key={arrival.tripId}
+              layout
+              initial={{ opacity: 0, y: 14, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.16 } }}
+              transition={{
+                duration: 0.34,
+                delay: Math.min(i * 0.04, 0.28),
+                ease: [0.22, 1, 0.36, 1],
+                layout: { type: 'spring', stiffness: 380, damping: 34 },
+              }}
+            >
+              <ArrivalRow arrival={arrival} now={now} />
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
     </>
   );

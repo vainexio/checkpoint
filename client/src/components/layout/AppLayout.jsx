@@ -1,6 +1,6 @@
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
-import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
+import { motion, useMotionValue, useReducedMotion, useTransform } from 'framer-motion';
 import { Skyline, BusStop } from './StreetScene.jsx';
 import { MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils.ts';
@@ -128,58 +128,102 @@ const WHEEL_AT = [20, 80];
 const MIN_DRIVE_SPAN = 260;
 
 /**
- * Drives the header bus off to the right as the page scrolls, and rolls its
- * wheels at the rate the distance actually calls for.
+ * Drives the header bus.
  *
- * The span is measured rather than guessed: the bus should be gone at roughly
- * the moment the header itself clears the top of the window, which depends on
- * how many lines the description wraps to. A ResizeObserver keeps that honest
- * when the height settles after the first paint — reading the box once and
- * caching it is exactly how this kind of effect ends up mistimed.
+ * Scrolling down always drives it forward, out to the right, and it stops once
+ * it is gone. Scrolling up depends on where it is: while some of it is still
+ * in the frame it reverses back to the kerb, which is the only reversal worth
+ * having. Once it has cleared the frame there is nothing to reverse, so
+ * scrolling up brings the *next* one round from the left instead, nose first,
+ * and it parks at the kerb rather than driving on through.
  *
- * Rotation is derived from x rather than from scroll, so the wheels can only
- * ever turn in the direction the bus is moving, at the speed it is moving.
- * Scroll back up and the bus reverses in with its wheels turning backwards,
- * which is what a bus pulling back to the kerb does.
+ * The hand-off is a jump from off-screen right to off-screen left, and it is
+ * invisible for a specific reason: both ends of it are outside the clip, so
+ * the bus is never seen crossing back.
+ *
+ * Rotation is derived from the position rather than from the scroll, so the
+ * wheels can only ever turn the way the bus is going, as fast as it is going.
  */
-function useBusDrive(ref) {
-  const { scrollY } = useScroll();
-  const [drive, setDrive] = useState({ span: 480, travel: 1440, wheel: 62 });
+function useBusDrive(sceneRef, busRef) {
+  const x = useMotionValue(0);
+  const stillness = useReducedMotion();
+  const lastY = useRef(0);
+  const [geo, setGeo] = useState({ exit: 1400, enter: 900, wheel: 62, rate: 3.2 });
 
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return undefined;
+    const scene = sceneRef.current;
+    const bus = busRef.current;
+    if (!scene || !bus) return undefined;
 
     const measure = () => {
-      const rect = el.getBoundingClientRect();
-      setDrive({
-        span: Math.max(MIN_DRIVE_SPAN, rect.top + window.scrollY + rect.height),
-        // Past the right edge of the window, whatever the container is doing.
-        travel: window.innerWidth + 160,
+      const sceneBox = scene.getBoundingClientRect();
+      // The row is never transformed, so its left edge is the bus at rest —
+      // reading the bus itself would fold in however far it has already driven.
+      const home = bus.parentElement.getBoundingClientRect().left;
+
+      setGeo({
+        exit: Math.max(240, window.innerWidth - home + 24),
+        enter: home + bus.offsetWidth + 24,
         wheel: window.matchMedia('(min-width: 640px)').matches ? 62 : 44,
+        // Gone at about the moment the header itself clears the top of the
+        // window, which depends on how many lines the description wrapped to.
+        rate:
+          Math.max(240, window.innerWidth - home + 24) /
+          Math.max(MIN_DRIVE_SPAN, sceneBox.top + window.scrollY + sceneBox.height),
       });
     };
 
     measure();
+    // Heights settle after the first paint; a box read once and cached is
+    // exactly how this kind of effect ends up mistimed.
     const observer = new ResizeObserver(measure);
-    observer.observe(el);
+    observer.observe(scene);
     window.addEventListener('resize', measure);
     return () => {
       observer.disconnect();
       window.removeEventListener('resize', measure);
     };
-  }, [ref]);
+  }, [sceneRef, busRef]);
 
-  const x = useTransform(scrollY, [0, drive.span], [0, drive.travel], { clamp: true });
-  const spin = useTransform(x, (px) => (px / (Math.PI * drive.wheel)) * 360);
+  useEffect(() => {
+    if (stillness) return undefined;
+    lastY.current = window.scrollY;
 
-  return { x, spin };
+    const onScroll = () => {
+      const y = window.scrollY;
+      const delta = y - lastY.current;
+      lastY.current = y;
+      if (!delta) return;
+
+      let at = x.get();
+
+      if (delta > 0) {
+        at = Math.min(geo.exit, at + delta * geo.rate);
+      } else {
+        // Already gone: hand over to a fresh bus waiting off to the left.
+        if (at >= geo.exit) at = -geo.enter;
+        at =
+          at < 0
+            ? Math.min(0, at - delta * geo.rate) // arriving, parks at the kerb
+            : Math.max(0, at + delta * geo.rate); // still in frame, backs up
+      }
+
+      x.set(at);
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [geo, stillness, x]);
+
+  const spin = useTransform(x, (px) => (px / (Math.PI * geo.wheel)) * 360);
+
+  return { x, spin, stillness };
 }
 
 export function PageHeader({ title, description, actions, icon: Icon }) {
   const sceneRef = useRef(null);
-  const { x, spin } = useBusDrive(sceneRef);
-  const stillness = useReducedMotion();
+  const busRef = useRef(null);
+  const { x, spin, stillness } = useBusDrive(sceneRef, busRef);
 
   return (
     <div className="mb-5 sm:mb-7">
@@ -215,6 +259,7 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
           <div className="relative z-10 flex items-end gap-5 xl:gap-7">
             {/* -------------------------------------------------------- the bus */}
             <motion.div
+              ref={busRef}
               style={stillness ? undefined : { x }}
               className="relative z-20 w-full max-w-[820px] shrink-0"
             >

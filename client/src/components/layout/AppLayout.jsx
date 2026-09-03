@@ -1,6 +1,6 @@
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Bus } from 'lucide-react';
+import { BusSide } from '@/components/BusSide.jsx';
 import { MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils.ts';
 import { formatTime } from '@/utils/time.js';
@@ -114,98 +114,47 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
-      className="relative mb-9 sm:mb-11"
+      /*
+       * A plain panel with a bus on it, rather than a panel pretending to be
+       * one.
+       *
+       * Making the panel itself the vehicle meant the bus inherited the
+       * layout's shape: stretched to six-to-one across a desktop, and portrait
+       * on a phone, where it stopped reading as a bus at all. The drawing has
+       * its own fixed proportions and simply sits on the panel, so it is the
+       * same bus at every width and the panel is free to be whatever size the
+       * content needs.
+       */
+      className="relative z-0 mb-4 overflow-hidden rounded-2xl bg-primary px-5 py-5 text-primary-foreground sm:mb-6 sm:px-7 sm:py-6"
     >
-      {/*
-        * The panel is the side of a bus, and the bodywork is laid out in bands
-        * rather than painted behind the words.
-        *
-        * The first version had the door, the livery stripe and the lamps as
-        * absolute overlays across the whole panel, which meant every one of
-        * them cut through the title. Here the glazing is its own band, the
-        * content sits on the flank panel a real bus carries its advertising
-        * on, and the door has its own column beside it. Nothing overlaps
-        * because nothing shares a zone.
-        */}
-
-      {/* Wheels, behind the body so only their lower halves show. */}
-      <span
-        className="absolute -bottom-5 left-[14%] z-0 grid h-12 w-12 place-items-center rounded-full bg-[#171D1B] sm:-bottom-6 sm:h-15 sm:w-15"
-        aria-hidden
-      >
-        <span className="h-4 w-4 rounded-full bg-background/85 sm:h-5 sm:w-5" />
-      </span>
-      <span
-        className="absolute -bottom-5 right-[16%] z-0 grid h-12 w-12 place-items-center rounded-full bg-[#171D1B] sm:-bottom-6 sm:h-15 sm:w-15"
-        aria-hidden
-      >
-        <span className="h-4 w-4 rounded-full bg-background/85 sm:h-5 sm:w-5" />
-      </span>
-
-      <div className="relative z-10 overflow-hidden rounded-[14px] bg-primary text-primary-foreground sm:rounded-[18px]">
-        {/* ---------------------------------------------------- glazing band */}
-        <div className="flex items-center gap-2.5 bg-accent/25 px-4 py-3 sm:gap-3 sm:px-6 sm:py-4" aria-hidden>
-          {Array.from({ length: 5 }).map((_, i) => (
-            <span
-              key={i}
-              className="relative h-7 flex-1 overflow-hidden rounded-[5px] bg-primary-foreground/[0.16] sm:h-9 sm:rounded-md"
-            >
-              <span className="absolute inset-x-0 top-0 h-1/3 bg-primary-foreground/[0.12]" />
-              <span className="absolute inset-y-1 right-1/3 w-px bg-primary/20" />
-            </span>
-          ))}
-          {/* The windscreen: wider, and raked at the nose. */}
-          <span className="relative h-7 flex-[1.5] overflow-hidden rounded-[5px] rounded-tr-[14px] bg-primary-foreground/[0.2] sm:h-9 sm:rounded-md sm:rounded-tr-[18px]">
-            <span className="absolute inset-x-0 top-0 h-1/3 bg-primary-foreground/[0.12]" />
-          </span>
-        </div>
-
-        {/* ------------------------------------------- flank: content + door */}
-        <div className="flex items-stretch gap-3 px-4 pb-4 pt-4 sm:gap-4 sm:px-6 sm:pb-5 sm:pt-5">
-          {/* The advertising panel every bus carries, which is also the only
-              surface any text sits on. */}
-          <div className="min-w-0 flex-1 rounded-lg bg-primary-foreground/[0.08] px-4 py-4 sm:rounded-xl sm:px-6 sm:py-5">
-            <div className="flex flex-col justify-between gap-4 sm:gap-6 md:flex-row md:items-end">
-              <div className="flex min-w-0 max-w-2xl items-start gap-3 sm:gap-4">
-                {Icon && (
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-foreground/20 sm:h-13 sm:w-13">
-                    <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
-                  </div>
-                )}
-                <div className="min-w-0">
-                  <h1 className="text-[26px] font-black leading-tight tracking-tight sm:text-[34px]">
-                    {title}
-                  </h1>
-                  {description && (
-                    <div className="mt-1.5 text-[14px] font-medium text-primary-foreground/80 sm:mt-2 sm:text-[15px]">
-                      {description}
-                    </div>
-                  )}
-                </div>
+      <div className="flex flex-col gap-5 sm:gap-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 flex-col justify-between gap-4 sm:gap-5 md:flex-row md:items-end lg:flex-1">
+          <div className="flex min-w-0 max-w-2xl items-start gap-3 sm:gap-4">
+            {Icon && (
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-foreground/20 sm:h-13 sm:w-13">
+                <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
               </div>
-
-              {actions && (
-                <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">{actions}</div>
+            )}
+            <div className="min-w-0">
+              <h1 className="text-[26px] font-black leading-tight tracking-tight sm:text-[34px]">
+                {title}
+              </h1>
+              {description && (
+                <div className="mt-1.5 text-[14px] font-medium text-primary-foreground/80 sm:mt-2 sm:text-[15px]">
+                  {description}
+                </div>
               )}
             </div>
           </div>
 
-          {/* Boarding door, in its own column so it can never sit under a word. */}
-          <div
-            className="relative hidden w-12 shrink-0 rounded-md bg-accent/25 sm:block"
-            aria-hidden
-          >
-            <span className="absolute inset-x-2 top-2.5 bottom-12 rounded-[4px] bg-primary-foreground/[0.14]" />
-            <span className="absolute inset-y-3 left-1/2 w-px -translate-x-1/2 bg-primary/25" />
-            <span className="absolute bottom-3 left-1/2 h-1 w-4 -translate-x-1/2 rounded-full bg-primary-foreground/25 sm:bottom-4 sm:w-5" />
-          </div>
+          {actions && (
+            <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">{actions}</div>
+          )}
         </div>
 
-        {/* ------------------------------------------------- sill and lamps */}
-        <div className="relative h-4 bg-accent/20 sm:h-5" aria-hidden>
-          <span className="absolute bottom-1 left-4 h-2 w-4 rounded-sm bg-destructive/70 sm:bottom-1.5 sm:left-6 sm:w-5" />
-          <span className="absolute bottom-1 right-4 h-2 w-6 rounded-sm bg-warning/80 sm:bottom-1.5 sm:right-6 sm:w-8" />
-        </div>
+        {/* Capped, never stretched. It is decoration and gives up its space
+            first when the panel gets tight. */}
+        <BusSide className="w-full max-w-[280px] shrink-0 self-end text-primary-foreground lg:w-[260px] xl:w-[300px]" />
       </div>
     </motion.div>
   );

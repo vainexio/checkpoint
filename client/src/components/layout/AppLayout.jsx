@@ -1,5 +1,6 @@
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Bus } from 'lucide-react';
 import { MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils.ts';
 import { formatTime } from '@/utils/time.js';
@@ -125,9 +126,22 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
        * screen before the first bus appeared, which is the one thing anyone
        * opened the page for.
        */
-      className="relative z-0 mb-4 flex flex-col justify-between gap-4 rounded-t-[28px] bg-primary px-5 pb-14 pt-6 text-primary-foreground sm:mb-6 sm:gap-6 sm:px-7 sm:pb-16 sm:pt-8 md:flex-row md:items-end"
+      className="relative z-0 mb-4 flex flex-col justify-between gap-4 overflow-hidden rounded-t-[28px] bg-primary px-5 pb-14 pt-6 text-primary-foreground sm:mb-6 sm:gap-6 sm:px-7 sm:pb-16 sm:pt-8 md:flex-row md:items-end"
     >
-      <div className="flex min-w-0 max-w-2xl items-start gap-3 sm:gap-4">
+      {/*
+        * A bus driving off the right edge of the header.
+        *
+        * Big, faint and cropped, so it reads as part of the surface rather than
+        * an icon someone placed on it. It says what this product is before a
+        * single word has been read.
+        */}
+      <Bus
+        className="pointer-events-none absolute -right-8 top-1/2 h-44 w-44 -translate-y-1/2 rotate-[-8deg] text-primary-foreground/[0.13] sm:-right-6 sm:h-56 sm:w-56"
+        strokeWidth={1.1}
+        aria-hidden
+      />
+
+      <div className="relative z-10 flex min-w-0 max-w-2xl items-start gap-3 sm:gap-4">
         {Icon && (
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-foreground/20 text-primary-foreground sm:h-13 sm:w-13">
             <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
@@ -146,7 +160,9 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
       </div>
       {/* Actions wrap into a row on a phone instead of stacking full-width. */}
       {actions && (
-        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">{actions}</div>
+        <div className="relative z-10 flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">
+          {actions}
+        </div>
       )}
 
       {/*

@@ -19,6 +19,7 @@ import { StatusBadge } from '@/components/StatusBadge.jsx';
 import { SeatBadge } from '@/components/SeatPicker.jsx';
 import { JourneyStrip } from '@/components/JourneyStrip.jsx';
 import { ArrivalCountdown } from '@/components/ArrivalCountdown.jsx';
+import { BusMark } from '@/components/BusMark.jsx';
 import { PageHeader, LiveIndicator } from '@/components/layout/AppLayout.jsx';
 import { Card, CardContent } from '@/components/ui/card.tsx';
 import { Alert, AlertDescription } from '@/components/ui/alert.tsx';
@@ -196,7 +197,9 @@ function ArrivalRow({ arrival, now }) {
   return (
     <Card
       className={cn(
-        'card-lift overflow-hidden',
+        // `relative` so the bus watermark inside positions against this row
+        // and not against whatever is further up the page.
+        'card-lift relative overflow-hidden',
         arrival.isHereNow && 'border-success/60 tint-success',
         isDeparture && 'border-primary/50 tint-primary',
         hasArrived && 'opacity-70',
@@ -211,7 +214,11 @@ function ArrivalRow({ arrival, now }) {
           Not picking up passengers — don't wait for this one
         </div>
       )}
-      <CardContent className="p-4 sm:p-5">
+      {/* Drives in from the right as the row lands, then settles behind the
+          countdown. */}
+      <BusMark tone={isFull ? 'stop' : arrival.isHereNow ? 'go' : 'default'} />
+
+      <CardContent className="relative z-10 p-4 sm:p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
             {/* The plate is how you pick this bus out of five at a curb, so it

@@ -117,126 +117,94 @@ export function PageHeader({ title, description, actions, icon: Icon }) {
       className="relative mb-9 sm:mb-11"
     >
       {/*
-        * The header is drawn as the side of a bus.
+        * The panel is the side of a bus, and the bodywork is laid out in bands
+        * rather than painted behind the words.
         *
-        * Not an icon dropped onto a panel — the panel itself is the vehicle:
-        * a long body with a row of windows across the top, a livery stripe
-        * down the flank, and wheels sitting under it on the page. The
-        * proportions of a page header happen to be the proportions of a bus
-        * seen from the side, which is the whole reason this works.
+        * The first version had the door, the livery stripe and the lamps as
+        * absolute overlays across the whole panel, which meant every one of
+        * them cut through the title. Here the glazing is its own band, the
+        * content sits on the flank panel a real bus carries its advertising
+        * on, and the door has its own column beside it. Nothing overlaps
+        * because nothing shares a zone.
         */}
 
       {/* Wheels, behind the body so only their lower halves show. */}
       <span
-        className="absolute -bottom-5 left-[15%] z-0 grid h-12 w-12 place-items-center rounded-full bg-accent sm:-bottom-6 sm:h-15 sm:w-15"
+        className="absolute -bottom-5 left-[14%] z-0 grid h-12 w-12 place-items-center rounded-full bg-accent sm:-bottom-6 sm:h-15 sm:w-15"
         aria-hidden
       >
         <span className="h-4 w-4 rounded-full bg-background/70 sm:h-5 sm:w-5" />
       </span>
       <span
-        className="absolute -bottom-5 right-[17%] z-0 grid h-12 w-12 place-items-center rounded-full bg-accent sm:-bottom-6 sm:h-15 sm:w-15"
+        className="absolute -bottom-5 right-[16%] z-0 grid h-12 w-12 place-items-center rounded-full bg-accent sm:-bottom-6 sm:h-15 sm:w-15"
         aria-hidden
       >
         <span className="h-4 w-4 rounded-full bg-background/70 sm:h-5 sm:w-5" />
       </span>
 
-      {/* The body. */}
-      <div className="relative z-10 overflow-hidden rounded-[30px] bg-primary px-5 pb-7 pt-5 text-primary-foreground sm:rounded-[38px] sm:px-8 sm:pb-9 sm:pt-7">
-        {/*
-          * The bodywork, drawn front-to-the-right so it reads in the direction
-          * of travel: saloon windows, then a wider windscreen at the nose, a
-          * boarding door behind the front axle, a livery stripe along the
-          * flank, and lamps at both ends.
-          *
-          * All of it is set well back in opacity. It is the panel the title
-          * sits on, not an illustration the title has to compete with.
-          */}
-        <div
-          className="pointer-events-none absolute inset-x-0 top-0 h-[62px] bg-accent/25 sm:h-[76px]"
-          aria-hidden
-        >
-          <div className="flex h-full items-center gap-2.5 px-5 sm:gap-3 sm:px-8">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <span
-                key={i}
-                className="relative h-7 flex-1 overflow-hidden rounded-lg bg-primary-foreground/[0.16] sm:h-10 sm:rounded-xl"
-              >
-                {/* The light catching the top of the glass. */}
-                <span className="absolute inset-x-0 top-0 h-1/3 bg-primary-foreground/[0.13]" />
-                {/* Sliding pane: the vertical bar every bus window has. */}
-                <span className="absolute inset-y-1 right-1/3 w-px bg-primary/25" />
-              </span>
-            ))}
-            {/* The windscreen: wider, and raked at the nose. */}
-            <span className="relative h-7 flex-[1.55] overflow-hidden rounded-lg rounded-tr-[18px] bg-primary-foreground/[0.2] sm:h-10 sm:rounded-xl sm:rounded-tr-[26px]">
-              <span className="absolute inset-x-0 top-0 h-1/3 bg-primary-foreground/[0.14]" />
+      <div className="relative z-10 overflow-hidden rounded-[30px] bg-primary text-primary-foreground sm:rounded-[38px]">
+        {/* ---------------------------------------------------- glazing band */}
+        <div className="flex items-center gap-2.5 bg-accent/25 px-4 py-3 sm:gap-3 sm:px-6 sm:py-4" aria-hidden>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <span
+              key={i}
+              className="relative h-7 flex-1 overflow-hidden rounded-lg bg-primary-foreground/[0.16] sm:h-9 sm:rounded-xl"
+            >
+              <span className="absolute inset-x-0 top-0 h-1/3 bg-primary-foreground/[0.12]" />
+              <span className="absolute inset-y-1 right-1/3 w-px bg-primary/20" />
             </span>
-          </div>
-        </div>
-        <div
-          className="pointer-events-none absolute inset-x-0 top-[62px] h-[3px] bg-primary-foreground/25 sm:top-[76px] sm:h-1"
-          aria-hidden
-        />
-
-        {/*
-          * Boarding door, behind the front axle.
-          *
-          * It runs the full height of the body rather than starting below the
-          * glass — a door that stops short of the window line reads as a box
-          * someone left on the panel, which is exactly how the first attempt
-          * looked. The glazed upper half lines up with the saloon windows.
-          */}
-        <div
-          className="pointer-events-none absolute inset-y-0 right-[26%] w-[42px] bg-accent/[0.18] sm:right-[28%] sm:w-[56px]"
-          aria-hidden
-        >
-          {/* Leading and trailing edges, so it reads as an opening. */}
-          <span className="absolute inset-y-0 left-0 w-px bg-primary/25" />
-          <span className="absolute inset-y-0 right-0 w-px bg-primary/25" />
-          {/* Door glass, aligned to the window band above it. */}
-          <span className="absolute inset-x-1.5 top-2 h-[46px] rounded-md bg-primary-foreground/[0.13] sm:inset-x-2 sm:top-2.5 sm:h-[62px]" />
-          {/* The split where the two leaves meet. */}
-          <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-primary/20" />
+          ))}
+          {/* The windscreen: wider, and raked at the nose. */}
+          <span className="relative h-7 flex-[1.5] overflow-hidden rounded-lg rounded-tr-[16px] bg-primary-foreground/[0.2] sm:h-9 sm:rounded-xl sm:rounded-tr-[22px]">
+            <span className="absolute inset-x-0 top-0 h-1/3 bg-primary-foreground/[0.12]" />
+          </span>
         </div>
 
-        {/* Livery stripe along the flank. */}
-        <div
-          className="pointer-events-none absolute inset-x-0 bottom-9 h-1.5 bg-primary-foreground/[0.1] sm:bottom-11 sm:h-2"
-          aria-hidden
-        />
-
-        {/* Lamps: warm at the nose, red at the tail. */}
-        <span
-          className="pointer-events-none absolute bottom-3.5 right-3 h-2.5 w-5 rounded-md bg-warning/70 sm:bottom-5 sm:right-5 sm:h-3 sm:w-7"
-          aria-hidden
-        />
-        <span
-          className="pointer-events-none absolute bottom-3.5 left-3 h-2.5 w-4 rounded-md bg-destructive/60 sm:bottom-5 sm:left-5 sm:h-3 sm:w-5"
-          aria-hidden
-        />
-
-        <div className="relative flex flex-col justify-between gap-4 pt-11 sm:gap-6 sm:pt-14 md:flex-row md:items-end">
-          <div className="flex min-w-0 max-w-2xl items-start gap-3 sm:gap-4">
-            {Icon && (
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-foreground/20 sm:h-13 sm:w-13">
-                <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
-              </div>
-            )}
-            <div className="min-w-0">
-              <h1 className="text-[26px] font-black leading-tight tracking-tight sm:text-[34px]">
-                {title}
-              </h1>
-              {description && (
-                <div className="mt-1.5 text-[14px] font-medium text-primary-foreground/80 sm:mt-2 sm:text-[15px]">
-                  {description}
+        {/* ------------------------------------------- flank: content + door */}
+        <div className="flex items-stretch gap-3 px-4 pb-4 pt-4 sm:gap-4 sm:px-6 sm:pb-5 sm:pt-5">
+          {/* The advertising panel every bus carries, which is also the only
+              surface any text sits on. */}
+          <div className="min-w-0 flex-1 rounded-2xl bg-primary-foreground/[0.08] px-4 py-4 sm:rounded-3xl sm:px-6 sm:py-5">
+            <div className="flex flex-col justify-between gap-4 sm:gap-6 md:flex-row md:items-end">
+              <div className="flex min-w-0 max-w-2xl items-start gap-3 sm:gap-4">
+                {Icon && (
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-foreground/20 sm:h-13 sm:w-13">
+                    <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <h1 className="text-[26px] font-black leading-tight tracking-tight sm:text-[34px]">
+                    {title}
+                  </h1>
+                  {description && (
+                    <div className="mt-1.5 text-[14px] font-medium text-primary-foreground/80 sm:mt-2 sm:text-[15px]">
+                      {description}
+                    </div>
+                  )}
                 </div>
+              </div>
+
+              {actions && (
+                <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">{actions}</div>
               )}
             </div>
           </div>
 
-          {actions && (
-            <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">{actions}</div>
-          )}
+          {/* Boarding door, in its own column so it can never sit under a word. */}
+          <div
+            className="relative w-9 shrink-0 rounded-2xl bg-accent/25 sm:w-12 sm:rounded-3xl"
+            aria-hidden
+          >
+            <span className="absolute inset-x-1.5 top-2 bottom-10 rounded-md bg-primary-foreground/[0.14] sm:inset-x-2 sm:top-2.5 sm:bottom-12" />
+            <span className="absolute inset-y-3 left-1/2 w-px -translate-x-1/2 bg-primary/25" />
+            <span className="absolute bottom-3 left-1/2 h-1 w-4 -translate-x-1/2 rounded-full bg-primary-foreground/25 sm:bottom-4 sm:w-5" />
+          </div>
+        </div>
+
+        {/* ------------------------------------------------- sill and lamps */}
+        <div className="relative h-4 bg-accent/20 sm:h-5" aria-hidden>
+          <span className="absolute bottom-1 left-4 h-2 w-4 rounded-sm bg-destructive/70 sm:bottom-1.5 sm:left-6 sm:w-5" />
+          <span className="absolute bottom-1 right-4 h-2 w-6 rounded-sm bg-warning/80 sm:bottom-1.5 sm:right-6 sm:w-8" />
         </div>
       </div>
     </motion.div>

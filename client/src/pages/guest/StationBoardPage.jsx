@@ -201,9 +201,12 @@ function ArrivalRow({ arrival, now, stationName }) {
     isDeparture,
     notDepartedYet,
     isLate: arrival.status === 'delayed',
-    // Shared congestion on the road, which is a different thing from this
-    // trip being late: the engine subtracts one from the other.
-    inTraffic: (arrival.conditionsAllowanceMinutes ?? 0) > 0,
+    // Live congestion on the leg it is on *now*, not the total it has driven
+    // through. `conditionsAllowanceMinutes` accumulates over the whole trip,
+    // so a bus that met traffic an hour ago and is cruising since would have
+    // drawn a permanent crawl. The server already reads the road immediately
+    // ahead and drops anything under three minutes as noise.
+    inTraffic: (arrival.traffic?.adjustmentMinutes ?? 0) > 0,
   });
 
   return (

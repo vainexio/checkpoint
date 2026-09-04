@@ -138,20 +138,56 @@ function StopPole({ alert = false, label }) {
   );
 }
 
-/** Other traffic. Small, muted, and only ever drawn beside a bus in a queue. */
-function Car({ alt = false }) {
+/**
+ * Other traffic.
+ *
+ * Built the way the bus is, so the queue looks like one family of vehicles: a
+ * body with a cabin sitting on it rather than a single slab, glass divided by
+ * a pillar, a lamp at each end, and tyres with the same pale rim. Two shapes,
+ * because a row of identical cars reads as wallpaper.
+ */
+function Car({ shape = 'sedan', alt = false }) {
+  const van = shape === 'van';
+  const paint = alt ? 'scene-car-alt' : 'scene-car';
+
   return (
-    <span className="relative block w-[34px] shrink-0 sm:w-[40px]" aria-hidden>
+    <span
+      className="relative block h-[18px] w-[38px] shrink-0 sm:h-[21px] sm:w-[44px]"
+      aria-hidden
+    >
+      {/* Cabin. A van carries its roof further forward and higher. */}
       <span
         className={cn(
-          'relative block h-[11px] rounded-t-[5px] rounded-b-[2px] sm:h-[13px]',
-          alt ? 'scene-car-alt' : 'scene-car'
+          'absolute rounded-t-[4px]',
+          paint,
+          van
+            ? 'bottom-[8px] left-[4px] right-[7px] h-[9px] sm:bottom-[9px] sm:h-[11px]'
+            : 'bottom-[8px] left-[7px] right-[9px] h-[7px] sm:bottom-[9px] sm:h-[9px]'
         )}
       >
-        <span className="absolute left-[5px] right-[9px] top-[2px] h-[4px] rounded-[1px] scene-car-glass sm:h-[5px]" />
+        {/* Glass, split by a pillar. */}
+        <span className="absolute inset-[2px] flex gap-[2px]">
+          <span className="flex-1 rounded-[1px] scene-car-glass" />
+          <span className="flex-[0.65] rounded-[1px] scene-car-glass" />
+        </span>
       </span>
-      <span className="absolute -bottom-[5px] left-[7px] h-[10px] w-[10px] rounded-full bg-[#141A17]" />
-      <span className="absolute -bottom-[5px] right-[6px] h-[10px] w-[10px] rounded-full bg-[#141A17]" />
+
+      {/* Body. */}
+      <span className={cn('absolute inset-x-0 bottom-[3px] h-[9px] rounded-[3px] sm:h-[10px]', paint)}>
+        <span className="absolute bottom-[2px] left-0 h-[3px] w-[3px] rounded-[1px] bg-destructive/80" />
+        <span className="absolute bottom-[2px] right-0 h-[3px] w-[3px] rounded-[1px] bg-warning" />
+      </span>
+
+      {/* Tyres, rimmed like the coach's so the queue matches. */}
+      {['22%', '76%'].map((left) => (
+        <span
+          key={left}
+          className="absolute bottom-0 grid h-[11px] w-[11px] -translate-x-1/2 place-items-center rounded-full bg-[#141A17] sm:h-[12px] sm:w-[12px]"
+          style={{ left }}
+        >
+          <span className="h-[4px] w-[4px] rounded-full bg-[#E2E8E1]" />
+        </span>
+      ))}
     </span>
   );
 }
@@ -310,7 +346,7 @@ export function BusStatusScene({ scene, atLabel, hereLabel }) {
               animate={stillness ? {} : CRAWL_BEHIND}
               transition={stillness ? undefined : CRAWL_TIMING}
             >
-              <Car alt />
+              <Car shape="van" alt />
             </motion.span>
           )}
 
@@ -323,7 +359,7 @@ export function BusStatusScene({ scene, atLabel, hereLabel }) {
               animate={stillness ? {} : CRAWL_AHEAD}
               transition={stillness ? undefined : CRAWL_TIMING}
             >
-              <Car />
+              <Car shape="sedan" />
             </motion.span>
           )}
 

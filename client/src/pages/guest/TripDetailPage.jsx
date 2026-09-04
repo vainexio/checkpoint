@@ -84,7 +84,7 @@ export default function TripDetailPage() {
     isDeparture: false,
     notDepartedYet,
     isLate: trip.status === 'delayed',
-    inTraffic: (trip.conditionsAllowanceMinutes ?? 0) > 0,
+    inTraffic: (trip.traffic?.adjustmentMinutes ?? 0) > 0,
   });
 
   return (

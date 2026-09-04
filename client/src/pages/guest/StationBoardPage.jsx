@@ -179,7 +179,7 @@ export default function StationBoardPage() {
                 layout: { type: 'spring', stiffness: 380, damping: 34 },
               }}
             >
-              <ArrivalRow arrival={arrival} now={now} />
+              <ArrivalRow arrival={arrival} now={now} stationName={data?.station?.name} />
             </motion.div>
           ))}
         </AnimatePresence>
@@ -188,7 +188,7 @@ export default function StationBoardPage() {
   );
 }
 
-function ArrivalRow({ arrival, now }) {
+function ArrivalRow({ arrival, now, stationName }) {
   const [open, setOpen] = useState(false);
   const notDepartedYet = arrival.status === 'scheduled';
   const isDeparture = arrival.boardKind === 'departure';
@@ -216,7 +216,11 @@ function ArrivalRow({ arrival, now }) {
       )}
     >
       {/* What the bus is doing, drawn, before any of it is read. */}
-      <BusStatusScene scene={scene} />
+      <BusStatusScene
+        scene={scene}
+        atLabel={arrival.origin}
+        hereLabel={stationName}
+      />
 
       {isFull && (
         <div className="flex items-center gap-2 bg-destructive/10 px-5 py-2 text-[13px] font-bold text-destructive">

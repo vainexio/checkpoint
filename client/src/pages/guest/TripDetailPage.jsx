@@ -92,6 +92,10 @@ export default function TripDetailPage() {
 
       <PageHeader
         scene={scene}
+        // A trip has no "this stop", so the far sign is where it is headed and
+        // the near one is where it is still standing.
+        sceneAtLabel={trip.stops[0]?.name}
+        sceneHereLabel={destination?.name}
         icon={Bus}
         title={trip.route.name}
         description={

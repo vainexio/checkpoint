@@ -27,6 +27,19 @@ import { cn } from '@/lib/utils';
 
 const BAND = 'relative h-[70px] overflow-hidden bg-background sm:h-[82px]';
 
+/**
+ * Fits a station name on a bus stop sign.
+ *
+ * "Terminal" and "Station" are what the sign is, not what it says — every
+ * name on the network ends in one, so they carry nothing and cost the width
+ * that the actual place name needs. Truncation is still there underneath as
+ * the backstop for anything long that survives this.
+ */
+export function shortStationName(name) {
+  if (!name) return '';
+  return name.replace(/\s+(bus\s+|transport\s+)?(terminal|station)$/i, '').trim() || name;
+}
+
 function Wheel({ left }) {
   return (
     <span
@@ -57,18 +70,39 @@ function Person({ h = 24, tone = 'accent' }) {
  * A stop. The sign turns amber when the bus due here is running late — a
  * delay notice on the sign itself, rather than an icon floating beside it.
  */
-function StopPole({ alert = false }) {
+function StopPole({ alert = false, label }) {
+  const text = shortStationName(label);
   return (
-    <span className="flex shrink-0 flex-col items-center" aria-hidden>
+    <span className="flex min-w-0 shrink flex-col items-center" aria-hidden>
+      {/*
+        * The name goes on the sign itself. A real stop sign is where a stop's
+        * name lives, so it needs no floating caption and stays attached to the
+        * thing it names.
+        */}
       <span
-        className={cn('grid h-4 w-7 place-items-center rounded-[2px]', alert ? 'bg-warning' : 'bg-primary')}
+        className={cn(
+          'flex h-4 items-center justify-center rounded-[2px] sm:h-[18px]',
+          text ? 'max-w-[92px] px-1.5 sm:max-w-[128px] sm:px-2' : 'w-7',
+          alert ? 'bg-warning' : 'bg-primary'
+        )}
       >
-        <span
-          className={cn(
-            'h-[3px] w-3.5 rounded-full',
-            alert ? 'bg-foreground/50' : 'bg-primary-foreground/70'
-          )}
-        />
+        {text ? (
+          <span
+            className={cn(
+              'truncate text-[8px] font-bold uppercase tracking-[0.05em] sm:text-[9px]',
+              alert ? 'text-foreground' : 'text-primary-foreground'
+            )}
+          >
+            {text}
+          </span>
+        ) : (
+          <span
+            className={cn(
+              'h-[3px] w-3.5 rounded-full',
+              alert ? 'bg-foreground/50' : 'bg-primary-foreground/70'
+            )}
+          />
+        )}
       </span>
       <span className="h-[30px] w-[3px] scene-pole" />
     </span>
@@ -80,7 +114,7 @@ function MiniBus({ door = 'shut', dim = false }) {
   return (
     <span
       className={cn(
-        'relative block w-[148px] shrink-0 rounded-[6px] bg-primary sm:w-[172px]',
+        'relative block w-[148px] shrink rounded-[6px] bg-primary sm:w-[172px]',
         dim && 'opacity-55'
       )}
       aria-hidden
@@ -168,23 +202,25 @@ function SpeedLines({ stillness, late }) {
  * amber. If the bus coming is full, a bar stands in front of the queue: it is
  * arriving, and they still are not getting on.
  */
-function ThisStop({ late, full, waiting = 2 }) {
+function ThisStop({ late, full, waiting = 2, label }) {
   const heads = late ? waiting + 1 : waiting;
   return (
-    <div className="flex shrink-0 items-end gap-2" aria-hidden>
+    <div className="flex min-w-0 shrink items-end gap-2" aria-hidden>
       {full && <span className="mb-2 h-[3px] w-6 shrink-0 rounded-full bg-destructive" />}
       {Array.from({ length: heads }).map((_, i) => (
         <Person key={i} h={i === 0 ? 24 : 20} tone={i % 2 ? 'primary' : 'accent'} />
       ))}
-      <StopPole alert={late} />
+      <StopPole alert={late} label={label} />
     </div>
   );
 }
 
 /**
- * @param scene  from `sceneFor` — { place, full, late }
+ * @param scene      from `sceneFor` — { place, full, late }
+ * @param atLabel    the stop the bus is standing at, when it is standing at one
+ * @param hereLabel  the stop this card is about
  */
-export function BusStatusScene({ scene }) {
+export function BusStatusScene({ scene, atLabel, hereLabel }) {
   const stillness = useReducedMotion();
   const { place, full, late } = scene;
 
@@ -211,7 +247,7 @@ export function BusStatusScene({ scene }) {
 
           {/* Parked somewhere else: draw the stop it is standing at, so it is
               plainly not the one you are reading. */}
-          {place === 'elsewhere' && <StopPole />}
+          {place === 'elsewhere' && <StopPole label={atLabel} />}
 
           {/* Here, with room: someone stepping up to the open door. */}
           {place === 'atStop' && !full && (
@@ -228,14 +264,14 @@ export function BusStatusScene({ scene }) {
         </div>
 
         {spread ? (
-          <ThisStop late={late} full={full} />
+          <ThisStop late={late} full={full} label={hereLabel} />
         ) : place === 'done' ? (
-          <div className="flex items-end gap-2 opacity-70">
+          <div className="flex min-w-0 items-end gap-2 opacity-70">
             <Person h={20} tone="primary" />
-            <StopPole />
+            <StopPole label={hereLabel} />
           </div>
         ) : (
-          <ThisStop late={late} full={full} waiting={full ? 2 : 1} />
+          <ThisStop late={late} full={full} waiting={full ? 2 : 1} label={hereLabel} />
         )}
       </div>
     </div>

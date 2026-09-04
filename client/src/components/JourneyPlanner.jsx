@@ -24,14 +24,22 @@ const REFRESH_MS = 30000;
  * the genuinely hard part: three different buses pass Santo Tomas and only two
  * of them are any use to you. So the destination is the required field and the
  * boarding stop is the *answer*, not another thing to know in advance.
+ *
+ * @param origin  A stop to start from, fixed. Standing on a stop's own page
+ *                already answers "where am I", so asking again would be asking
+ *                someone to re-enter what they just clicked.
  */
-export function JourneyPlanner({ stations, you, onRequestLocation, locating }) {
-  const [from, setFrom] = useState(null); // null = wherever I am
+export function JourneyPlanner({ stations, you, onRequestLocation, locating, origin }) {
+  const [from, setFrom] = useState(origin ?? null); // null = wherever I am
   const [to, setTo] = useState(null);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const now = useNow(15000);
+
+  useEffect(() => {
+    if (origin) setFrom(origin);
+  }, [origin]);
 
   const run = useCallback(async () => {
     if (!to) return;
@@ -71,24 +79,31 @@ export function JourneyPlanner({ stations, you, onRequestLocation, locating }) {
         <div className="grid gap-3 sm:grid-cols-[1fr_auto_1fr]">
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">From</label>
-            <StopPicker
-              stations={stations}
-              value={from}
-              onChange={setFrom}
-              placeholder="Anywhere near me"
-              extraOption={{
-                label: you ? 'Anywhere near me' : 'Use my location',
-                icon: locating ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Crosshair className="h-4 w-4 text-primary" />
-                ),
-                onSelect: () => {
-                  setFrom(null);
-                  if (!you) onRequestLocation();
-                },
-              }}
-            />
+            {origin ? (
+              <div className="flex h-10 items-center gap-2 rounded-xl border border-border bg-muted/50 px-3 text-sm font-semibold">
+                <MapPin className="h-4 w-4 shrink-0 text-primary" />
+                <span className="truncate">{origin.name}</span>
+              </div>
+            ) : (
+              <StopPicker
+                stations={stations}
+                value={from}
+                onChange={setFrom}
+                placeholder="Anywhere near me"
+                extraOption={{
+                  label: you ? 'Anywhere near me' : 'Use my location',
+                  icon: locating ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Crosshair className="h-4 w-4 text-primary" />
+                  ),
+                  onSelect: () => {
+                    setFrom(null);
+                    if (!you) onRequestLocation();
+                  },
+                }}
+              />
+            )}
           </div>
 
           <div className="hidden items-end pb-3 sm:flex">
@@ -98,7 +113,7 @@ export function JourneyPlanner({ stations, you, onRequestLocation, locating }) {
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">To</label>
             <StopPicker
-              stations={stations}
+              stations={origin ? stations.filter((x) => x.id !== origin.id) : stations}
               value={to}
               onChange={setTo}
               placeholder="Where are you going?"
@@ -106,7 +121,7 @@ export function JourneyPlanner({ stations, you, onRequestLocation, locating }) {
           </div>
         </div>
 
-        {!from && !you && (
+        {!origin && !from && !you && (
           <p className="mt-3 text-[13px] text-muted-foreground">
             Without your location this shows every stop on the way. Pick a starting stop, or share
             your location, to narrow it down.

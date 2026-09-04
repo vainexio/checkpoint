@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { SegmentedTabs } from '@/components/SegmentedTabs.jsx';
 import { Link, useParams } from 'react-router-dom';
@@ -19,6 +19,8 @@ import { Badge } from '@/components/ui/badge.tsx';
 import { StatusBadge } from '@/components/StatusBadge.jsx';
 import { SeatBadge } from '@/components/SeatPicker.jsx';
 import { JourneyStrip } from '@/components/JourneyStrip.jsx';
+import { StopPicker } from '@/components/StopPicker.jsx';
+import { Route as RouteIcon, X } from 'lucide-react';
 import { ArrivalCountdown } from '@/components/ArrivalCountdown.jsx';
 import { BusStatusScene, sceneFor } from '@/components/BusStatusScene.jsx';
 import { PageHeader, LiveIndicator } from '@/components/layout/AppLayout.jsx';
@@ -59,15 +61,40 @@ export default function StationBoardPage() {
   const arrivals = data?.arrivals ?? [];
   const [filter, setFilter] = useState('all');
 
+  const station = data?.station;
+
+  /**
+   * Where these buses can take you, taken from the buses themselves.
+   *
+   * Every row already carries the stops it reaches after this one, so the
+   * options are the union of those. The list can then only ever offer a
+   * destination something actually serves, and the names match the rows by
+   * construction rather than by hoping two sources spell a terminal the same
+   * way.
+   */
+  const destinations = useMemo(() => {
+    const names = new Set();
+    for (const a of arrivals) for (const n of a.continuesTo ?? []) names.add(n);
+    return [...names].sort().map((name) => ({ id: name, name }));
+  }, [arrivals]);
+
+  const [going, setGoing] = useState(null);
+  useEffect(() => setGoing(null), [stationId]);
+
   // A bus you can walk up to: standing here, or starting its run from here.
   // "Leaving" described what the bus was about to do; this describes where it
   // is, which is what someone reading the board is trying to find out.
   const isHere = (a) => a.isHereNow || a.boardKind === 'departure';
+  const serves = (a) => !going || (a.continuesTo ?? []).includes(going.name);
+
+  // Everything the destination allows; the tabs then split that, so their
+  // counts describe the list each one would actually show.
+  const eligible = arrivals.filter(serves);
   const counts = {
-    here: arrivals.filter(isHere).length,
-    arriving: arrivals.filter((a) => !isHere(a)).length,
+    here: eligible.filter(isHere).length,
+    arriving: eligible.filter((a) => !isHere(a)).length,
   };
-  const shown = arrivals.filter((a) =>
+  const shown = eligible.filter((a) =>
     filter === 'all' ? true : filter === 'here' ? isHere(a) : !isHere(a)
   );
 
@@ -143,11 +170,72 @@ export default function StationBoardPage() {
         </Card>
       )}
 
-      {arrivals.length > 0 && (
+      {/*
+        * A destination narrows the board rather than opening a second one.
+        *
+        * The rows below already say everything a separate result list would:
+        * the plate, the countdown, whether there are seats, what the road is
+        * doing. Answering one question twice, in two different layouts, only
+        * invites the two answers to disagree.
+        */}
+      {destinations.length > 0 && (
+        <Card className="mb-4">
+          <CardContent className="p-4 sm:p-5">
+            <div className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              <RouteIcon className="h-3.5 w-3.5" />
+              Going somewhere?
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="min-w-0 flex-1">
+                <StopPicker
+                  stations={destinations}
+                  value={going}
+                  onChange={setGoing}
+                  placeholder={`Where to, from ${station?.name ?? 'here'}?`}
+                />
+              </div>
+              {going && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="shrink-0 self-start text-muted-foreground sm:self-auto"
+                  onClick={() => setGoing(null)}
+                >
+                  <X className="mr-1.5 h-3.5 w-3.5" />
+                  Show all buses
+                </Button>
+              )}
+            </div>
+
+            {going && (
+              <p className="mt-3 text-[13px] text-muted-foreground">
+                {shown.length === 0 ? (
+                  <>
+                    No bus under this filter continues to{' '}
+                    <span className="font-semibold text-foreground">{going.name}</span>.
+                  </>
+                ) : (
+                  <>
+                    Showing{' '}
+                    <span className="font-semibold text-foreground">
+                      {shown.length} bus{shown.length === 1 ? '' : 'es'}
+                    </span>{' '}
+                    {shown.length === 1 ? 'that carries' : 'that carry'} on to{' '}
+                    <span className="font-semibold text-foreground">{going.name}</span>.
+                  </>
+                )}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {eligible.length > 0 && (
         <div className="relative z-10 mb-3 flex justify-center">
           <SegmentedTabs
             options={[
-              { value: 'all', label: 'All', count: arrivals.length },
+              { value: 'all', label: 'All', count: eligible.length },
               { value: 'here', label: 'At this station', count: counts.here },
               { value: 'arriving', label: 'Arriving', count: counts.arriving },
             ]}
@@ -179,7 +267,12 @@ export default function StationBoardPage() {
                 layout: { type: 'spring', stiffness: 380, damping: 34 },
               }}
             >
-              <ArrivalRow arrival={arrival} now={now} stationName={data?.station?.name} />
+              <ArrivalRow
+                arrival={arrival}
+                now={now}
+                stationName={data?.station?.name}
+                goingTo={going?.name ?? null}
+              />
             </motion.div>
           ))}
         </AnimatePresence>
@@ -188,7 +281,7 @@ export default function StationBoardPage() {
   );
 }
 
-function ArrivalRow({ arrival, now, stationName }) {
+function ArrivalRow({ arrival, now, stationName, goingTo }) {
   const [open, setOpen] = useState(false);
   const notDepartedYet = arrival.status === 'scheduled';
   const isDeparture = arrival.boardKind === 'departure';
@@ -202,6 +295,12 @@ function ArrivalRow({ arrival, now, stationName }) {
   // nowhere near it. Drawing it crawling through a jam would be claiming to
   // know exactly what the stale flag exists to admit we do not.
   const trafficMinutes = arrival.isStale ? 0 : (arrival.traffic?.adjustmentMinutes ?? 0);
+
+  // The projected time at the stop being filtered for, read off the same
+  // journey the row already carries.
+  const arrivesAtGoing = goingTo
+    ? (arrival.journey ?? []).find((j) => j.name === goingTo)?.eta ?? null
+    : null;
   const scene = sceneFor({
     hasArrived,
     isFull,
@@ -256,6 +355,13 @@ function ArrivalRow({ arrival, now, stationName }) {
             )}
 
             <div className="text-[17px] font-extrabold tracking-tight">{arrival.route}</div>
+
+            {goingTo && (
+              <div className="mb-2 text-[13px] font-semibold text-primary">
+                Gets you to {goingTo}
+                {arrivesAtGoing && <> by {formatTime(arrivesAtGoing)}</>}
+              </div>
+            )}
 
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <StatusBadge

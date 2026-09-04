@@ -16,7 +16,6 @@ import { usePolling } from '@/hooks/usePolling.js';
 import { fetchMapData, fetchNearbyStations, fetchStations } from '@/api/publicApi.js';
 import { PageHeader } from '@/components/layout/AppLayout.jsx';
 import { CheckpointMap } from '@/components/CheckpointMap.jsx';
-import { JourneyPlanner } from '@/components/JourneyPlanner.jsx';
 import { Card, CardContent } from '@/components/ui/card.tsx';
 import { Input } from '@/components/ui/input.tsx';
 import { Button } from '@/components/ui/button.tsx';
@@ -113,16 +112,8 @@ export default function StationsPage() {
     <>
       <PageHeader
         icon={Bus}
-        title="Where are you going?"
-        description="Pick a destination to see which buses can take you there and where to catch them — or find a stop to see everything heading its way."
-      />
-
-      {/* --------------------------------------------------- journey planner */}
-      <JourneyPlanner
-        stations={all}
-        you={you}
-        locating={locating}
-        onRequestLocation={() => findNearby({ listStops: false })}
+        title="Find your stop"
+        description="Search for a station or terminal, or use your location, to see every bus heading its way. Once you are on a stop, you can ask where it can take you."
       />
 
       {/* ------------------------------------------------------------ search */}

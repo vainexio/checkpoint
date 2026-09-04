@@ -2,24 +2,29 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 /**
- * A small drawn scene at the top of an arrival card, showing what the bus is
- * doing rather than only saying it.
+ * A small drawn scene showing what a bus is doing, for the glance before
+ * anyone reads the badges.
  *
- * The badges already carry the words. This is for the glance before anyone
- * reads them: a bus with its door open and people stepping on means something
- * different, instantly, from the same bus with a bar across its door.
+ * The thing being drawn is *where the bus is relative to you*, because that is
+ * the question someone at a stop is actually asking. An earlier version let
+ * "full" and "waiting" drive the whole picture, so a full bus forty minutes
+ * away and a bus parked at its origin two provinces over both drew as a bus
+ * standing at the stop you were looking at. Both were lies.
  *
- * Three rules hold it together, all learned the hard way on the page header.
- * Everything stands on the road line, because anything drifting off it reads
- * as floating. Nothing is drawn with an alpha: the band paints itself the page
- * colour and the figures use the same opaque `scene-*` mixes the street uses,
- * so none of them turn into ghosts over a tinted card. And the width is either
- * used or given up deliberately — a moving bus is placed far from the stop it
- * is heading for, and every other scene is centred, so no variant is left
- * sitting in a corner of empty road.
+ * So place decides the composition, and everything else is a modifier on top:
+ *
+ *   atStop      it is here, in front of you, doors open
+ *   elsewhere   parked at a different stop, with the road between you and it
+ *   travelling  on the road, coming toward you
+ *   done        the trip is over
+ *
+ * Two rules carried over from the page header. Everything stands on the road
+ * line, because anything drifting off it reads as floating. And nothing is
+ * drawn with an alpha: the band paints itself the page colour and the figures
+ * use the same opaque `scene-*` mixes the street uses, so none of them turn
+ * into ghosts over a tinted card.
  */
 
-/* Big enough to read at a glance, small enough that nine of them still scan. */
 const BAND = 'relative h-[70px] overflow-hidden bg-background sm:h-[82px]';
 
 function Wheel({ left }) {
@@ -48,21 +53,29 @@ function Person({ h = 24, tone = 'accent' }) {
   );
 }
 
-function StopPole() {
+/**
+ * A stop. The sign turns amber when the bus due here is running late — a
+ * delay notice on the sign itself, rather than an icon floating beside it.
+ */
+function StopPole({ alert = false }) {
   return (
     <span className="flex shrink-0 flex-col items-center" aria-hidden>
-      <span className="grid h-4 w-7 place-items-center rounded-[2px] bg-primary">
-        <span className="h-[3px] w-3.5 rounded-full bg-primary-foreground/70" />
+      <span
+        className={cn('grid h-4 w-7 place-items-center rounded-[2px]', alert ? 'bg-warning' : 'bg-primary')}
+      >
+        <span
+          className={cn(
+            'h-[3px] w-3.5 rounded-full',
+            alert ? 'bg-foreground/50' : 'bg-primary-foreground/70'
+          )}
+        />
       </span>
       <span className="h-[30px] w-[3px] scene-pole" />
     </span>
   );
 }
 
-/**
- * The coach. The door is the only part whose shape changes between states,
- * which is deliberate: open versus barred is the whole message.
- */
+/** The coach. The door is the part that carries the message. */
 function MiniBus({ door = 'shut', dim = false }) {
   return (
     <span
@@ -96,7 +109,6 @@ function MiniBus({ door = 'shut', dim = false }) {
         <span className="h-[16px] w-[19px] shrink-0 rounded-[2px] rounded-tr-[5px] bg-primary-foreground/35" />
       </span>
 
-      {/* Sill, with the tail lamp behind and the indicator up front. */}
       <span className="relative block h-[7px] rounded-b-[6px] bg-accent/30">
         <span className="absolute bottom-[1px] left-[5px] h-[3px] w-[6px] rounded-[1px] bg-destructive/80" />
         <span className="absolute bottom-[1px] right-[5px] h-[3px] w-[7px] rounded-[1px] bg-warning" />
@@ -108,7 +120,7 @@ function MiniBus({ door = 'shut', dim = false }) {
   );
 }
 
-/** The road everything stands on. Dashes slide only when the bus is moving. */
+/** Dashes slide only when the bus is actually moving. */
 function Road({ moving, stillness }) {
   const run = moving && !stillness;
   return (
@@ -129,15 +141,15 @@ function Road({ moving, stillness }) {
   );
 }
 
-function SpeedLines({ stillness }) {
+function SpeedLines({ stillness, late }) {
   return (
     <div className="mb-3 flex shrink-0 flex-col gap-[5px]" aria-hidden>
       {[18, 26, 14].map((w, i) => (
         <motion.span
           key={i}
-          className="block h-[2px] rounded-full bg-foreground/25"
+          className={cn('block h-[2px] rounded-full', late ? 'bg-warning' : 'bg-foreground/25')}
           style={{ width: w }}
-          animate={stillness ? {} : { opacity: [0.15, 0.6, 0.15], x: [0, -6, 0] }}
+          animate={stillness ? {} : { opacity: [0.2, 0.7, 0.2], x: [0, -6, 0] }}
           transition={
             stillness
               ? undefined
@@ -150,36 +162,59 @@ function SpeedLines({ stillness }) {
 }
 
 /**
- * @param variant  waiting | boarding | full | enroute | arrived
+ * The stop you are standing at.
+ *
+ * A late bus means a longer wait, so the queue is longer and the sign goes
+ * amber. If the bus coming is full, a bar stands in front of the queue: it is
+ * arriving, and they still are not getting on.
  */
-export function BusStatusScene({ variant }) {
-  const stillness = useReducedMotion();
-  const moving = variant === 'enroute';
+function ThisStop({ late, full, waiting = 2 }) {
+  const heads = late ? waiting + 1 : waiting;
+  return (
+    <div className="flex shrink-0 items-end gap-2" aria-hidden>
+      {full && <span className="mb-2 h-[3px] w-6 shrink-0 rounded-full bg-destructive" />}
+      {Array.from({ length: heads }).map((_, i) => (
+        <Person key={i} h={i === 0 ? 24 : 20} tone={i % 2 ? 'primary' : 'accent'} />
+      ))}
+      <StopPole alert={late} />
+    </div>
+  );
+}
 
-  const door = variant === 'boarding' ? 'open' : variant === 'full' ? 'barred' : 'shut';
+/**
+ * @param scene  from `sceneFor` — { place, full, late }
+ */
+export function BusStatusScene({ scene }) {
+  const stillness = useReducedMotion();
+  const { place, full, late } = scene;
+
+  const travelling = place === 'travelling';
+  // Away from you: the road between the bus and your stop is the point, so the
+  // two ends are pushed apart. Here or finished: one tableau, centred.
+  const spread = travelling || place === 'elsewhere';
+
+  const door = full ? 'barred' : place === 'atStop' ? 'open' : 'shut';
 
   return (
     <div className={BAND} aria-hidden>
-      <Road moving={moving} stillness={stillness} />
+      <Road moving={travelling} stillness={stillness} />
 
-      {/*
-        * A bus still on the road is drawn far from the stop it is heading for,
-        * so the gap between them is the journey. Every other state has the bus
-        * already at the kerb, so the whole tableau is centred instead of
-        * stranded at one end.
-        */}
       <div
         className={cn(
           'absolute inset-x-5 bottom-[8px] flex items-end gap-3',
-          moving ? 'justify-between' : 'justify-center gap-4'
+          spread ? 'justify-between' : 'justify-center gap-4'
         )}
       >
         <div className="flex items-end gap-3">
-          {moving && <SpeedLines stillness={stillness} />}
-          <MiniBus door={door} dim={variant === 'arrived'} />
+          {travelling && <SpeedLines stillness={stillness} late={late} />}
+          <MiniBus door={door} dim={place === 'done'} />
 
-          {/* Boarding: someone stepping up to the open door. */}
-          {variant === 'boarding' && (
+          {/* Parked somewhere else: draw the stop it is standing at, so it is
+              plainly not the one you are reading. */}
+          {place === 'elsewhere' && <StopPole />}
+
+          {/* Here, with room: someone stepping up to the open door. */}
+          {place === 'atStop' && !full && (
             <motion.span
               className="flex items-end"
               animate={stillness ? {} : { x: [0, -7, 0] }}
@@ -190,46 +225,46 @@ export function BusStatusScene({ variant }) {
               <Person h={26} tone="accent" />
             </motion.span>
           )}
-
-          {/* Full: a bar, and passengers left standing behind it. */}
-          {variant === 'full' && (
-            <div className="flex items-end gap-2">
-              <span className="mb-2 h-[3px] w-6 shrink-0 rounded-full bg-destructive" />
-              <Person h={24} tone="primary" />
-              <Person h={21} tone="accent" />
-            </div>
-          )}
         </div>
 
-        {/* The stop: where it is going if it is moving, where it is if not. */}
-        <div className={cn('flex items-end gap-2', variant === 'arrived' && 'opacity-70')}>
-          {variant === 'boarding' && <Person h={22} tone="primary" />}
-          {(variant === 'waiting' || variant === 'enroute') && (
-            <>
-              <Person h={24} tone="accent" />
-              <Person h={20} tone="primary" />
-            </>
-          )}
-          <StopPole />
-        </div>
+        {spread ? (
+          <ThisStop late={late} full={full} />
+        ) : place === 'done' ? (
+          <div className="flex items-end gap-2 opacity-70">
+            <Person h={20} tone="primary" />
+            <StopPole />
+          </div>
+        ) : (
+          <ThisStop late={late} full={full} waiting={full ? 2 : 1} />
+        )}
       </div>
     </div>
   );
 }
 
 /**
- * Which scene a row gets.
+ * Where the bus is, and what else is true of it.
  *
- * Order matters and encodes what a passenger most needs to know. "Full" wins
- * over "boarding" because a bus you cannot get on is not boarding, whatever
- * else is true of it. And standing at *this* stop beats "has not left yet",
- * because nearly every departure row is both at once — reading those as merely
- * waiting meant the boarding scene never appeared at all.
+ * Place is decided first and on its own, because it is the question being
+ * asked. "Full" and "late" then modify that picture rather than replacing it —
+ * which is the fix for a full bus still an hour away drawing as though it were
+ * standing in front of you.
  */
-export function sceneFor({ hasArrived, isFull, isHereNow, isDeparture, notDepartedYet }) {
-  if (hasArrived) return 'arrived';
-  if (isFull) return 'full';
-  if (isHereNow || isDeparture) return 'boarding';
-  if (notDepartedYet) return 'waiting';
-  return 'enroute';
+export function sceneFor({
+  hasArrived,
+  isFull,
+  isHereNow,
+  isDeparture,
+  notDepartedYet,
+  isLate,
+}) {
+  const place = hasArrived
+    ? 'done'
+    : isHereNow || isDeparture
+      ? 'atStop'
+      : notDepartedYet
+        ? 'elsewhere'
+        : 'travelling';
+
+  return { place, full: Boolean(isFull), late: Boolean(isLate) };
 }

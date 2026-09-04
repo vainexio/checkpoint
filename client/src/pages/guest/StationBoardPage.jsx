@@ -200,6 +200,7 @@ function ArrivalRow({ arrival, now }) {
     isHereNow: arrival.isHereNow,
     isDeparture,
     notDepartedYet,
+    isLate: arrival.status === 'delayed',
   });
 
   return (
@@ -215,7 +216,7 @@ function ArrivalRow({ arrival, now }) {
       )}
     >
       {/* What the bus is doing, drawn, before any of it is read. */}
-      <BusStatusScene variant={scene} />
+      <BusStatusScene scene={scene} />
 
       {isFull && (
         <div className="flex items-center gap-2 bg-destructive/10 px-5 py-2 text-[13px] font-bold text-destructive">

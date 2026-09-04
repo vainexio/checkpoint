@@ -203,7 +203,7 @@ export function PageHeader({ title, description, actions, icon: Icon, still, bar
   if (scene) {
     return (
       <div className="mb-5 overflow-hidden rounded-xl border bg-card shadow-sm sm:mb-7">
-        <BusStatusScene variant={scene} />
+        <BusStatusScene scene={scene} />
         <div className="flex flex-col justify-between gap-3 p-4 sm:flex-row sm:items-end sm:gap-6 sm:p-5">
           <div className="flex min-w-0 items-start gap-3 sm:gap-4">
             {Icon && (

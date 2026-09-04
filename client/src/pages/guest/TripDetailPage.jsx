@@ -83,6 +83,7 @@ export default function TripDetailPage() {
     isHereNow: false,
     isDeparture: false,
     notDepartedYet,
+    isLate: trip.status === 'delayed',
   });
 
   return (

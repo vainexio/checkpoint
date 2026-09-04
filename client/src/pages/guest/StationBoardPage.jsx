@@ -19,6 +19,7 @@ import { StatusBadge } from '@/components/StatusBadge.jsx';
 import { SeatBadge } from '@/components/SeatPicker.jsx';
 import { JourneyStrip } from '@/components/JourneyStrip.jsx';
 import { ArrivalCountdown } from '@/components/ArrivalCountdown.jsx';
+import { BusStatusScene, sceneFor } from '@/components/BusStatusScene.jsx';
 import { PageHeader, LiveIndicator } from '@/components/layout/AppLayout.jsx';
 import { Card, CardContent } from '@/components/ui/card.tsx';
 import { Alert, AlertDescription } from '@/components/ui/alert.tsx';
@@ -81,6 +82,7 @@ export default function StationBoardPage() {
       </Link>
 
       <PageHeader
+        bare
         icon={MapPin}
         title={data?.station?.name ?? 'Loading…'}
         description="Buses heading to this stop, soonest first. Times update each time a conductor confirms the bus has passed a checkpoint."
@@ -93,7 +95,7 @@ export default function StationBoardPage() {
               href={`/display/${stationId}`}
               target="_blank"
               rel="noreferrer noopener"
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-primary-foreground/[0.18] px-3.5 py-1.5 text-[13px] font-semibold text-primary-foreground transition-colors hover:bg-primary-foreground/[0.28]"
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-[13px] font-semibold text-foreground transition-colors hover:border-primary/50 hover:text-primary"
             >
               <MonitorPlay className="h-3.5 w-3.5" />
               Terminal display
@@ -103,7 +105,7 @@ export default function StationBoardPage() {
                 href={directionsUrl(data.station.location)}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-primary-foreground/[0.18] px-3.5 py-1.5 text-[13px] font-semibold text-primary-foreground transition-colors hover:bg-primary-foreground/[0.28]"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-[13px] font-semibold text-foreground transition-colors hover:border-primary/50 hover:text-primary"
               >
                 <Footprints className="h-3.5 w-3.5" />
                 {/* Two buttons only fit side by side on a phone if the second
@@ -192,6 +194,13 @@ function ArrivalRow({ arrival, now }) {
   const isDeparture = arrival.boardKind === 'departure';
   const hasArrived = arrival.boardKind === 'arrived';
   const isFull = arrival.load === 'full';
+  const scene = sceneFor({
+    hasArrived,
+    isFull,
+    isHereNow: arrival.isHereNow,
+    isDeparture,
+    notDepartedYet,
+  });
 
   return (
     <Card
@@ -205,6 +214,9 @@ function ArrivalRow({ arrival, now }) {
         isFull && 'border-destructive/40 tint-destructive'
       )}
     >
+      {/* What the bus is doing, drawn, before any of it is read. */}
+      <BusStatusScene variant={scene} />
+
       {isFull && (
         <div className="flex items-center gap-2 bg-destructive/10 px-5 py-2 text-[13px] font-bold text-destructive">
           <Ban className="h-3.5 w-3.5 shrink-0" />

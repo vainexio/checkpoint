@@ -216,7 +216,9 @@ export function PageHeader({ title, description, actions, icon: Icon, still, bar
           </div>
         </div>
         {actions && (
-          <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">{actions}</div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2 text-foreground/75 sm:gap-3">
+            {actions}
+          </div>
         )}
       </div>
     );
@@ -261,7 +263,7 @@ export function PageHeader({ title, description, actions, icon: Icon, still, bar
 
 export function LiveIndicator({ lastUpdated }) {
   return (
-    <span className="flex items-center gap-2 text-xs font-medium text-primary-foreground">
+    <span className="flex items-center gap-2 text-xs font-medium">
       <span className="relative flex h-2 w-2">
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />
         <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />

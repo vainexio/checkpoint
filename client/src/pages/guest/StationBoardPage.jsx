@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { usePolling, useNow } from '@/hooks/usePolling.js';
 import { fetchStationBoard } from '@/api/publicApi.js';
+import { Badge } from '@/components/ui/badge.tsx';
 import { StatusBadge } from '@/components/StatusBadge.jsx';
 import { SeatBadge } from '@/components/SeatPicker.jsx';
 import { JourneyStrip } from '@/components/JourneyStrip.jsx';
@@ -58,17 +59,16 @@ export default function StationBoardPage() {
   const arrivals = data?.arrivals ?? [];
   const [filter, setFilter] = useState('all');
 
-  // "Leaving" is a bus that starts its run here; everything else is inbound.
+  // A bus you can walk up to: standing here, or starting its run from here.
+  // "Leaving" described what the bus was about to do; this describes where it
+  // is, which is what someone reading the board is trying to find out.
+  const isHere = (a) => a.isHereNow || a.boardKind === 'departure';
   const counts = {
-    arriving: arrivals.filter((a) => a.boardKind !== 'departure').length,
-    departing: arrivals.filter((a) => a.boardKind === 'departure').length,
+    here: arrivals.filter(isHere).length,
+    arriving: arrivals.filter((a) => !isHere(a)).length,
   };
   const shown = arrivals.filter((a) =>
-    filter === 'all'
-      ? true
-      : filter === 'departing'
-        ? a.boardKind === 'departure'
-        : a.boardKind !== 'departure'
+    filter === 'all' ? true : filter === 'here' ? isHere(a) : !isHere(a)
   );
 
   return (
@@ -148,8 +148,8 @@ export default function StationBoardPage() {
           <SegmentedTabs
             options={[
               { value: 'all', label: 'All', count: arrivals.length },
+              { value: 'here', label: 'At this station', count: counts.here },
               { value: 'arriving', label: 'Arriving', count: counts.arriving },
-              { value: 'departing', label: 'Leaving', count: counts.departing },
             ]}
             value={filter}
             onChange={setFilter}
@@ -194,6 +194,14 @@ function ArrivalRow({ arrival, now, stationName }) {
   const isDeparture = arrival.boardKind === 'departure';
   const hasArrived = arrival.boardKind === 'arrived';
   const isFull = arrival.load === 'full';
+  // Live congestion on the leg it is on now, from the road ahead rather than
+  // the whole trip's history.
+  //
+  // Suppressed once a trip goes stale: "the leg ahead" is measured from the
+  // last confirmed checkpoint, and when that was hours ago the bus may be
+  // nowhere near it. Drawing it crawling through a jam would be claiming to
+  // know exactly what the stale flag exists to admit we do not.
+  const trafficMinutes = arrival.isStale ? 0 : (arrival.traffic?.adjustmentMinutes ?? 0);
   const scene = sceneFor({
     hasArrived,
     isFull,
@@ -206,7 +214,7 @@ function ArrivalRow({ arrival, now, stationName }) {
     // so a bus that met traffic an hour ago and is cruising since would have
     // drawn a permanent crawl. The server already reads the road immediately
     // ahead and drops anything under three minutes as noise.
-    inTraffic: (arrival.traffic?.adjustmentMinutes ?? 0) > 0,
+    inTraffic: trafficMinutes > 0,
   });
 
   return (
@@ -257,6 +265,9 @@ function ArrivalRow({ arrival, now, stationName }) {
                 conditionsAllowanceMinutes={arrival.conditionsAllowanceMinutes}
               />
               <SeatBadge load={arrival.load} showSource={false} />
+              {trafficMinutes > 0 && (
+                <Badge variant="warning">Traffic ahead · +{trafficMinutes} min</Badge>
+              )}
             </div>
 
             {/*

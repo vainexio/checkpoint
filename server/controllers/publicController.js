@@ -302,10 +302,13 @@ export const stationBoard = asyncHandler(async (req, res) => {
        * not.
        */
       const rank = (x) => {
-        if (x.isHereNow) return 0; // board it now
         if (x.boardKind === 'arrived') return 3; // done, kept for context
         if (x.isStale) return 2; // nobody can vouch for this time
-        return 1; // genuinely on the way
+        // Standing here, or starting its run from here: the only buses someone
+        // at this stop can walk up to right now. They lead the board, and the
+        // ones still on their way follow in the order they will turn up.
+        if (x.isHereNow || x.boardKind === 'departure') return 0;
+        return 1;
       };
       if (rank(a) !== rank(b)) return rank(a) - rank(b);
       if (!a.boardTime) return 1;

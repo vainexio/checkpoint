@@ -197,7 +197,14 @@ function MiniBus({ door = 'shut', dim = false }) {
   return (
     <span
       className={cn(
-        'relative block w-[148px] shrink rounded-[6px] bg-primary sm:w-[172px]',
+        // One width on a phone, whatever the scene.
+        //
+        // A full-width coach filled the band, which closed the road between it
+        // and the stop and made a bus an hour away look like it was standing at
+        // the kerb. Shrinking only the ones drawn far off fixed that but left
+        // the sizes inconsistent, so a bus at the stop looked like a different,
+        // larger vehicle than the same bus approaching it.
+        'relative block w-[96px] shrink rounded-[6px] bg-primary sm:w-[172px]',
         dim && 'opacity-55'
       )}
       aria-hidden
@@ -292,14 +299,20 @@ function SpeedLines({ stillness, late }) {
  * amber. If the bus coming is full, a bar stands in front of the queue: it is
  * arriving, and they still are not getting on.
  */
-function ThisStop({ late, full, waiting = 2, label }) {
+function ThisStop({ late, full, waiting = 2, label, compact }) {
   const heads = late ? waiting + 1 : waiting;
   return (
     <div className="flex min-w-0 shrink items-end gap-2" aria-hidden>
       {full && <span className="mb-2 h-[3px] w-6 shrink-0 rounded-full bg-destructive" />}
-      {Array.from({ length: heads }).map((_, i) => (
-        <Person key={i} h={i === 0 ? 24 : 20} tone={i % 2 ? 'primary' : 'accent'} />
-      ))}
+      {/* On a phone, where the bus is drawn away from the stop, the queue is
+          the first thing to go: the road between them is what has to survive,
+          and a labelled pole still reads as a stop without anyone standing at
+          it. */}
+      <span className={cn('items-end gap-2', compact ? 'hidden sm:flex' : 'flex')}>
+        {Array.from({ length: heads }).map((_, i) => (
+          <Person key={i} h={i === 0 ? 24 : 20} tone={i % 2 ? 'primary' : 'accent'} />
+        ))}
+      </span>
       <StopPole alert={late} label={label} />
     </div>
   );
@@ -382,7 +395,7 @@ export function BusStatusScene({ scene, atLabel, hereLabel }) {
         </div>
 
         {spread ? (
-          <ThisStop late={late} full={full} label={hereLabel} />
+          <ThisStop late={late} full={full} label={hereLabel} compact />
         ) : place === 'done' ? (
           <div className="flex min-w-0 items-end gap-2 opacity-70">
             <Person h={20} tone="primary" />

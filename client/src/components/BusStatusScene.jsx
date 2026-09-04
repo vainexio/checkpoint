@@ -54,6 +54,23 @@ const CRAWL_BEHIND = {
   times: [0, 0.33, 0.44, 0.67, 0.78, 1],
 };
 const CRAWL_ROAD = { x: [0, 0, -ROAD_PITCH, -ROAD_PITCH], times: [0, 0.33, 0.44, 1] };
+
+/**
+ * Boarding: a queue walking into the door and being replaced behind.
+ *
+ * Each passenger fades in at the back of the queue, walks up to the door and
+ * fades out as they step aboard, and the three of them are spaced a third of a
+ * cycle apart so someone is always on the move. The fade matters at both ends:
+ * a passenger is invisible when the loop restarts them, so the jump from the
+ * door back to the end of the queue is never seen.
+ */
+const BOARD_CYCLE = 3.3;
+const BOARD_WALK = 40;
+const BOARDING = {
+  x: [BOARD_WALK, BOARD_WALK - 5, 6, 0],
+  opacity: [0, 1, 1, 0],
+};
+const BOARDING_TIMES = [0, 0.14, 0.86, 1];
 const CRAWL_TIMING = { duration: CRAWL, repeat: Infinity, ease: 'easeInOut' };
 
 /**
@@ -380,17 +397,33 @@ export function BusStatusScene({ scene, atLabel, hereLabel }) {
               plainly not the one you are reading. */}
           {place === 'elsewhere' && <StopPole label={atLabel} />}
 
-          {/* Here, with room: someone stepping up to the open door. */}
+          {/* Here, with the door open: passengers walking on, one after
+              another, the queue behind them refilling as they go. */}
           {place === 'atStop' && !full && (
-            <motion.span
-              className="flex items-end"
-              animate={stillness ? {} : { x: [0, -7, 0] }}
-              transition={
-                stillness ? undefined : { duration: 1.7, repeat: Infinity, ease: 'easeInOut' }
-              }
-            >
-              <Person h={26} tone="accent" />
-            </motion.span>
+            <span className="relative block h-[26px] w-[44px] shrink-0" aria-hidden>
+              {stillness ? (
+                <span className="absolute bottom-0 left-0">
+                  <Person h={26} tone="accent" />
+                </span>
+              ) : (
+                [0, 1, 2].map((i) => (
+                  <motion.span
+                    key={i}
+                    className="absolute bottom-0 left-0"
+                    animate={BOARDING}
+                    transition={{
+                      duration: BOARD_CYCLE,
+                      times: BOARDING_TIMES,
+                      repeat: Infinity,
+                      ease: 'linear',
+                      delay: (i * BOARD_CYCLE) / 3,
+                    }}
+                  >
+                    <Person h={i === 1 ? 22 : 26} tone={i === 1 ? 'primary' : 'accent'} />
+                  </motion.span>
+                ))
+              )}
+            </span>
           )}
         </div>
 

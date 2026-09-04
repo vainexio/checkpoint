@@ -2,6 +2,7 @@ import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useEffect, useRef } from 'react';
 import { motion, useMotionValue, useReducedMotion } from 'framer-motion';
 import { Street, useStreetGeometry, useWheelSpin } from './Street.jsx';
+import { BusStatusScene } from '@/components/BusStatusScene.jsx';
 import { MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils.ts';
 import { formatTime } from '@/utils/time.js';
@@ -189,11 +190,47 @@ function useBusDrive(sceneRef, busRef, parked) {
  * @param bare   Drop the street entirely and keep just the heading. The staff
  *               side is a working tool, not a shopfront; the scenery belongs
  *               where passengers are.
+ * @param scene  Draw this trip's status instead of the street, in the same
+ *               card shape the arrivals board uses — so a bus looks the same
+ *               opening its doors whether you met it in a list or on its own
+ *               page.
  */
-export function PageHeader({ title, description, actions, icon: Icon, still, bare }) {
+export function PageHeader({ title, description, actions, icon: Icon, still, bare, scene }) {
   const sceneRef = useRef(null);
   const busRef = useRef(null);
   const drive = useBusDrive(sceneRef, busRef, still || bare);
+
+  if (scene) {
+    return (
+      <div className="mb-5 overflow-hidden rounded-xl border bg-card shadow-sm sm:mb-7">
+        <BusStatusScene variant={scene} />
+        <div className="flex flex-col justify-between gap-3 p-4 sm:flex-row sm:items-end sm:gap-6 sm:p-5">
+          <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+            {Icon && (
+              <div className="mt-[3px] flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary sm:h-12 sm:w-12">
+                <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
+              </div>
+            )}
+            <div className="min-w-0">
+              <h1 className="text-[21px] font-black leading-tight tracking-tight sm:text-[27px]">
+                {title}
+              </h1>
+              {description && (
+                <div className="mt-1 max-w-2xl text-[14px] font-medium text-muted-foreground sm:text-[15px]">
+                  {description}
+                </div>
+              )}
+            </div>
+          </div>
+          {actions && (
+            <div className="flex shrink-0 flex-wrap items-center gap-2 text-foreground/75 sm:gap-3">
+              {actions}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (bare) {
     return (

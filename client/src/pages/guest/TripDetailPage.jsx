@@ -6,6 +6,7 @@ import { StatusBadge } from '@/components/StatusBadge.jsx';
 import { StaleNotice } from '@/components/StaleNotice.jsx';
 import { Timeline } from '@/components/Timeline.jsx';
 import { PageHeader, LiveIndicator } from '@/components/layout/AppLayout.jsx';
+import { sceneFor } from '@/components/BusStatusScene.jsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.tsx';
 import { Alert, AlertDescription } from '@/components/ui/alert.tsx';
 import { Skeleton } from '@/components/ui/skeleton.tsx';
@@ -74,12 +75,22 @@ export default function TripDetailPage() {
   const arrivalTime =
     destination?.actualArrival ?? destination?.projectedArrival ?? destination?.scheduledArrival;
 
+  // A trip page has no stop to be "here" at, so the scene comes from the trip's
+  // own state: finished, full, still at its origin, or out on the road.
+  const scene = sceneFor({
+    hasArrived: trip.status === 'arrived',
+    isFull: trip.load === 'full',
+    isHereNow: false,
+    isDeparture: false,
+    notDepartedYet,
+  });
+
   return (
     <div className="mx-auto max-w-3xl">
       {back}
 
       <PageHeader
-        still
+        scene={scene}
         icon={Bus}
         title={trip.route.name}
         description={

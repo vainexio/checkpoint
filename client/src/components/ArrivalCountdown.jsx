@@ -36,7 +36,7 @@ export function ArrivalCountdown({
   /**
    * Past its estimate, with nobody confirming it anywhere.
    *
-   * "Due now" is a promise, and repeating it over a bus that stopped reporting
+   * "Any moment" is a promise, and repeating it over a bus that stopped reporting
    * an hour ago is the worst thing this screen can do: it holds someone at a
    * curb for a bus that may have driven past already. Once the estimate is both
    * stale and well overdue, the count flips to counting *up* — which is not an
@@ -53,7 +53,9 @@ export function ArrivalCountdown({
       : hasArrived || lostIt
         ? formatDuration(minutes)
         : minutes <= 0
-          ? 'Due now'
+          ? // "Due now" is what a timetable says, not what a person waiting
+            // for a bus says.
+            'Any moment'
           : formatDuration(minutes);
 
   const label = isHereNow
@@ -62,10 +64,13 @@ export function ArrivalCountdown({
       ? 'Arrived'
       : lostIt
         ? 'Overdue by'
-        : kind === 'departure'
-          ? 'Departs in'
-          : minutes !== null && minutes <= 0
-            ? 'Expected'
+        : minutes !== null && minutes <= 0
+          ? // Paired with "Any moment", so it names the event, not a wait.
+            kind === 'departure'
+            ? 'Leaving'
+            : 'Arriving'
+          : kind === 'departure'
+            ? 'Departs in'
             : 'Arrives in';
 
   const tone = isHereNow

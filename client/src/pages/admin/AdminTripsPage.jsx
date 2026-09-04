@@ -36,6 +36,7 @@ import {
 import { cn } from '@/lib/utils.ts';
 import {
   formatDateTime,
+  formatElapsed,
   formatVariance,
   fromManilaInputValue,
   toManilaInputValue,
@@ -166,6 +167,7 @@ export default function AdminTripsPage() {
                     <TableHead>Bus</TableHead>
                     <TableHead>Conductor</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Last confirmed</TableHead>
                     <TableHead>Running</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -184,10 +186,14 @@ export default function AdminTripsPage() {
                       <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                         {formatDateTime(trip.scheduledDeparture)}
                       </TableCell>
-                      <TableCell className="font-mono text-xs">
+                      <TableCell className="whitespace-nowrap font-mono text-xs font-semibold">
                         {trip.bus?.plateNumber ?? '—'}
                       </TableCell>
-                      <TableCell>{trip.conductor?.name ?? '—'}</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {trip.conductor?.name ?? (
+                          <span className="text-muted-foreground">Unassigned</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <StatusBadge
                           status={trip.status}
@@ -195,6 +201,23 @@ export default function AdminTripsPage() {
                           varianceMinutes={trip.varianceMinutes}
                           conditionsAllowanceMinutes={trip.conditionsAllowanceMinutes}
                         />
+                      </TableCell>
+                      {/* Where it actually is, which the dashboard shows and
+                          this list did not — the same question, asked from a
+                          different page. */}
+                      <TableCell className="whitespace-nowrap text-xs">
+                        {trip.lastConfirmedCheckpoint ? (
+                          <>
+                            <div className="font-medium">{trip.lastConfirmedCheckpoint.name}</div>
+                            {trip.minutesSinceLastConfirm != null && (
+                              <div className="text-muted-foreground">
+                                {formatElapsed(trip.minutesSinceLastConfirm)} ago
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell className="whitespace-nowrap">
                         {trip.actualDeparture ? formatVariance(trip.varianceMinutes) : '—'}

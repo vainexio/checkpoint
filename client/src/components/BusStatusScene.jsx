@@ -28,6 +28,35 @@ import { cn } from '@/lib/utils';
 const BAND = 'relative h-[70px] overflow-hidden bg-background sm:h-[82px]';
 
 /**
+ * The stop-start crawl of a queue in traffic.
+ *
+ * One vehicle edges forward at a time, and everything holds for a beat
+ * between moves, which is what congestion actually looks like from inside it:
+ * the car ahead pulls away, the bus closes the gap, the car behind closes its
+ * own.
+ *
+ * It loops seamlessly because the camera rides with the bus, so these are
+ * *relative* positions. The car ahead gains a length and gives it straight
+ * back when the bus catches up; the car behind loses one when the bus pulls
+ * away and takes it back in turn. Every offset ends the cycle where it
+ * started, so nothing has to snap. Animating absolute positions instead would
+ * drift the whole queue off the end of the road.
+ */
+const CRAWL = 4.5;
+const HOP = 14;
+/* One dash plus one gap. Sliding the road by exactly this per cycle means the
+   pattern lands on itself and the restart cannot be seen. */
+const ROAD_PITCH = 36;
+
+const CRAWL_AHEAD = { x: [0, HOP, HOP, 0, 0], times: [0, 0.11, 0.33, 0.44, 1] };
+const CRAWL_BEHIND = {
+  x: [0, 0, -HOP, -HOP, 0, 0],
+  times: [0, 0.33, 0.44, 0.67, 0.78, 1],
+};
+const CRAWL_ROAD = { x: [0, 0, -ROAD_PITCH, -ROAD_PITCH], times: [0, 0.33, 0.44, 1] };
+const CRAWL_TIMING = { duration: CRAWL, repeat: Infinity, ease: 'easeInOut' };
+
+/**
  * Fits a station name on a bus stop sign.
  *
  * "Terminal" and "Station" are what the sign is, not what it says — every
@@ -109,6 +138,24 @@ function StopPole({ alert = false, label }) {
   );
 }
 
+/** Other traffic. Small, muted, and only ever drawn beside a bus in a queue. */
+function Car({ alt = false }) {
+  return (
+    <span className="relative block w-[34px] shrink-0 sm:w-[40px]" aria-hidden>
+      <span
+        className={cn(
+          'relative block h-[11px] rounded-t-[5px] rounded-b-[2px] sm:h-[13px]',
+          alt ? 'scene-car-alt' : 'scene-car'
+        )}
+      >
+        <span className="absolute left-[5px] right-[9px] top-[2px] h-[4px] rounded-[1px] scene-car-glass sm:h-[5px]" />
+      </span>
+      <span className="absolute -bottom-[5px] left-[7px] h-[10px] w-[10px] rounded-full bg-[#141A17]" />
+      <span className="absolute -bottom-[5px] right-[6px] h-[10px] w-[10px] rounded-full bg-[#141A17]" />
+    </span>
+  );
+}
+
 /** The coach. The door is the part that carries the message. */
 function MiniBus({ door = 'shut', dim = false }) {
   return (
@@ -155,8 +202,9 @@ function MiniBus({ door = 'shut', dim = false }) {
 }
 
 /** Dashes slide only when the bus is actually moving. */
-function Road({ moving, stillness }) {
+function Road({ moving, crawl, stillness }) {
   const run = moving && !stillness;
+  const creeping = run && crawl;
   return (
     <div
       className="absolute inset-x-0 bottom-0 h-[8px] overflow-hidden bg-foreground/[0.18]"
@@ -164,8 +212,14 @@ function Road({ moving, stillness }) {
     >
       <motion.div
         className="absolute left-0 top-1/2 flex w-[200%] -translate-y-1/2 gap-3"
-        animate={run ? { x: ['0%', '-50%'] } : { x: '0%' }}
-        transition={run ? { duration: 1.1, ease: 'linear', repeat: Infinity } : { duration: 0 }}
+        animate={creeping ? CRAWL_ROAD : run ? { x: ['0%', '-50%'] } : { x: '0%' }}
+        transition={
+          creeping
+            ? CRAWL_TIMING
+            : run
+              ? { duration: 1.1, ease: 'linear', repeat: Infinity }
+              : { duration: 0 }
+        }
       >
         {Array.from({ length: 30 }).map((_, i) => (
           <span key={i} className="h-[2px] w-6 shrink-0 rounded-full bg-background/70" />
@@ -225,6 +279,8 @@ export function BusStatusScene({ scene, atLabel, hereLabel }) {
   const { place, full, late } = scene;
 
   const travelling = place === 'travelling';
+  // Only a bus actually on the road can be sitting in traffic.
+  const crawling = travelling && scene.traffic;
   // Away from you: the road between the bus and your stop is the point, so the
   // two ends are pushed apart. Here or finished: one tableau, centred.
   const spread = travelling || place === 'elsewhere';
@@ -233,7 +289,7 @@ export function BusStatusScene({ scene, atLabel, hereLabel }) {
 
   return (
     <div className={BAND} aria-hidden>
-      <Road moving={travelling} stillness={stillness} />
+      <Road moving={travelling} crawl={crawling} stillness={stillness} />
 
       <div
         className={cn(
@@ -241,9 +297,35 @@ export function BusStatusScene({ scene, atLabel, hereLabel }) {
           spread ? 'justify-between' : 'justify-center gap-4'
         )}
       >
-        <div className="flex items-end gap-3">
-          {travelling && <SpeedLines stillness={stillness} late={late} />}
+        <div className={cn('flex items-end', crawling ? 'gap-2 sm:gap-3' : 'gap-3')}>
+          {/* Not speeding, so no speed lines — the queue says it instead. */}
+          {travelling && !crawling && <SpeedLines stillness={stillness} late={late} />}
+
+          {/* The car behind loses ground when the bus pulls away, then takes
+              it back. Hidden on the narrowest screens, where the queue ahead
+              already reads and the width is needed for the name plates. */}
+          {crawling && (
+            <motion.span
+              className="hidden items-end min-[420px]:flex"
+              animate={stillness ? {} : CRAWL_BEHIND}
+              transition={stillness ? undefined : CRAWL_TIMING}
+            >
+              <Car alt />
+            </motion.span>
+          )}
+
           <MiniBus door={door} dim={place === 'done'} />
+
+          {/* The car ahead pulls away, and the bus closes it up. */}
+          {crawling && (
+            <motion.span
+              className="flex items-end"
+              animate={stillness ? {} : CRAWL_AHEAD}
+              transition={stillness ? undefined : CRAWL_TIMING}
+            >
+              <Car />
+            </motion.span>
+          )}
 
           {/* Parked somewhere else: draw the stop it is standing at, so it is
               plainly not the one you are reading. */}
@@ -282,9 +364,14 @@ export function BusStatusScene({ scene, atLabel, hereLabel }) {
  * Where the bus is, and what else is true of it.
  *
  * Place is decided first and on its own, because it is the question being
- * asked. "Full" and "late" then modify that picture rather than replacing it —
- * which is the fix for a full bus still an hour away drawing as though it were
- * standing in front of you.
+ * asked. "Full", "late" and "in traffic" then modify that picture rather than
+ * replacing it — which is the fix for a full bus still an hour away drawing as
+ * though it were standing in front of you.
+ *
+ * Late and traffic are deliberately separate, because the engine separates
+ * them: `isLate` is time this trip lost on its own, with shared congestion
+ * already subtracted, while `inTraffic` is that shared congestion. A bus can
+ * be crawling and not late, and the drawing should be able to say so.
  */
 export function sceneFor({
   hasArrived,
@@ -293,6 +380,7 @@ export function sceneFor({
   isDeparture,
   notDepartedYet,
   isLate,
+  inTraffic,
 }) {
   const place = hasArrived
     ? 'done'
@@ -302,5 +390,10 @@ export function sceneFor({
         ? 'elsewhere'
         : 'travelling';
 
-  return { place, full: Boolean(isFull), late: Boolean(isLate) };
+  return {
+    place,
+    full: Boolean(isFull),
+    late: Boolean(isLate),
+    traffic: Boolean(inTraffic),
+  };
 }

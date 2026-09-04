@@ -201,6 +201,9 @@ function ArrivalRow({ arrival, now, stationName }) {
     isDeparture,
     notDepartedYet,
     isLate: arrival.status === 'delayed',
+    // Shared congestion on the road, which is a different thing from this
+    // trip being late: the engine subtracts one from the other.
+    inTraffic: (arrival.conditionsAllowanceMinutes ?? 0) > 0,
   });
 
   return (

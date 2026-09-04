@@ -304,13 +304,13 @@ const TRIPS = [
     conductor: 'joel',
     departedAgo: 120,
     confirms: [
-      ['Alabang South Station', 74],
-      ['Turbina Bus Terminal', 32],
+      ['Alabang South Station', 74, 4],
+      ['Turbina Bus Terminal', 32, 5],
     ],
     left: ['Turbina Bus Terminal', 29],
     load: ['full', 29],
     delay: ['loading', 25],
-    note: 'left Turbina FULL — should warn people not to wait',
+    note: 'left Turbina FULL, and crawling — most of its lost time is traffic',
   },
   {
     route: 'PITX – Lipa',
@@ -319,13 +319,13 @@ const TRIPS = [
     departedAgo: 130,
     confirms: [
       ['Alabang South Station', 90],
-      ['Turbina Bus Terminal', 55],
-      ['SM Santo Tomas Terminal', 30],
+      ['Turbina Bus Terminal', 55, 6],
+      ['SM Santo Tomas Terminal', 30, 3],
       ['Tanauan City Transport Terminal', 14],
     ],
     left: ['Tanauan City Transport Terminal', 10],
     load: ['seats', 10],
-    note: 'left Tanauan with seats, running early',
+    note: 'held up by traffic, but not its own fault — should not read delayed',
   },
   {
     route: 'PITX – Lipa',
@@ -643,8 +643,16 @@ async function seed() {
 
     if (!spec.scheduledInMinutes) {
       push('departed', minutesAgo(spec.departedAgo));
-      for (const [name, ago] of spec.confirms ?? []) {
-        push('passed_checkpoint', minutesAgo(ago), { checkpoint: idFor(name) });
+      for (const [name, ago, trafficMinutes] of spec.confirms ?? []) {
+        // A third value is how much of that leg was congestion everyone on the
+        // road shared. Live, `stampConditions` fills this in from the traffic
+        // provider at the moment a conductor confirms; the seed states it,
+        // because the provider's cache lives in the server process and this
+        // one has no way to reach it.
+        push('passed_checkpoint', minutesAgo(ago), {
+          checkpoint: idFor(name),
+          ...(trafficMinutes ? { trafficAllowanceMinutes: trafficMinutes } : {}),
+        });
       }
       if (spec.load) {
         push('load_report', minutesAgo(spec.load[1]), { load: spec.load[0] });

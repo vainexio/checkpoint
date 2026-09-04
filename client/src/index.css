@@ -229,6 +229,18 @@
     background-color: color-mix(in srgb, hsl(var(--foreground)) 22%, hsl(var(--background)));
   }
 
+  /* Other traffic: near enough the palette to belong, far enough from the
+     green that the bus stays the subject. */
+  .scene-car {
+    background-color: color-mix(in srgb, hsl(var(--foreground)) 34%, hsl(var(--background)));
+  }
+  .scene-car-alt {
+    background-color: color-mix(in srgb, hsl(var(--accent)) 42%, hsl(var(--background)));
+  }
+  .scene-car-glass {
+    background-color: color-mix(in srgb, hsl(var(--background)) 78%, hsl(var(--foreground)));
+  }
+
   .glass-panel {
     @apply bg-background/70 backdrop-blur-xl border-b border-border shadow-sm;
   }

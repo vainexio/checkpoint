@@ -33,6 +33,7 @@ export default function AdminDashboardPage() {
   return (
     <>
       <PageHeader
+        bare
         icon={LayoutDashboard}
         title="Today's trips"
         description="Everything currently scheduled or under way."

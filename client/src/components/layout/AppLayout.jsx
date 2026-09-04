@@ -1,7 +1,7 @@
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { useEffect, useRef, useState } from 'react';
-import { motion, useMotionValue, useReducedMotion, useTransform } from 'framer-motion';
-import { Skyline, BusStop } from './StreetScene.jsx';
+import { useEffect, useRef } from 'react';
+import { motion, useMotionValue, useReducedMotion } from 'framer-motion';
+import { Street, useStreetGeometry, useWheelSpin } from './Street.jsx';
 import { MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils.ts';
 import { formatTime } from '@/utils/time.js';
@@ -121,73 +121,38 @@ export function AppLayout({ children, navbar }) {
   );
 }
 
-/* Axle positions along the coach, as a percentage of its length. */
-const WHEEL_AT = [20, 80];
-
 /* Never tie the drive to a span so short that a nudge throws the bus off. */
 const MIN_DRIVE_SPAN = 260;
 
 /**
- * Drives the header bus.
+ * Drives the header bus as the page scrolls.
  *
  * Scrolling down always drives it forward, out to the right, and it stops once
  * it is gone. Scrolling up depends on where it is: while some of it is still
- * in the frame it reverses back to the kerb, which is the only reversal worth
+ * in the frame it backs up to the kerb, which is the only reversal worth
  * having. Once it has cleared the frame there is nothing to reverse, so
- * scrolling up brings the *next* one round from the left instead, nose first,
- * and it parks at the kerb rather than driving on through.
+ * scrolling up hands over to the next bus, which comes round from the left
+ * nose first and parks rather than driving on through.
  *
- * The hand-off is a jump from off-screen right to off-screen left, and it is
- * invisible for a specific reason: both ends of it are outside the clip, so
- * the bus is never seen crossing back.
- *
- * Rotation is derived from the position rather than from the scroll, so the
- * wheels can only ever turn the way the bus is going, as fast as it is going.
+ * The hand-off is a jump from off-screen right to off-screen left, and it
+ * stays invisible for a specific reason: both ends of it sit outside the clip,
+ * so the bus is never seen crossing back.
  */
-function useBusDrive(sceneRef, busRef) {
+function useBusDrive(sceneRef, busRef, parked) {
   const x = useMotionValue(0);
   const stillness = useReducedMotion();
+  const still = parked || stillness;
   const lastY = useRef(0);
-  const [geo, setGeo] = useState({ exit: 1400, enter: 900, wheel: 62, rate: 3.2 });
+  const geo = useStreetGeometry(sceneRef, busRef);
+  const spin = useWheelSpin(x, geo.wheel);
 
   useEffect(() => {
-    const scene = sceneRef.current;
-    const bus = busRef.current;
-    if (!scene || !bus) return undefined;
-
-    const measure = () => {
-      const sceneBox = scene.getBoundingClientRect();
-      // The row is never transformed, so its left edge is the bus at rest —
-      // reading the bus itself would fold in however far it has already driven.
-      const home = bus.parentElement.getBoundingClientRect().left;
-
-      setGeo({
-        exit: Math.max(240, window.innerWidth - home + 24),
-        enter: home + bus.offsetWidth + 24,
-        wheel: window.matchMedia('(min-width: 640px)').matches ? 62 : 44,
-        // Gone at about the moment the header itself clears the top of the
-        // window, which depends on how many lines the description wrapped to.
-        rate:
-          Math.max(240, window.innerWidth - home + 24) /
-          Math.max(MIN_DRIVE_SPAN, sceneBox.top + window.scrollY + sceneBox.height),
-      });
-    };
-
-    measure();
-    // Heights settle after the first paint; a box read once and cached is
-    // exactly how this kind of effect ends up mistimed.
-    const observer = new ResizeObserver(measure);
-    observer.observe(scene);
-    window.addEventListener('resize', measure);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener('resize', measure);
-    };
-  }, [sceneRef, busRef]);
-
-  useEffect(() => {
-    if (stillness) return undefined;
+    if (still) return undefined;
     lastY.current = window.scrollY;
+
+    // Gone at about the moment the header itself clears the top of the window,
+    // which depends on how many lines the description wrapped to.
+    const rate = geo.exit / Math.max(MIN_DRIVE_SPAN, geo.span);
 
     const onScroll = () => {
       const y = window.scrollY;
@@ -198,14 +163,14 @@ function useBusDrive(sceneRef, busRef) {
       let at = x.get();
 
       if (delta > 0) {
-        at = Math.min(geo.exit, at + delta * geo.rate);
+        at = Math.min(geo.exit, at + delta * rate);
       } else {
         // Already gone: hand over to a fresh bus waiting off to the left.
         if (at >= geo.exit) at = -geo.enter;
         at =
           at < 0
-            ? Math.min(0, at - delta * geo.rate) // arriving, parks at the kerb
-            : Math.max(0, at + delta * geo.rate); // still in frame, backs up
+            ? Math.min(0, at - delta * rate) // arriving, parks at the kerb
+            : Math.max(0, at + delta * rate); // still in frame, backs up
       }
 
       x.set(at);
@@ -213,181 +178,87 @@ function useBusDrive(sceneRef, busRef) {
 
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
-  }, [geo, stillness, x]);
+  }, [geo, still, x]);
 
-  const spin = useTransform(x, (px) => (px / (Math.PI * geo.wheel)) * 360);
-
-  return { x, spin, stillness };
+  return { x, spin, still };
 }
 
-export function PageHeader({ title, description, actions, icon: Icon }) {
+/**
+ * @param still  Park the bus. A page whose whole point is one trip's detail
+ *               has nothing to gain from scenery that moves under the reader.
+ * @param bare   Drop the street entirely and keep just the heading. The staff
+ *               side is a working tool, not a shopfront; the scenery belongs
+ *               where passengers are.
+ */
+export function PageHeader({ title, description, actions, icon: Icon, still, bare }) {
   const sceneRef = useRef(null);
   const busRef = useRef(null);
-  const { x, spin, stillness } = useBusDrive(sceneRef, busRef);
+  const drive = useBusDrive(sceneRef, busRef, still || bare);
+
+  if (bare) {
+    return (
+      <div className="mb-5 flex flex-col justify-between gap-3 sm:mb-7 sm:flex-row sm:items-end sm:gap-6">
+        <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+          {Icon && (
+            <div className="mt-[3px] flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary sm:h-12 sm:w-12">
+              <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
+            </div>
+          )}
+          <div className="min-w-0">
+            <h1 className="text-[22px] font-black leading-tight tracking-tight sm:text-[28px]">
+              {title}
+            </h1>
+            {description && (
+              <div className="mt-1 max-w-2xl text-[14px] font-medium text-muted-foreground sm:text-[15px]">
+                {description}
+              </div>
+            )}
+          </div>
+        </div>
+        {actions && (
+          <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">{actions}</div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="mb-5 sm:mb-7">
-      {/*
-        * The bus keeps its own proportions; the street fills the rest.
-        *
-        * Capping the panel stopped it stretching, but left dead space beside
-        * it on a wide screen. Rather than growing the bus back out of shape,
-        * the space becomes the road it is driving on and the stop it is
-        * pulling into — so the width is used without the vehicle paying for
-        * it.
-        */}
-      <motion.div
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
-        ref={sceneRef}
-        // Clipped, so a bus on its way out cannot widen the page.
-        className="relative overflow-hidden pt-16 sm:pt-16 lg:pt-24"
-      >
+      <Street sceneRef={sceneRef} busRef={busRef} {...drive}>
         {/*
-          * The ground line.
-          *
-          * The bottom of this box is the top of the road, and everything in
-          * the scene bottom-aligns to it: the skyline behind, the bus, and the
-          * stop furniture beside it. Hanging the city off the outer wrapper
-          * instead put it a road-height lower than everything else, which is
-          * what made the whole street look like it was floating.
+          * The flank carries the name, the line under it, and the controls.
+          * Laid out in bands rather than overlays: the icon and the words in
+          * one column, the actions in another, so nothing can land on top of
+          * the text the way it used to.
           */}
-        <div className="relative">
-          <Skyline />
-
-          <div className="relative z-10 flex items-end gap-5 xl:gap-7">
-            {/* -------------------------------------------------------- the bus */}
-            <motion.div
-              ref={busRef}
-              style={stillness ? undefined : { x }}
-              className="relative z-20 w-full max-w-[820px] shrink-0"
-            >
-              {/*
-                * Wheels.
-                *
-                * The old pair were 40px on an 820px coach, near-black against
-                * a dark road, with only a sliver showing below the body: a
-                * smudge, not a wheel. These are sized to the vehicle and built
-                * in rings, so the part that does show below the arch carries
-                * the detail — tyre, pale rim, hub and lug nuts, each reading
-                * against the one outside it.
-                */}
-              {/*
-                * Wheels, drawn over the body rather than behind it.
-                *
-                * Tucked behind, only the lower half ever showed, and half a
-                * wheel cannot carry any detail. Sitting on top, the whole
-                * circle reads, so it gets the full build: tyre, rim, six lug
-                * nuts and a hub.
-                */}
-              {WHEEL_AT.map((pct) => (
-                <motion.span
-                  key={pct}
-                  className="absolute -bottom-[22px] z-20 grid h-11 w-11 place-items-center rounded-full bg-[#141A17] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.10)] sm:-bottom-[31px] sm:h-[62px] sm:w-[62px]"
-                  style={{ left: `${pct}%`, x: '-50%', rotate: stillness ? 0 : spin }}
-                  aria-hidden
-                >
-                  {/* Rim, lug nuts and hub, lit from above by the inset shade. */}
-                  <span className="relative grid h-[26px] w-[26px] place-items-center rounded-full bg-[#E2E8E1] shadow-[inset_0_-2px_3px_rgba(20,26,23,0.28)] sm:h-[34px] sm:w-[34px]">
-                    {[0, 60, 120, 180, 240, 300].map((deg) => (
-                      <span
-                        key={deg}
-                        className="absolute h-[3px] w-[3px] rounded-full bg-[#8D9A94] sm:h-[4px] sm:w-[4px]"
-                        style={{ transform: `rotate(${deg}deg) translateY(-9px)` }}
-                      />
-                    ))}
-                    <span className="h-2.5 w-2.5 rounded-full bg-[#6F7C77] sm:h-3.5 sm:w-3.5" />
-                  </span>
-                </motion.span>
-              ))}
-
-              <div className="relative z-10 overflow-hidden rounded-[12px] bg-primary text-primary-foreground sm:rounded-[14px]">
-                <div className="flex items-center gap-2 px-3 pt-3 sm:gap-2.5 sm:px-4 sm:pt-4" aria-hidden>
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <span
-                      key={i}
-                      className="relative h-8 flex-1 overflow-hidden rounded-[4px] bg-primary-foreground/[0.18] sm:h-10"
-                    >
-                      <span className="absolute inset-x-0 top-0 h-1/3 bg-primary-foreground/[0.12]" />
-                      <span className="absolute inset-y-1 right-1/3 w-px bg-primary/25" />
-                    </span>
-                  ))}
-                  <span className="relative h-8 w-6 shrink-0 overflow-hidden rounded-[4px] bg-accent/40 sm:h-10 sm:w-8">
-                    <span className="absolute inset-x-1 top-1 bottom-1 rounded-[3px] bg-primary-foreground/[0.14]" />
-                    <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-primary/30" />
-                  </span>
-                  <span className="relative h-8 flex-[1.35] overflow-hidden rounded-[4px] rounded-tr-[10px] bg-primary-foreground/[0.24] sm:h-10 sm:rounded-tr-[12px]">
-                    <span className="absolute inset-x-0 top-0 h-1/3 bg-primary-foreground/[0.12]" />
-                  </span>
-                </div>
-
-                {/*
-                  * The flank carries the name, the line under it, and the
-                  * controls. Laid out in bands rather than overlays: the icon
-                  * and the words in one column, the actions in another, so
-                  * nothing can land on top of the text the way it used to.
-                  */}
-                <div className="flex flex-col gap-3 px-4 pb-6 pt-4 sm:gap-4 sm:px-5 sm:pb-7 sm:pt-[18px] md:flex-row md:items-end md:justify-between md:gap-6">
-                  <div className="flex min-w-0 items-start gap-3 sm:gap-4">
-                    {Icon && (
-                      <div className="mt-[3px] flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-foreground/20 sm:h-11 sm:w-11">
-                        <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
-                      </div>
-                    )}
-                    <div className="min-w-0">
-                      <h1 className="text-[21px] font-black leading-tight tracking-tight sm:text-[27px]">
-                        {title}
-                      </h1>
-                      {description && (
-                        <div className="mt-1.5 max-w-2xl text-[13.5px] font-medium leading-relaxed text-primary-foreground sm:text-[14.5px]">
-                          {description}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {actions && (
-                    <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">
-                      {actions}
-                    </div>
-                  )}
-                </div>
-
-                <div className="relative h-3 bg-accent/25 sm:h-4" aria-hidden>
-                  <span className="absolute bottom-[3px] left-3 h-1.5 w-3.5 rounded-[2px] bg-destructive/75 sm:left-4 sm:w-4" />
-                  <span className="absolute bottom-[3px] right-3 h-1.5 w-5 rounded-[2px] bg-warning/85 sm:right-4 sm:w-6" />
-                </div>
-
+        <div className="flex flex-col gap-3 px-4 pb-6 pt-4 sm:gap-4 sm:px-5 sm:pb-7 sm:pt-[18px] md:flex-row md:items-end md:justify-between md:gap-6">
+          <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+            {Icon && (
+              <div className="mt-[3px] flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-foreground/20 sm:h-11 sm:w-11">
+                <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
-            </motion.div>
-
-            <BusStop />
+            )}
+            <div className="min-w-0">
+              <h1 className="text-[21px] font-black leading-tight tracking-tight sm:text-[27px]">
+                {title}
+              </h1>
+              {description && (
+                <div className="mt-1.5 max-w-2xl text-[13.5px] font-medium leading-relaxed text-primary-foreground sm:text-[14.5px]">
+                  {description}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* ------------------------------------------------------------ road */}
-        <div
-          className="relative z-0 mt-[5px] h-[19px] rounded-[3px] bg-foreground/[0.22] sm:mt-[6px] sm:h-7"
-          aria-hidden
-        >
-          <div className="absolute inset-x-4 top-1/2 flex -translate-y-1/2 gap-4">
-            {Array.from({ length: 16 }).map((_, i) => (
-              <span key={i} className="h-[2px] flex-1 rounded-full bg-background/60" />
-            ))}
-          </div>
+          {actions && (
+            <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">{actions}</div>
+          )}
         </div>
-      </motion.div>
-
+      </Street>
     </div>
   );
 }
 
-/**
- * Updates arrive when a conductor taps, not on a ticker — but a board that
- * never visibly moves reads as broken. This says plainly when the screen last
- * checked, which is the truthful version of "live".
- */
 export function LiveIndicator({ lastUpdated }) {
   return (
     <span className="flex items-center gap-2 text-xs font-medium text-primary-foreground">

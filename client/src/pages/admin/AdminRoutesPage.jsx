@@ -299,6 +299,7 @@ export default function AdminRoutesPage() {
   return (
     <>
       <PageHeader
+        bare
         icon={RouteIcon}
         title="Routes & checkpoints"
         description="A route is an ordered chain of checkpoints with the usual travel time between each. Place the points on the map, put them in order, and give each leg its normal duration."

@@ -79,6 +79,7 @@ export default function TripDetailPage() {
       {back}
 
       <PageHeader
+        still
         icon={Bus}
         title={trip.route.name}
         description={

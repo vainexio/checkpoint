@@ -27,6 +27,7 @@ export default function AdminFleetPage() {
   return (
     <>
       <PageHeader
+        bare
         icon={Users}
         title="Fleet & crew"
         description="Buses and conductor accounts available for scheduling."

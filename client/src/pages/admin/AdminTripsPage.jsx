@@ -86,6 +86,7 @@ export default function AdminTripsPage() {
   return (
     <>
       <PageHeader
+        bare
         icon={CalendarClock}
         title="Trips"
         description="Scheduling a trip copies the route's checkpoints and baseline times onto it. Editing the route later will not change a trip already created."

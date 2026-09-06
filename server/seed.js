@@ -502,15 +502,14 @@ const TRIPS = [
 const minutesAgo = (m) => new Date(Date.now() - m * 60_000);
 const minutesFromNow = (m) => new Date(Date.now() + m * 60_000);
 
-async function seed() {
-  if (!process.env.MONGODB_URI) {
-    console.error('MONGODB_URI is not set. Copy server/.env.example to server/.env first.');
-    process.exit(1);
-  }
-
-  await mongoose.connect(process.env.MONGODB_URI);
-  console.log('Connected to MongoDB.\n');
-
+/**
+ * Rebuild the demo data on whatever connection is already open.
+ *
+ * Deliberately does not connect or disconnect: run from the server process it
+ * would otherwise tear down the connection the API is serving requests on.
+ * The command-line wrapper at the bottom of this file owns the connection.
+ */
+export async function reseed() {
   if (FRESH) {
     await Promise.all([
       CheckpointLog.deleteMany({}),
@@ -694,11 +693,28 @@ async function seed() {
   for (const c of CONDUCTORS) console.log(`  Conductor  ${c.username} / ${c.password}`);
   console.log('\nGuests need no account at all.');
 
-  await mongoose.disconnect();
+  return { trips: summary.length };
 }
 
-seed().catch(async (err) => {
-  console.error('Seed failed:', err);
-  await mongoose.disconnect();
-  process.exit(1);
-});
+/* Only when run as a script, so importing this file has no side effects. */
+const runFromCli = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (runFromCli) {
+  if (!process.env.MONGODB_URI) {
+    console.error('MONGODB_URI is not set. Copy server/.env.example to server/.env first.');
+    process.exit(1);
+  }
+
+  mongoose
+    .connect(process.env.MONGODB_URI)
+    .then(async () => {
+      console.log('Connected to MongoDB.\n');
+      await reseed();
+      await mongoose.disconnect();
+    })
+    .catch(async (err) => {
+      console.error('Seed failed:', err);
+      await mongoose.disconnect();
+      process.exit(1);
+    });
+}

@@ -14,6 +14,52 @@ import { canMeasure, measureLegs } from '../services/legMeasurer.js';
  * rate limit, and exposing it publicly would be the quickest way to get the
  * whole deployment blocked. Costs nothing and is unrelated to the traffic key.
  */
+/**
+ * Rebuild the demo data, for refreshing a live demonstration.
+ *
+ * Admin only, because it empties the trip collection: an unauthenticated
+ * endpoint that wipes the database is a hole, however quiet the button that
+ * calls it.
+ *
+ * The rebuild is started rather than awaited. It takes the better part of a
+ * minute against a remote database, and a request held open that long is at
+ * the mercy of every timeout between the server and the browser — measured
+ * here failing on the client while the rebuild itself completed perfectly.
+ * The caller polls the companion endpoint instead, so the connection is never
+ * the thing that has to survive.
+ */
+let reseedState = { running: false, finishedAt: null, error: null, trips: null };
+
+export const reseedDemoData = asyncHandler(async (req, res) => {
+  if (reseedState.running) {
+    return res.status(202).json({ status: 'already-running' });
+  }
+
+  reseedState = { running: true, finishedAt: null, error: null, trips: null };
+
+  (async () => {
+    try {
+      const { reseed } = await import('../seed.js');
+      const result = await reseed();
+      reseedState = {
+        running: false,
+        finishedAt: new Date(),
+        error: null,
+        trips: result?.trips ?? null,
+      };
+    } catch (err) {
+      console.error('Reseed failed:', err);
+      reseedState = { running: false, finishedAt: new Date(), error: err.message, trips: null };
+    }
+  })();
+
+  res.status(202).json({ status: 'started' });
+});
+
+export const reseedProgress = asyncHandler(async (req, res) => {
+  res.json(reseedState);
+});
+
 export const geocodePlace = asyncHandler(async (req, res) => {
   try {
     res.json({ results: await geocode(req.query.q, { limit: 6 }) });

@@ -5,6 +5,12 @@ const opts = { auth: true };
 
 export const fetchDashboard = () => api.get('/admin/dashboard', opts);
 
+/** Rebuild the seeded demo data. Admin only, enforced on the server. */
+export const reseedDemoData = () => api.post('/admin/reseed', {}, opts);
+
+/** How the rebuild started above is getting on. */
+export const reseedProgress = () => api.get('/admin/reseed', opts);
+
 /** Free OpenStreetMap place lookup, proxied and rate-limited by our server. */
 export const geocodePlace = (q) =>
   api.get(`/admin/geocode?q=${encodeURIComponent(q)}`, opts);

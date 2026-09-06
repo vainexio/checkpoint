@@ -1,11 +1,13 @@
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, useMotionValue, useReducedMotion } from 'framer-motion';
 import { Street, useStreetGeometry, useWheelSpin } from './Street.jsx';
 import { BusStatusScene } from '@/components/BusStatusScene.jsx';
 import { MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils.ts';
 import { formatTime } from '@/utils/time.js';
+import { useAuth } from '@/hooks/useAuth.jsx';
+import { reseedDemoData, reseedProgress } from '@/api/adminApi.js';
 
 /**
  * SCOUT's application shell, adopted wholesale: glass navbar, ambient blob
@@ -30,11 +32,64 @@ export function BrandMark({ className = '' }) {
   );
 }
 
+/**
+ * Rebuilds the demo data on a double-click of the wordmark.
+ *
+ * Deliberately unlabelled: it is for the person running a demonstration, not
+ * for the audience, and a visible "reset everything" button on a live board
+ * invites exactly the click nobody wants. It is gated on an admin session on
+ * the server, so for anyone else the wordmark is only ever a link home.
+ *
+ * The wordmark reports what happened in place of itself, because a demo that
+ * silently did nothing is worse than one that says so.
+ */
+function useDemoReseed() {
+  const { user } = useAuth();
+  const [state, setState] = useState(null);
+
+  const run = async (e) => {
+    if (user?.role !== 'admin' || state === 'working') return;
+    e.preventDefault();
+    setState('working');
+
+    try {
+      await reseedDemoData();
+
+      // Ask how it is going rather than holding a request open for the whole
+      // rebuild. Two minutes of patience is far longer than it has ever taken.
+      for (let i = 0; i < 60; i += 1) {
+        await new Promise((r) => setTimeout(r, 2000));
+        const progress = await reseedProgress();
+        if (progress.running) continue;
+        if (progress.error) throw new Error(progress.error);
+
+        setState('done');
+        // Straight into the fresh data rather than waiting on the next poll.
+        setTimeout(() => window.location.reload(), 700);
+        return;
+      }
+      throw new Error('Reseed did not finish in time.');
+    } catch {
+      setState('failed');
+      setTimeout(() => setState(null), 2500);
+    }
+  };
+
+  const label = state === 'working' ? 'RESEEDING' : state === 'done' ? 'FRESH DATA' : state === 'failed' ? 'RESEED FAILED' : null;
+  return { run, label, active: state !== null };
+}
+
 export function Navbar({ home = '/', links = [], right = null }) {
+  const demo = useDemoReseed();
+
   return (
     <header className="sticky top-0 z-50 w-full glass-panel">
       <div className="container mx-auto flex h-[60px] max-w-7xl items-center gap-2 px-3 sm:h-[68px] sm:gap-6 sm:px-6">
-        <Link to={home} className="group flex shrink-0 items-center gap-2.5">
+        <Link
+          to={home}
+          onDoubleClick={demo.run}
+          className="group flex shrink-0 items-center gap-2.5 select-none"
+        >
           <BrandMark />
           {/*
             * The wordmark is the first thing to go on a phone.
@@ -44,8 +99,13 @@ export function Navbar({ home = '/', links = [], right = null }) {
             * entirely — a conductor could not reach half the app. The mark alone
             * still says whose app this is, and it is a link home either way.
             */}
-          <span className="hidden text-[15px] font-extrabold tracking-[0.16em] sm:inline">
-            CHECKPOINT
+          <span
+            className={cn(
+              'hidden text-[15px] font-extrabold tracking-[0.16em] sm:inline',
+              demo.active && 'text-primary'
+            )}
+          >
+            {demo.label ?? 'CHECKPOINT'}
           </span>
         </Link>
 

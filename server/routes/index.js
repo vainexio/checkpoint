@@ -84,4 +84,8 @@ router.post('/admin/trips', ...adminOnly, admin.createTrip);
 router.put('/admin/trips/:id', ...adminOnly, admin.updateTrip);
 router.delete('/admin/trips/:id', ...adminOnly, admin.deleteTrip);
 
+/* Demo housekeeping: rebuild the seeded data during a live demonstration. */
+router.post('/admin/reseed', ...adminOnly, admin.reseedDemoData);
+router.get('/admin/reseed', ...adminOnly, admin.reseedProgress);
+
 export default router;

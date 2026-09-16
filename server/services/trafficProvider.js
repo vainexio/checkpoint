@@ -17,6 +17,8 @@
  *      staler number, never an error and never a blocked page.
  */
 
+import { tomtomErrorFrom } from './tomtomError.js';
+
 const CACHE_TTL_MS = 5 * 60 * 1000; // A segment's traffic does not change every second.
 const REQUEST_TIMEOUT_MS = 6000;
 
@@ -79,7 +81,7 @@ export class TomTomTrafficProvider {
 
     try {
       const res = await fetch(url, { signal: controller.signal });
-      if (!res.ok) throw new Error(`TomTom responded ${res.status}`);
+      if (!res.ok) throw await tomtomErrorFrom(res);
 
       const body = await res.json();
       const seconds = body?.routes?.[0]?.summary?.travelTimeInSeconds;
@@ -146,7 +148,14 @@ export async function refreshSegment({ from, to, baselineMinutes, now = Date.now
     cache.set(key, entry);
     return entry;
   } catch (err) {
-    // A traffic lookup failing is not a trip failing. Keep whatever we had.
+    // An account-level failure — no credits, a bad key, a rate limit — will
+    // fail identically for every other segment in this cycle. Let it reach the
+    // refresher so it can stop asking, rather than spending a request per
+    // remaining segment to hear the same answer.
+    if (err?.pauseMs > 0) throw err;
+
+    // Anything else belongs to this one lookup. A traffic lookup failing is not
+    // a trip failing, so keep whatever we had.
     console.warn(`[traffic] ${key} lookup failed: ${err.message}`);
     return cached ?? null;
   }

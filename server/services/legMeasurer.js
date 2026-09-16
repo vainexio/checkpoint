@@ -16,6 +16,8 @@
  * back editable and is only ever a suggestion.
  */
 
+import { tomtomErrorFrom } from './tomtomError.js';
+
 // A bus does not pass a stop at speed; it pulls in, boards, and pulls out.
 const DWELL_MINUTES = { station: 4, landmark: 0 };
 
@@ -45,7 +47,7 @@ async function typicalMinutes(from, to) {
 
   try {
     const res = await fetch(url, { signal: controller.signal });
-    if (!res.ok) throw new Error(`TomTom responded ${res.status}`);
+    if (!res.ok) throw await tomtomErrorFrom(res);
 
     const summary = (await res.json()).routes?.[0]?.summary;
     // Without computeTravelTimeFor=all this field is absent and the live time
@@ -73,6 +75,11 @@ async function typicalMinutes(from, to) {
 export async function measureLegs(stops) {
   const legs = [];
 
+  // Set once the account itself refuses — no credits, a bad key. Every later
+  // leg would fail the same way, so they are marked with that reason instead
+  // of each spending a request to be told it again.
+  let accountFailure = null;
+
   for (let i = 0; i < stops.length; i += 1) {
     const stop = stops[i];
 
@@ -94,6 +101,11 @@ export async function measureLegs(stops) {
       continue;
     }
 
+    if (accountFailure) {
+      legs.push({ ...base, measured: false, reason: accountFailure });
+      continue;
+    }
+
     try {
       const { minutes, km } = await typicalMinutes(prev.location, stop.location);
       const dwell = DWELL_MINUTES[stop.type] ?? 0;
@@ -106,6 +118,7 @@ export async function measureLegs(stops) {
         km: Math.round(km * 10) / 10,
       });
     } catch (err) {
+      if (err?.pauseMs > 0) accountFailure = err.message;
       legs.push({ ...base, measured: false, reason: err.message });
     }
   }

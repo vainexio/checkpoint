@@ -19,6 +19,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
+import { tomtomErrorFrom } from '../services/tomtomError.js';
 
 dotenv.config({
   path: path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '.env'),
@@ -120,7 +121,9 @@ async function legMinutes(from, to) {
     `&computeTravelTimeFor=all`;
 
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`TomTom ${res.status}`);
+  // Say why, not just the status: TomTom returns one bare 403 for running out
+  // of credits and for an unauthorised key alike.
+  if (!res.ok) throw await tomtomErrorFrom(res);
 
   const s = (await res.json()).routes?.[0]?.summary;
   if (s?.historicTrafficTravelTimeInSeconds == null) {

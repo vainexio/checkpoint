@@ -8,6 +8,7 @@ import mongoose from 'mongoose';
 
 import apiRoutes from './routes/index.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
+import { getTrafficStatus, noteTrafficDemand } from './services/trafficRefresher.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const CLIENT_DIST = path.resolve(here, '..', 'client', 'dist');
@@ -38,8 +39,24 @@ export function createApp() {
     res.json({
       ok: true,
       db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+      // Active, idle, paused (with the provider's reason) or disabled — so
+      // missing traffic on a board can be explained without the server logs.
+      traffic: getTrafficStatus(),
       time: new Date(),
     });
+  });
+
+  /**
+   * Any read of the API counts as someone using the product, which is what
+   * keeps live traffic lookups running.
+   *
+   * Mounted on /api only, deliberately: a hosting platform's health check hits
+   * /health on a timer forever, and counting that would keep lookups — and the
+   * bill — running on a server nobody is looking at.
+   */
+  app.use('/api', (req, res, next) => {
+    if (req.method === 'GET') noteTrafficDemand();
+    next();
   });
 
   app.use('/api', apiRoutes);

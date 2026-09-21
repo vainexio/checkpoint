@@ -43,6 +43,14 @@ const COARSE_FIX_METRES = 2000;
  */
 const NEARBY_REFETCH_METRES = 200;
 
+/**
+ * The nearest stop is pulled into the near-me view only within this distance.
+ * Further than that, fitting it would zoom back out to a regional view — the
+ * very thing the button is meant to get you out of — and the list below already
+ * says how far it is.
+ */
+const FRAME_NEAREST_KM = 5;
+
 export default function StationsPage() {
   const stations = usePolling(fetchStations, { intervalMs: 120000 });
   const map = usePolling(fetchMapData, { intervalMs: 300000 });
@@ -52,6 +60,10 @@ export default function StationsPage() {
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState(null);
   const [you, setYou] = useState(null);
+  // Which "near me" press this is, and how many times the fix has sharpened
+  // since — the map flies on the first and follows the second.
+  const [nearRequest, setNearRequest] = useState(0);
+  const [fixVersion, setFixVersion] = useState(0);
 
   const all = stations.data ?? [];
 
@@ -73,18 +85,18 @@ export default function StationsPage() {
    * to change the answer — a fix that tightens from 900 m to 30 m without
    * really moving does not need a second round trip.
    */
-  const findNearby = ({ listStops = true } = {}) => {
+  const findNearby = () => {
     setLocating(true);
     setLocationError(null);
+    // A new request always moves the map, even if the last one was dragged away.
+    setNearRequest((n) => n + 1);
 
     let fetchedFrom = null;
 
     locate({
       onFix: async (here) => {
         setYou(here);
-        // The journey planner only needs the fix itself; asking for the nearby
-        // list as well would scroll the page to a section nobody asked for.
-        if (!listStops) return;
+        setFixVersion((v) => v + 1);
         if (fetchedFrom && metresBetween(fetchedFrom, here) < NEARBY_REFETCH_METRES) return;
 
         fetchedFrom = here;
@@ -108,6 +120,29 @@ export default function StationsPage() {
   const mapCheckpoints = matches ?? map.data?.checkpoints ?? [];
   const routePath = matches ? [] : (map.data?.routes?.[0]?.path ?? []);
 
+  /**
+   * Asking for stops near you is asking to see where you are. The map used to
+   * reframe the whole network with you as one more point in it — correct, and
+   * useless at a curb — so it now flies to the person, widened only far enough
+   * to take in the nearest stop when that one is a realistic walk or ride.
+   */
+  const nearFrame = useMemo(() => {
+    if (!nearRequest || !you || matches) return null;
+    const nearest = nearby?.within?.[0];
+    const include =
+      nearest?.location && nearest.distanceKm <= FRAME_NEAREST_KM
+        ? [[nearest.location.lat, nearest.location.lng]]
+        : [];
+    return {
+      id: nearRequest,
+      // Sharpening fixes, and the nearby list arriving, both refine the view.
+      version: `${fixVersion}:${include.length}`,
+      center: you,
+      radiusM: you.accuracyM ?? 0,
+      include,
+    };
+  }, [nearRequest, you, matches, nearby, fixVersion]);
+
   return (
     <>
       <PageHeader
@@ -128,6 +163,9 @@ export default function StationsPage() {
             onChange={(e) => {
               setQuery(e.target.value);
               setNearby(null);
+              // Searching is a different question; clearing it should show the
+              // network again, not fly back to where you were standing.
+              setNearRequest(0);
             }}
             placeholder="Search a stop or city — try “Baguio” or “Tarlac”"
             className="h-11 pl-9 pr-9"
@@ -180,8 +218,9 @@ export default function StationsPage() {
             checkpoints={mapCheckpoints}
             routePath={routePath}
             you={you}
+            frame={nearFrame}
             // Re-frame when what is being shown changes, not on every render.
-            fitKey={matches ? `search:${query}` : nearby ? 'nearby' : 'all'}
+            fitKey={matches ? `search:${query}` : 'all'}
             height={320}
             className="rounded-none border-0"
           />

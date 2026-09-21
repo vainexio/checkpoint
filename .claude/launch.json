@@ -2,6 +2,13 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "checkpoint-api",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["server.js"],
+      "cwd": "server",
+      "port": 4000
+    },
+    {
       "name": "checkpoint-client",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],

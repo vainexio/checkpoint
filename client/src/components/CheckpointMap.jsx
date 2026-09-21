@@ -134,6 +134,66 @@ function FocusOn({ point, zoom = 15 }) {
   return null;
 }
 
+/**
+ * Take the person to one part of the map — "stops near me" flying to where they
+ * are, instead of leaving them to zoom in from a view of half of Luzon.
+ *
+ * `frame.id` changes once per request and always moves the map. `frame.version`
+ * changes as the location sharpens in the seconds after, and only moves the map
+ * if the person has not started moving it themselves: re-centring under
+ * somebody's finger is the same fault FitTo exists to avoid.
+ *
+ * The box is never smaller than the accuracy circle, so a fix good to 3 km is
+ * shown as 3 km of uncertainty rather than zoomed to street level as if exact.
+ */
+const FLY_SECONDS = 0.9;
+const MIN_FRAME_METRES = 450;
+
+function FlyTo({ frame }) {
+  const map = useMap();
+  const flying = useRef(false);
+  const userMoved = useRef(false);
+  const lastId = useRef(null);
+
+  useEffect(() => {
+    const onMoveStart = () => {
+      if (!flying.current) userMoved.current = true;
+    };
+    map.on('movestart zoomstart', onMoveStart);
+    return () => map.off('movestart zoomstart', onMoveStart);
+  }, [map]);
+
+  useEffect(() => {
+    if (!frame?.center) return undefined;
+
+    const isNewRequest = frame.id !== lastId.current;
+    lastId.current = frame.id;
+    if (isNewRequest) userMoved.current = false;
+    else if (userMoved.current) return undefined;
+
+    const radius = Math.max(frame.radiusM ?? 0, MIN_FRAME_METRES);
+    const bounds = L.latLng(frame.center.lat, frame.center.lng).toBounds(radius * 2);
+    for (const p of frame.include ?? []) bounds.extend(p);
+
+    flying.current = true;
+    map.flyToBounds(bounds, { padding: [36, 36], maxZoom: 16, duration: FLY_SECONDS });
+
+    // moveend clears it too, but a flight to where the map already is may not
+    // fire one, and a stuck flag would read every later drag as ours.
+    const done = () => {
+      flying.current = false;
+    };
+    map.once('moveend', done);
+    const timer = setTimeout(done, FLY_SECONDS * 1000 + 300);
+    return () => {
+      clearTimeout(timer);
+      map.off('moveend', done);
+    };
+  }, [map, frame?.id, frame?.version]);
+
+  return null;
+}
+
 /** Let the admin drop a pin by clicking the map. */
 function ClickToPlace({ onPick }) {
   const map = useMap();
@@ -158,6 +218,7 @@ export function CheckpointMap({
   draft = null,
   focusOn = null,
   fitKey = null,
+  frame = null,
   className,
   height = 340,
 }) {
@@ -187,7 +248,10 @@ export function CheckpointMap({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        <FitTo points={fitPoints} fitKey={fitKey} />
+        {/* While a frame is asked for, it owns the view. When it goes away
+            FitTo remounts and frames everything again, which is what someone
+            who searched instead expects to see. */}
+        {frame ? <FlyTo frame={frame} /> : <FitTo points={fitPoints} fitKey={fitKey} />}
         <FocusOn point={focusOn} />
         <ClickToPlace onPick={onPick} />
 

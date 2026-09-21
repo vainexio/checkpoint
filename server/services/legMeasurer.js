@@ -17,6 +17,7 @@
  */
 
 import { tomtomErrorFrom } from './tomtomError.js';
+import { addDays, departureOn, manilaDate, weekdayOf } from './scheduleService.js';
 
 // A bus does not pass a stop at speed; it pulls in, boards, and pulls out.
 const DWELL_MINUTES = { station: 4, landmark: 0 };
@@ -27,20 +28,45 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 8000;
 
 const cache = new Map();
-const keyFor = (a, b) => `${a.lat},${a.lng}->${b.lat},${b.lng}`;
+const keyFor = (a, b, band) => `${band}:${a.lat},${a.lng}->${b.lat},${b.lng}`;
 
 export const canMeasure = () => Boolean(process.env.TRAFFIC_API_KEY);
 
-async function typicalMinutes(from, to) {
-  const key = keyFor(from, to);
+/**
+ * The Manila clock time each band is measured at: the middle of each MMDA
+ * window, and late morning for everything else.
+ *
+ * Off-peak used to be measured at whatever moment the admin pressed the
+ * button, so a route set up at 6 PM quietly got rush-hour baselines. A fixed
+ * time on a weekday makes the same route measure the same way whenever it is
+ * built.
+ */
+export const MEASURE_AT = { offPeak: '11:00', amPeak: '08:30', pmPeak: '18:30' };
+
+/** The next weekday at a Manila clock time, always in the future. */
+export function nextWeekdayAt(hhmm, now = new Date()) {
+  for (let i = 1; i <= 7; i += 1) {
+    const day = addDays(manilaDate(now), i);
+    const weekday = weekdayOf(day);
+    if (weekday >= 1 && weekday <= 5) return departureOn(day, hhmm);
+  }
+  return departureOn(addDays(manilaDate(now), 1), hhmm);
+}
+
+async function typicalMinutes(from, to, band = 'offPeak') {
+  const key = keyFor(from, to, band);
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.value;
 
+  // With a future departAt and traffic on, TomTom answers from its historical
+  // traffic for that hour of that weekday — the typical time, for that band.
+  const departAt = nextWeekdayAt(MEASURE_AT[band]).toISOString();
   const url =
     `https://api.tomtom.com/routing/1/calculateRoute/` +
     `${from.lat},${from.lng}:${to.lat},${to.lng}/json` +
     `?key=${encodeURIComponent(process.env.TRAFFIC_API_KEY)}` +
-    `&traffic=true&travelMode=bus&routeType=fastest&computeTravelTimeFor=all`;
+    `&traffic=true&travelMode=bus&routeType=fastest&computeTravelTimeFor=all` +
+    `&departAt=${encodeURIComponent(departAt)}`;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -72,7 +98,7 @@ async function typicalMinutes(from, to) {
  * comes back as a leg the operator still has to fill in themselves. Half a
  * route measured is more useful than an error.
  */
-export async function measureLegs(stops) {
+export async function measureLegs(stops, { bands = false } = {}) {
   const legs = [];
 
   // Set once the account itself refuses — no credits, a bad key. Every later
@@ -109,14 +135,31 @@ export async function measureLegs(stops) {
     try {
       const { minutes, km } = await typicalMinutes(prev.location, stop.location);
       const dwell = DWELL_MINUTES[stop.type] ?? 0;
-      legs.push({
+      const leg = {
         ...base,
         measured: true,
         baselineMinutes: Math.round(minutes + dwell),
         drivingMinutes: Math.round(minutes),
         dwellMinutes: dwell,
         km: Math.round(km * 10) / 10,
-      });
+      };
+
+      // Each peak is its own request, so this triples the cost of a route and
+      // is only done when asked. A peak that fails on its own just stays
+      // blank: the leg falls back to its off-peak figure at that hour.
+      if (bands) {
+        for (const band of ['amPeak', 'pmPeak']) {
+          try {
+            const peak = await typicalMinutes(prev.location, stop.location, band);
+            leg[`${band}Minutes`] = Math.round(peak.minutes + dwell);
+          } catch (err) {
+            if (err?.pauseMs > 0) throw err;
+            leg[`${band}Minutes`] = null;
+          }
+        }
+      }
+
+      legs.push(leg);
     } catch (err) {
       if (err?.pauseMs > 0) accountFailure = err.message;
       legs.push({ ...base, measured: false, reason: err.message });

@@ -9,7 +9,7 @@ import {
   User,
 } from '../models/index.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
-import { buildPlan } from '../services/etaEngine.js';
+import { buildPlan, selectBaselines } from '../services/etaEngine.js';
 import { presentTrip, presentTrips, TRIP_POPULATE } from '../services/tripService.js';
 import {
   addDays,
@@ -173,7 +173,9 @@ export const measureRouteLegs = asyncHandler(async (req, res) => {
     };
   });
 
-  res.json({ legs: await measureLegs(stops) });
+  // Rush-hour figures only when the operator asks for them: three requests a
+  // leg instead of one.
+  res.json({ legs: await measureLegs(stops, { bands: Boolean(req.body?.bands) }) });
 });
 
 /* --------------------------------------------------------------------- routes */
@@ -505,6 +507,12 @@ export const updateTrip = asyncHandler(async (req, res) => {
       return res.status(400).json({ error: 'scheduledDeparture is not a valid date.' });
     }
     trip.scheduledDeparture = departure;
+    // A 10:00 moved to 17:30 now drives into the evening rush. Re-choose each
+    // leg's band from the figures frozen on the plan, never from the route.
+    trip.plan = selectBaselines(
+      trip.plan.map((entry) => (entry.toObject ? entry.toObject() : entry)),
+      departure
+    );
   }
   if (req.body.status === 'cancelled') trip.status = 'cancelled';
 

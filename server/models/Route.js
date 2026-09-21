@@ -15,6 +15,12 @@ const routeCheckpointSchema = new mongoose.Schema(
       min: 0,
       default: 0,
     },
+    // What the same leg takes in the morning and evening rush, when it is
+    // meaningfully different. Optional: a leg with none uses the figure above
+    // at every hour, which is how every route behaved before bands existed.
+    // See TIME_BANDS in services/etaEngine.js for the hours.
+    amPeakMinutes: { type: Number, min: 0, default: null },
+    pmPeakMinutes: { type: Number, min: 0, default: null },
   },
   { _id: false }
 );

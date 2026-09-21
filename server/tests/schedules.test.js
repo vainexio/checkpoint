@@ -448,3 +448,37 @@ test('a trip that never left drops off the board, but stays in the operator list
   const listed = list.body.trips.find((t) => t.id === trip.body.trip.id);
   assert.equal(listed.didNotRun, true);
 });
+
+test('a trip moved into rush hour takes the rush-hour baseline its route gave it', async () => {
+  const lipa = await models.Checkpoint.findOne({ name: 'Lipa' }).lean();
+  const pitx = await models.Checkpoint.findOne({ name: 'PITX' }).lean();
+  const banded = await world
+    .as(request(app).post('/api/admin/routes'))
+    .send({
+      name: 'PITX – Lipa (banded)',
+      checkpoints: [
+        { checkpoint: pitx._id, baselineMinutesFromPrevious: 0 },
+        { checkpoint: lipa._id, baselineMinutesFromPrevious: 150, pmPeakMinutes: 190 },
+      ],
+    })
+    .expect(201);
+  assert.equal(banded.body.checkpoints[1].pmPeakMinutes, 190);
+
+  const tomorrow = addDays(manilaDate(), 1);
+  const created = await world
+    .as(request(app).post('/api/admin/trips'))
+    .send({
+      routeId: banded.body._id,
+      busId: world.busId,
+      conductorId: world.conductorId,
+      scheduledDeparture: departureOn(tomorrow, '11:00').toISOString(),
+    })
+    .expect(201);
+  assert.equal(created.body.trip.stops[1].baselineMinutesFromPrevious, 150);
+
+  const moved = await world
+    .as(request(app).put(`/api/admin/trips/${created.body.trip.id}`))
+    .send({ scheduledDeparture: departureOn(tomorrow, '17:30').toISOString() })
+    .expect(200);
+  assert.equal(moved.body.trip.stops[1].baselineMinutesFromPrevious, 190);
+});

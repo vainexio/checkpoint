@@ -409,6 +409,9 @@ export default function AdminTripDetailPage() {
                   ? formatVariance(trip.conditionsAllowanceMinutes)
                   : '—'}
               </Fact>
+              <Fact label="Measured against">
+                <Yardstick stops={stops} />
+              </Fact>
               <Fact label="Source">
                 {trip.source?.kind === 'schedule'
                   ? `Recurring schedule${trip.source.overridden ? ', changed for this day' : ''}`
@@ -428,6 +431,23 @@ export default function AdminTripDetailPage() {
 }
 
 const Q = ({ children }) => <span className="font-medium">“{children}”</span>;
+
+/**
+ * Which baselines this trip was judged by. A trip scheduled into rush hour is
+ * measured against its route's rush-hour figures, which is why the same
+ * drive can be on time at 6 PM and late at noon.
+ */
+function Yardstick({ stops }) {
+  const legs = stops.slice(1);
+  const count = (band) => legs.filter((s) => s.baselineBand === band).length;
+  const am = count('amPeak');
+  const pm = count('pmPeak');
+  if (!am && !pm) return 'Usual times';
+  const parts = [];
+  if (am) parts.push(`morning rush on ${am} of ${legs.length} legs`);
+  if (pm) parts.push(`evening rush on ${pm} of ${legs.length} legs`);
+  return parts.join(', ').replace(/^./, (c) => c.toUpperCase());
+}
 
 function Fact({ label, children }) {
   return (

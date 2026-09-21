@@ -5,6 +5,7 @@ import {
   Check,
   HelpCircle,
   MapPin,
+  Pencil,
   Plus,
   Route as RouteIcon,
   Search,
@@ -24,6 +25,7 @@ import {
   measureRouteLegs,
   listCheckpoints,
   listRoutes,
+  updateRoute,
 } from '@/api/adminApi.js';
 import { PageHeader } from '@/components/layout/AppLayout.jsx';
 import { CheckpointMap } from '@/components/CheckpointMap.jsx';
@@ -199,7 +201,12 @@ export default function AdminRoutesPage() {
   const [error, setError] = useState(null);
 
   const [name, setName] = useState('');
-  const [stops, setStops] = useState([]); // [{ id, name, minutes }]
+  // [{ id, minutes, amPeak, pmPeak, estimated }] — minutes are strings while typed.
+  const [stops, setStops] = useState([]);
+  // Whether each leg shows its rush-hour figures as well as its usual one.
+  const [withPeaks, setWithPeaks] = useState(false);
+  // The route being edited, or null when building a new one.
+  const [editingRouteId, setEditingRouteId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [measuring, setMeasuring] = useState(false);
   const [measureNote, setMeasureNote] = useState(null);
@@ -238,13 +245,24 @@ export default function AdminRoutesPage() {
     setMeasuring(true);
     setMeasureNote(null);
     try {
-      const { legs } = await measureRouteLegs(stops.map((s) => s.id));
+      const { legs } = await measureRouteLegs(
+        stops.map((s) => s.id),
+        { bands: withPeaks }
+      );
 
+      const asField = (v) => (v == null ? '' : String(v));
       setStops((current) =>
         current.map((stop, i) => {
           const leg = legs[i];
           if (!leg?.measured || i === 0) return stop;
-          return { ...stop, minutes: String(leg.baselineMinutes), estimated: true };
+          return {
+            ...stop,
+            minutes: String(leg.baselineMinutes),
+            ...(withPeaks
+              ? { amPeak: asField(leg.amPeakMinutes), pmPeak: asField(leg.pmPeakMinutes) }
+              : {}),
+            estimated: true,
+          };
         })
       );
 
@@ -252,7 +270,9 @@ export default function AdminRoutesPage() {
       setMeasureNote(
         missed.length
           ? `Estimated all but ${missed.length} leg${missed.length === 1 ? '' : 's'} — ${missed[0].reason}`
-          : 'Estimated from typical traffic. Adjust any leg you know runs differently.'
+          : withPeaks
+            ? 'Estimated from typical weekday traffic at 11 AM, 8:30 AM and 6:30 PM. Adjust any leg you know runs differently.'
+            : 'Estimated from typical weekday traffic at 11 AM. Adjust any leg you know runs differently.'
       );
     } catch (err) {
       setMeasureNote(err.message);
@@ -267,6 +287,37 @@ export default function AdminRoutesPage() {
     setPreviewRouteId(null);
   };
 
+  const resetBuilder = () => {
+    setName('');
+    setStops([]);
+    setWithPeaks(false);
+    setEditingRouteId(null);
+    setMeasureNote(null);
+  };
+
+  /** Load an existing route into the builder to change it. */
+  const editRoute = (route) => {
+    const asField = (v) => (v == null ? '' : String(v));
+    const loaded = route.checkpoints
+      .filter((e) => e.checkpoint?._id)
+      .map((e, i) => ({
+        id: e.checkpoint._id,
+        minutes: i === 0 ? 0 : String(e.baselineMinutesFromPrevious ?? ''),
+        amPeak: asField(e.amPeakMinutes),
+        pmPeak: asField(e.pmPeakMinutes),
+      }));
+    setName(route.name);
+    setStops(loaded);
+    setWithPeaks(loaded.some((s) => s.amPeak !== '' || s.pmPeak !== ''));
+    setEditingRouteId(route._id);
+    setPreviewRouteId(null);
+    setMeasureNote(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // A blank peak means "same as usual", which is stored as no figure at all.
+  const peakValue = (v) => (v === '' || v == null ? null : Math.max(0, Number(v) || 0));
+
   const saveRoute = async (e) => {
     e.preventDefault();
     setError(null);
@@ -276,18 +327,22 @@ export default function AdminRoutesPage() {
       return;
     }
 
+    const body = {
+      name,
+      checkpoints: stops.map((s, i) => ({
+        checkpoint: s.id,
+        // The first stop has nothing before it, so its baseline is always 0.
+        baselineMinutesFromPrevious: i === 0 ? 0 : Number(s.minutes) || 0,
+        amPeakMinutes: i === 0 || !withPeaks ? null : peakValue(s.amPeak),
+        pmPeakMinutes: i === 0 || !withPeaks ? null : peakValue(s.pmPeak),
+      })),
+    };
+
     setSaving(true);
     try {
-      await createRoute({
-        name,
-        checkpoints: stops.map((s, i) => ({
-          checkpoint: s.id,
-          // The first stop has nothing before it, so its baseline is always 0.
-          baselineMinutesFromPrevious: i === 0 ? 0 : Number(s.minutes) || 0,
-        })),
-      });
-      setName('');
-      setStops([]);
+      if (editingRouteId) await updateRoute(editingRouteId, body);
+      else await createRoute(body);
+      resetBuilder();
       await routes.reload();
     } catch (err) {
       setError(err);
@@ -383,12 +438,19 @@ export default function AdminRoutesPage() {
 
           <Card>
             <CardHeader className="flex-row items-center justify-between space-y-0">
-              <CardTitle>Build a route</CardTitle>
-              {totalMinutes > 0 && (
-                <span className="font-mono text-xs text-muted-foreground">
-                  {asHours(totalMinutes)} total
-                </span>
-              )}
+              <CardTitle>{editingRouteId ? 'Edit route' : 'Build a route'}</CardTitle>
+              <div className="flex items-center gap-2">
+                {totalMinutes > 0 && (
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {asHours(totalMinutes)} total
+                  </span>
+                )}
+                {editingRouteId && (
+                  <Button type="button" variant="ghost" size="sm" onClick={resetBuilder}>
+                    Cancel
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <form onSubmit={saveRoute} className="space-y-4">
@@ -403,8 +465,34 @@ export default function AdminRoutesPage() {
                   />
                 </div>
 
+                {editingRouteId && (
+                  <p className="rounded-lg border border-border bg-muted/40 p-3 text-[13px] text-muted-foreground">
+                    Changes apply to trips created from now on. Trips already scheduled or on the
+                    road keep the times they were created with.
+                  </p>
+                )}
+
                 <div className="space-y-2">
                   <Label>Stops, in the order the bus drives them</Label>
+
+                  {stops.length > 1 && (
+                    <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-border p-3 text-[13px]">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 h-4 w-4 accent-[var(--color-primary)]"
+                        checked={withPeaks}
+                        onChange={(e) => setWithPeaks(e.target.checked)}
+                      />
+                      <span>
+                        <span className="font-semibold">Different times at rush hour</span>
+                        <span className="block text-muted-foreground">
+                          Morning 7–10 AM and evening 5–8 PM, the MMDA coding hours. A trip uses
+                          the figure for when it is due to drive each leg. Leave a box blank where
+                          rush hour makes no difference.
+                        </span>
+                      </span>
+                    </label>
+                  )}
 
                   {stops.length === 0 && (
                     <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
@@ -432,13 +520,45 @@ export default function AdminRoutesPage() {
                                 onChange={(e) =>
                                   setStops(
                                     stops.map((s, j) =>
-                                      j === i ? { ...s, minutes: e.target.value } : s
+                                      j === i ? { ...s, minutes: e.target.value, estimated: false } : s
                                     )
                                   )
                                 }
                                 placeholder="0"
                               />
                               <span>min drive, normally</span>
+                              {stop.estimated && (
+                                <Badge variant="secondary" className="ml-1">
+                                  estimated
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+                          {!isFirst && withPeaks && (
+                            <div className="flex flex-wrap items-center gap-2 pb-1 pl-8 text-xs text-muted-foreground">
+                              {[
+                                ['amPeak', 'AM peak'],
+                                ['pmPeak', 'PM peak'],
+                              ].map(([key, label]) => (
+                                <span key={key} className="flex items-center gap-1.5">
+                                  <span>{label}</span>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    className="h-7 w-[78px] text-xs"
+                                    value={stop[key] ?? ''}
+                                    placeholder="same"
+                                    aria-label={`${label} minutes into ${cp?.name}`}
+                                    onChange={(e) =>
+                                      setStops(
+                                        stops.map((s, j) =>
+                                          j === i ? { ...s, [key]: e.target.value, estimated: false } : s
+                                        )
+                                      )
+                                    }
+                                  />
+                                </span>
+                              ))}
                             </div>
                           )}
 
@@ -508,7 +628,11 @@ export default function AdminRoutesPage() {
                   ) : (
                     <Wand2 className="mr-1.5 h-4 w-4" />
                   )}
-                  {measuring ? 'Measuring…' : 'Estimate travel times'}
+                  {measuring
+                    ? 'Measuring…'
+                    : withPeaks
+                      ? 'Estimate travel times, with rush hour'
+                      : 'Estimate travel times'}
                 </Button>
 
                 {measureNote && (
@@ -518,7 +642,11 @@ export default function AdminRoutesPage() {
                 )}
 
                 <Button type="submit" className="w-full" disabled={saving || stops.length < 2}>
-                  {saving ? 'Saving…' : `Create route with ${stops.length} stops`}
+                  {saving
+                    ? 'Saving…'
+                    : editingRouteId
+                      ? 'Save changes'
+                      : `Create route with ${stops.length} stops`}
                 </Button>
               </form>
             </CardContent>
@@ -548,15 +676,45 @@ export default function AdminRoutesPage() {
               <div key={route._id} className="rounded-xl border border-border p-4">
                 <div className="mb-3 flex items-start justify-between gap-4">
                   <div>
-                    <div className="font-bold">{route.name}</div>
+                    <div className="font-bold">
+                      {route.name}
+                      {route.isActive === false && (
+                        <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                          Retired
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs text-muted-foreground">
                       {route.checkpoints.length} checkpoints · {asHours(mins)} baseline
+                      {route.checkpoints.some((c) => c.amPeakMinutes != null || c.pmPeakMinutes != null) &&
+                        ' · rush-hour times set'}
                     </div>
                   </div>
-                  <div className="flex shrink-0 gap-2">
+                  <div className="flex shrink-0 flex-wrap justify-end gap-2">
                     <Button variant="outline" size="sm" onClick={() => setPreviewRouteId(route._id)}>
                       <MapPin className="mr-1.5 h-3.5 w-3.5" />
                       Show on map
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => editRoute(route)}>
+                      <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                      Edit
+                    </Button>
+                    {/* Retiring keeps the route and its history, and stops
+                        schedules generating trips on it; deleting is only for
+                        a route that never ran. */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          await updateRoute(route._id, { isActive: route.isActive === false });
+                          await routes.reload();
+                        } catch (err) {
+                          setError(err);
+                        }
+                      }}
+                    >
+                      {route.isActive === false ? 'Restore' : 'Retire'}
                     </Button>
                     <Button
                       variant="ghost"
@@ -580,8 +738,16 @@ export default function AdminRoutesPage() {
                   {route.checkpoints.map((entry, i) => (
                     <span key={entry.checkpoint?._id ?? i} className="inline-flex items-center gap-2">
                       {i > 0 && (
-                        <span className="font-mono text-[11px] text-muted-foreground">
+                        <span
+                          className="font-mono text-[11px] text-muted-foreground"
+                          title={
+                            entry.amPeakMinutes != null || entry.pmPeakMinutes != null
+                              ? `Usually ${entry.baselineMinutesFromPrevious} min · AM peak ${entry.amPeakMinutes ?? 'same'} · PM peak ${entry.pmPeakMinutes ?? 'same'}`
+                              : undefined
+                          }
+                        >
                           {entry.baselineMinutesFromPrevious}m
+                          {(entry.amPeakMinutes != null || entry.pmPeakMinutes != null) && '*'}
                         </span>
                       )}
                       <span

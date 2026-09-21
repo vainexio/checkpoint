@@ -13,9 +13,11 @@
  * "late" and make the delayed status meaningless. Against a typical baseline,
  * variance reads as "worse than usual", which is the thing worth knowing.
  *
- * Caveat: one static number cannot represent both 9pm and the 6pm crawl. These
- * were measured off-peak, so peak departures will read late until baselines
- * become time-of-day aware. See scripts/measureRoute.js.
+ * These are the off-peak figures. A leg can also carry rush-hour figures for
+ * the MMDA coding hours, which trips scheduled into those hours use instead;
+ * the demo routes leave them blank rather than invent them, so every seeded
+ * trip is judged off-peak. Measure them from the route builder ("Estimate
+ * travel times, with rush hour") once the traffic account has credit.
  *
  * Run with:  npm run seed        (add --fresh to wipe first)
  */

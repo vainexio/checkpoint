@@ -16,7 +16,15 @@ const planEntrySchema = new mongoose.Schema(
     },
     name: { type: String, required: true },
     type: { type: String, enum: ['station', 'landmark'], required: true },
+    // The figure this trip is measured against: the leg's baseline for the
+    // band the timetable has the bus driving it in.
     baselineMinutesFromPrevious: { type: Number, required: true, default: 0 },
+    baselineBand: { type: String, enum: ['offPeak', 'amPeak', 'pmPeak'], default: 'offPeak' },
+    // Every band's figure, frozen too, so a trip moved to a different time
+    // before it leaves can choose again without re-reading the route.
+    offPeakMinutes: { type: Number, default: null },
+    amPeakMinutes: { type: Number, default: null },
+    pmPeakMinutes: { type: Number, default: null },
   },
   { _id: false }
 );

@@ -149,6 +149,8 @@ export function presentTrip(trip, { logs = [], now = new Date(), audience = 'pub
       name: entry.name,
       type: entry.type,
       baselineMinutesFromPrevious: entry.baselineMinutesFromPrevious,
+      // Which of the leg's figures that is: usual, or a rush-hour one.
+      baselineBand: entry.baselineBand ?? 'offPeak',
       projectedArrival: eta?.projectedArrival ?? null,
       // What the timetable promises: the scheduled departure plus the baseline.
       // It is the only thing that can be said about a trip that has not left

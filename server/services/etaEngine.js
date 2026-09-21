@@ -65,26 +65,98 @@ export const addMinutes = (date, minutes) =>
   new Date(toDate(date).getTime() + minutes * MS_PER_MINUTE);
 
 /**
+ * Rush hour, when a leg can carry its own baseline.
+ *
+ * One number cannot describe a road that takes 32 minutes at midnight and 39
+ * at six in the evening: judged against the off-peak figure, every rush-hour
+ * trip reads late every day. So a leg may also say what it takes in each peak,
+ * and a trip uses whichever band the bus is scheduled to be driving it in.
+ *
+ * The windows are the MMDA's number-coding hours, the one definition of Metro
+ * Manila rush hour that operators and passengers already live by. Manila time,
+ * which has no daylight saving, so they never shift.
+ */
+export const TIME_BANDS = [
+  { key: 'amPeak', label: 'Morning peak', fromMinute: 7 * 60, toMinute: 10 * 60 },
+  { key: 'pmPeak', label: 'Evening peak', fromMinute: 17 * 60, toMinute: 20 * 60 },
+];
+export const OFF_PEAK = 'offPeak';
+
+const MANILA_OFFSET_MINUTES = 8 * 60;
+
+/** Which band a moment falls in, on the Manila clock. */
+export function bandAt(instant) {
+  const utcMinutes = Math.floor(toDate(instant).getTime() / MS_PER_MINUTE);
+  const minuteOfDay = (((utcMinutes + MANILA_OFFSET_MINUTES) % 1440) + 1440) % 1440;
+  const band = TIME_BANDS.find((b) => minuteOfDay >= b.fromMinute && minuteOfDay < b.toMinute);
+  return band ? band.key : OFF_PEAK;
+}
+
+const bandValue = (value) => (Number.isFinite(value) && value >= 0 ? value : null);
+
+/**
+ * Choose each leg's baseline for a given departure. Pure; returns a new plan.
+ *
+ * Chosen leg by leg, not once for the whole trip: a five-hour run that leaves
+ * at 14:00 drives its first legs off-peak and its last ones straight into the
+ * evening rush. Each leg is judged by when the timetable has the bus *starting*
+ * it — the departure plus the legs before it, as chosen.
+ *
+ * A leg with no figure for a band falls back to its off-peak baseline, so a
+ * route that only ever had one number per leg behaves exactly as before.
+ */
+export function selectBaselines(plan, departure) {
+  let elapsed = 0;
+  return plan.map((entry, index) => {
+    const offPeak = entry.offPeakMinutes ?? entry.baselineMinutesFromPrevious ?? 0;
+    if (index === 0) {
+      return { ...entry, baselineMinutesFromPrevious: 0, baselineBand: OFF_PEAK };
+    }
+
+    const band = departure ? bandAt(addMinutes(departure, elapsed)) : OFF_PEAK;
+    const banded = band === OFF_PEAK ? null : bandValue(entry[`${band}Minutes`]);
+    const minutes = banded ?? offPeak;
+    elapsed += minutes;
+
+    return {
+      ...entry,
+      baselineMinutesFromPrevious: minutes,
+      // Which figure was used, so a trip can explain its own yardstick.
+      baselineBand: banded === null ? OFF_PEAK : band,
+    };
+  });
+}
+
+/**
  * Freeze a route's ordered checkpoints onto a trip. Call this once, when the
  * trip is created — never again. `route.checkpoints` must be populated.
+ *
+ * Every band's figure is frozen with it, not just the one chosen, so a trip
+ * moved to another time before it leaves can re-choose without reading the
+ * route again — which may have been edited since.
  */
-export function buildPlan(route) {
+export function buildPlan(route, { departure = null } = {}) {
   if (!route || !route.checkpoints || !route.checkpoints.length) {
     throw new Error('Cannot build a trip plan from a route with no checkpoints.');
   }
-  return route.checkpoints.map((entry, index) => {
+  const plan = route.checkpoints.map((entry, index) => {
     const cp = entry.checkpoint;
     if (!cp || !cp.name) {
       throw new Error('Route checkpoints must be populated before building a plan.');
     }
+    // The origin is the reference point, so its inbound baseline is always 0.
+    const offPeak = index === 0 ? 0 : entry.baselineMinutesFromPrevious;
     return {
       checkpoint: idOf(cp),
       name: cp.name,
       type: cp.type,
-      // The origin is the reference point, so its inbound baseline is always 0.
-      baselineMinutesFromPrevious: index === 0 ? 0 : entry.baselineMinutesFromPrevious,
+      baselineMinutesFromPrevious: offPeak,
+      offPeakMinutes: offPeak,
+      amPeakMinutes: index === 0 ? null : bandValue(entry.amPeakMinutes),
+      pmPeakMinutes: index === 0 ? null : bandValue(entry.pmPeakMinutes),
     };
   });
+  return selectBaselines(plan, departure);
 }
 
 /** Baseline minutes from the origin through `index`, inclusive. */

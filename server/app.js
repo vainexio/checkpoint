@@ -8,7 +8,11 @@ import mongoose from 'mongoose';
 
 import apiRoutes from './routes/index.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
-import { getTrafficStatus, noteTrafficDemand } from './services/trafficRefresher.js';
+import {
+  demandFromPath,
+  getTrafficStatus,
+  noteTrafficDemand,
+} from './services/trafficRefresher.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const CLIENT_DIST = path.resolve(here, '..', 'client', 'dist');
@@ -53,15 +57,13 @@ export function createApp() {
   });
 
   /**
-   * Any read of the API counts as someone using the product, which is what
-   * keeps live traffic lookups running.
-   *
-   * Mounted on /api only, deliberately: a hosting platform's health check hits
-   * /health on a timer forever, and counting that would keep lookups — and the
-   * bill — running on a server nobody is looking at.
+   * Opening a board or a trip is what asks for live traffic, and only for the
+   * buses on it (see trafficRefresher.js). Every other read — the stop list,
+   * the map, admin lists, and above all /health, which a hosting platform
+   * pings forever — costs nothing.
    */
   app.use('/api', (req, res, next) => {
-    if (req.method === 'GET') noteTrafficDemand();
+    if (req.method === 'GET') noteTrafficDemand(demandFromPath(req.path));
     next();
   });
 

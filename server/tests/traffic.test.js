@@ -11,9 +11,12 @@ import {
   runCycle,
 } from '../services/trafficRefresher.js';
 import { refreshSegment, setTrafficProvider } from '../services/trafficProvider.js';
+import { resetTrafficKeys } from '../services/trafficKeys.js';
 import { measureLegs } from '../services/legMeasurer.js';
 
 const HOUR = 60 * 60 * 1000;
+// Someone with one station board open.
+const BOARD = { stationId: 'aaaaaaaaaaaaaaaaaaaaaaaa' };
 const MINUTE = 60 * 1000;
 
 /* The body TomTom actually returned when the account ran out of credits. */
@@ -34,6 +37,7 @@ const outOfCredits = () =>
 
 beforeEach(() => {
   resetTrafficRefresherState();
+  resetTrafficKeys();
   setTrafficProvider({ name: 'fake', enabled: true, liveMinutesFor: async () => 10 });
 });
 
@@ -98,9 +102,9 @@ test('with nobody looking, the refresher does not run', () => {
   assert.deepEqual(refreshGate(1_000_000), { run: false, reason: 'idle' });
 });
 
-test('a request keeps lookups on for the demand window, then lets them lapse', () => {
+test('an open board keeps lookups on for the demand window, then lets them lapse', () => {
   const t = 5_000_000;
-  noteTrafficDemand(t);
+  noteTrafficDemand(BOARD, t);
 
   assert.equal(refreshGate(t).run, true);
   assert.equal(refreshGate(t + DEMAND_WINDOW_MS - 1).run, true);
@@ -117,7 +121,7 @@ test('an idle cycle spends no requests', async () => {
 
 test('a cycle with demand refreshes once', async () => {
   const t = 2_000_000;
-  noteTrafficDemand(t);
+  noteTrafficDemand(BOARD, t);
 
   let calls = 0;
   const result = await runCycle({
@@ -134,7 +138,7 @@ test('a cycle with demand refreshes once', async () => {
 
 test('overlapping cycles join the one already running instead of duplicating it', async () => {
   const t = 3_000_000;
-  noteTrafficDemand(t);
+  noteTrafficDemand(BOARD, t);
 
   let calls = 0;
   let release;
@@ -157,7 +161,7 @@ test('overlapping cycles join the one already running instead of duplicating it'
 
 test('running out of credits pauses lookups, even while boards are open', async () => {
   const t = 10_000_000;
-  noteTrafficDemand(t);
+  noteTrafficDemand(BOARD, t);
 
   const result = await runCycle({
     now: t,
@@ -168,7 +172,7 @@ test('running out of credits pauses lookups, even while boards are open', async 
   assert.deepEqual(result, { paused: 'InsufficientFunds' });
 
   // Still in demand a minute later, but nothing is spent.
-  noteTrafficDemand(t + MINUTE);
+  noteTrafficDemand(BOARD, t + MINUTE);
   let calls = 0;
   const later = await runCycle({ now: t + MINUTE, refresh: async () => (calls += 1) });
 
@@ -178,7 +182,7 @@ test('running out of credits pauses lookups, even while boards are open', async 
 
 test('once the pause is over, it tries the provider again', async () => {
   const t = 20_000_000;
-  noteTrafficDemand(t);
+  noteTrafficDemand(BOARD, t);
   await runCycle({
     now: t,
     refresh: async () => {
@@ -187,7 +191,7 @@ test('once the pause is over, it tries the provider again', async () => {
   });
 
   const after = t + HOUR + 1;
-  noteTrafficDemand(after);
+  noteTrafficDemand(BOARD, after);
   let calls = 0;
   await runCycle({ now: after, refresh: async () => (calls += 1) });
 
@@ -196,7 +200,7 @@ test('once the pause is over, it tries the provider again', async () => {
 
 test('an ordinary failure does not pause the next cycle', async () => {
   const t = 30_000_000;
-  noteTrafficDemand(t);
+  noteTrafficDemand(BOARD, t);
   await runCycle({
     now: t,
     refresh: async () => {
@@ -209,7 +213,7 @@ test('an ordinary failure does not pause the next cycle', async () => {
 
 test('status explains a pause with the provider reason, and nothing else', async () => {
   const t = 40_000_000;
-  noteTrafficDemand(t);
+  noteTrafficDemand(BOARD, t);
   await runCycle({
     now: t,
     refresh: async () => {

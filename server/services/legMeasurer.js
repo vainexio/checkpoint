@@ -17,6 +17,7 @@
  */
 
 import { tomtomErrorFrom } from './tomtomError.js';
+import { hasTrafficKey, withTrafficKey } from './trafficKeys.js';
 import { addDays, departureOn, manilaDate, weekdayOf } from './scheduleService.js';
 
 // A bus does not pass a stop at speed; it pulls in, boards, and pulls out.
@@ -30,7 +31,7 @@ const REQUEST_TIMEOUT_MS = 8000;
 const cache = new Map();
 const keyFor = (a, b, band) => `${band}:${a.lat},${a.lng}->${b.lat},${b.lng}`;
 
-export const canMeasure = () => Boolean(process.env.TRAFFIC_API_KEY);
+export const canMeasure = () => hasTrafficKey();
 
 /**
  * The Manila clock time each band is measured at: the middle of each MMDA
@@ -54,17 +55,23 @@ export function nextWeekdayAt(hhmm, now = new Date()) {
 }
 
 async function typicalMinutes(from, to, band = 'offPeak') {
-  const key = keyFor(from, to, band);
-  const hit = cache.get(key);
+  const cacheKey = keyFor(from, to, band);
+  const hit = cache.get(cacheKey);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.value;
 
   // With a future departAt and traffic on, TomTom answers from its historical
   // traffic for that hour of that weekday — the typical time, for that band.
   const departAt = nextWeekdayAt(MEASURE_AT[band]).toISOString();
+  // Same keys, same rotation and same resting as live traffic: a key the
+  // refresher found empty is not tried again here.
+  return withTrafficKey((key) => fetchTypical(from, to, key, departAt, cacheKey));
+}
+
+async function fetchTypical(from, to, apiKey, departAt, cacheKey) {
   const url =
     `https://api.tomtom.com/routing/1/calculateRoute/` +
     `${from.lat},${from.lng}:${to.lat},${to.lng}/json` +
-    `?key=${encodeURIComponent(process.env.TRAFFIC_API_KEY)}` +
+    `?key=${encodeURIComponent(apiKey)}` +
     `&traffic=true&travelMode=bus&routeType=fastest&computeTravelTimeFor=all` +
     `&departAt=${encodeURIComponent(departAt)}`;
 
@@ -84,7 +91,7 @@ async function typicalMinutes(from, to, band = 'offPeak') {
     if (typeof seconds !== 'number') throw new Error('TomTom returned no travel time');
 
     const value = { minutes: seconds / 60, km: (summary.lengthInMeters ?? 0) / 1000 };
-    cache.set(key, { value, at: Date.now() });
+    cache.set(cacheKey, { value, at: Date.now() });
     return value;
   } finally {
     clearTimeout(timer);

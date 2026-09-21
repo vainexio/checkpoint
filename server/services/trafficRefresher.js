@@ -1,5 +1,7 @@
 import { Checkpoint, Trip } from '../models/index.js';
 import { getTrafficProvider, refreshSegment } from './trafficProvider.js';
+import { trafficKeyStatus } from './trafficKeys.js';
+import { liveWindow } from './tripWindow.js';
 
 /**
  * Keeps the traffic cache warm for the road buses are about to drive — and
@@ -7,50 +9,97 @@ import { getTrafficProvider, refreshSegment } from './trafficProvider.js';
  *
  * This is where "checkpoints make traffic cheap" pays off. A GPS system has no
  * idea which stretch of highway matters, so it polls everything. We know each
- * bus's last confirmed checkpoint, so we know exactly which one or two segments
- * are worth asking about, and we ask once per segment no matter how many buses
- * are on it.
+ * bus's last confirmed checkpoint, so we know exactly which segment is worth
+ * asking about, and we ask once per segment no matter how many buses are on it.
  *
- * And only while someone is looking. Knowing *which* road matters was not
- * enough on its own: the refresher used to run on the clock, and demo trips
- * that nobody ever finishes kept the same fifteen segments "in transit" for
- * good. That was every segment, every five minutes, around the clock, on a
- * server nobody had open — about 4,300 requests a day per process, which is
- * how the provider account ran out of credits. Traffic is only worth paying
- * for while it can be seen, so a request for any page is what keeps it on.
+ * And only for what someone is looking at. The refresher first ran on the
+ * clock, and demo trips that nobody finishes kept fifteen segments "in
+ * transit" for good: every segment, every five minutes, around the clock —
+ * about 4,300 requests a day per server, which emptied the provider's free
+ * monthly allowance in days. It then learned to stop when nobody was using
+ * the site at all. Now it goes further: a request is spent only on the next
+ * leg of a bus that is on a board or trip page someone has open, every ten
+ * minutes. A passenger watching one station costs a request or two per cycle,
+ * not the whole network.
  */
 
-const DEFAULT_INTERVAL_MS = 5 * 60 * 1000;
+const DEFAULT_INTERVAL_MS = 10 * 60 * 1000;
 
 /**
- * How long after the last request the refresher keeps asking.
+ * How long after a page was last loaded it still counts as being looked at.
  *
  * Every screen that shows traffic polls well inside this, so an open tab — a
- * passenger on a board, a terminal display on a wall — keeps lookups going for
- * exactly as long as it stays open, and a server nobody is using goes quiet
- * within ten minutes of the last visit.
+ * passenger on a board, a terminal display on a wall — keeps its buses'
+ * traffic fresh for exactly as long as it stays open.
  */
 export const DEMAND_WINDOW_MS = 10 * 60 * 1000;
 
-// How far ahead of each bus to look. Two segments is enough to inform the ETA a
-// passenger is reading without pre-fetching a whole route nobody has reached.
-const LOOKAHEAD_SEGMENTS = 2;
+// The leg each bus is on now. Traffic further ahead changes before the bus
+// gets there, so paying for it early buys a number that will be replaced.
+const LOOKAHEAD_SEGMENTS = 1;
 
 let timer = null;
-let lastDemandAt = 0;
+/** 'station:<id>' | 'trip:<id>' -> last time a page for it was loaded */
+const demand = new Map();
 let pausedUntil = 0;
 let pauseReason = null;
 let inFlight = null;
 // What the previous skipped cycle was waiting on, so the logs record a change
-// of state once rather than repeating it every five minutes.
+// of state once rather than repeating it every cycle.
 let lastSkip = null;
 
-/** The segments any in-flight trip is about to drive, de-duplicated. */
-export async function pendingSegments() {
-  const trips = await Trip.find({ status: { $in: ['in_transit', 'delayed'] } })
-    .select('plan lastConfirmedCheckpoint')
-    .lean();
+const OBJECT_ID = '[a-f0-9]{24}';
+const DEMAND_PATHS = [
+  // A station board, including the terminal display, which reads the same.
+  [new RegExp(`^/public/stations/(${OBJECT_ID})/board$`), 'station'],
+  // One trip: the passenger trip page, the conductor's own screen (so a tap
+  // closing a leg has the road reading to record), and the admin record.
+  [new RegExp(`^/public/trips/(${OBJECT_ID})$`), 'trip'],
+  [new RegExp(`^/conductor/trips/(${OBJECT_ID})$`), 'trip'],
+  [new RegExp(`^/admin/trips/(${OBJECT_ID})$`), 'trip'],
+];
 
+/**
+ * Which buses a request is asking to see, from its path under /api. Pages
+ * that show no live traffic — the stop list, the map, admin lists — return
+ * null and cost nothing.
+ */
+export function demandFromPath(path) {
+  for (const [pattern, kind] of DEMAND_PATHS) {
+    const match = pattern.exec(path);
+    if (match) return { [`${kind}Id`]: match[1] };
+  }
+  return null;
+}
+
+/** What is being looked at right now, forgetting anything past the window. */
+export function demandedTargets(now = Date.now()) {
+  const stationIds = [];
+  const tripIds = [];
+  for (const [key, at] of demand) {
+    if (now - at > DEMAND_WINDOW_MS) {
+      demand.delete(key);
+      continue;
+    }
+    const [kind, id] = key.split(':');
+    (kind === 'station' ? stationIds : tripIds).push(id);
+  }
+  return { stationIds, tripIds };
+}
+
+const hasTargets = ({ stationIds, tripIds }) => stationIds.length + tripIds.length > 0;
+
+/**
+ * The segments worth asking about, given which trips and stations are being
+ * looked at. Pure, so the selection is tested without a database.
+ *
+ * A trip being looked at directly contributes the leg it is on. A station
+ * contributes the leg of every bus still coming to it — a bus that has already
+ * been and gone does not affect anyone waiting there.
+ */
+export function segmentsFor(trips, { stationIds = [], tripIds = [] } = {}) {
+  const stations = new Set(stationIds.map(String));
+  const watchedTrips = new Set(tripIds.map(String));
   const wanted = new Map();
 
   for (const trip of trips) {
@@ -58,6 +107,11 @@ export async function pendingSegments() {
     const lastIndex = trip.lastConfirmedCheckpoint
       ? plan.findIndex((p) => String(p.checkpoint) === String(trip.lastConfirmedCheckpoint))
       : 0;
+
+    const comingToAWatchedStop = plan.some(
+      (p, i) => i > lastIndex && stations.has(String(p.checkpoint))
+    );
+    if (!watchedTrips.has(String(trip._id)) && !comingToAWatchedStop) continue;
 
     for (let step = 1; step <= LOOKAHEAD_SEGMENTS; step += 1) {
       const to = lastIndex + step;
@@ -78,12 +132,31 @@ export async function pendingSegments() {
   return [...wanted.values()];
 }
 
-export async function refreshOnce() {
+/** The segments to refresh for what is being looked at, de-duplicated. */
+export async function pendingSegments(targets) {
+  if (!hasTargets(targets)) return [];
+  // Through the same window as the boards: a trip abandoned days ago is still
+  // "in transit" in the database, and is on nobody's screen.
+  const { $or: running, ...window } = liveWindow();
+  const trips = await Trip.find({
+    status: { $in: ['in_transit', 'delayed'] },
+    ...window,
+    $and: [
+      { $or: running },
+      { $or: [{ _id: { $in: targets.tripIds } }, { 'plan.checkpoint': { $in: targets.stationIds } }] },
+    ],
+  })
+    .select('plan lastConfirmedCheckpoint')
+    .lean();
+  return segmentsFor(trips, targets);
+}
+
+export async function refreshOnce(targets = demandedTargets()) {
   const provider = getTrafficProvider();
   if (!provider.enabled) return { provider: provider.name, refreshed: 0, skipped: 'disabled' };
 
-  const segments = await pendingSegments();
-  if (!segments.length) return { provider: provider.name, refreshed: 0 };
+  const segments = await pendingSegments(targets);
+  if (!segments.length) return { provider: provider.name, refreshed: 0, considered: 0 };
 
   const ids = [...new Set(segments.flatMap((s) => [s.fromId, s.toId]))];
   const checkpoints = await Checkpoint.find({ _id: { $in: ids } })
@@ -105,22 +178,25 @@ export async function refreshOnce() {
 }
 
 /**
- * Someone is using the system. Called for every API read.
+ * Someone opened a page that shows live traffic.
  *
- * After a quiet spell this also refreshes straight away, so the first person to
- * open a board sees traffic on their next poll rather than waiting up to a full
- * interval for the timer to come round.
+ * Something newly looked at is refreshed straight away, so the person who
+ * opened it sees traffic on their next poll rather than up to ten minutes
+ * later. That costs only its own segments: anything already asked about
+ * recently is answered from the cache.
  */
-export function noteTrafficDemand(now = Date.now()) {
-  const wasIdle = now - lastDemandAt > DEMAND_WINDOW_MS;
-  lastDemandAt = now;
-  if (wasIdle && timer) runCycle({ now });
+export function noteTrafficDemand(target, now = Date.now()) {
+  if (!target) return;
+  const key = target.stationId ? `station:${target.stationId}` : `trip:${target.tripId}`;
+  const isNew = !demand.has(key) || now - demand.get(key) > DEMAND_WINDOW_MS;
+  demand.set(key, now);
+  if (isNew && timer) runCycle({ now });
 }
 
 /** Whether a cycle should spend requests right now, and if not, why not. */
 export function refreshGate(now = Date.now()) {
   if (now < pausedUntil) return { run: false, reason: 'paused' };
-  if (now - lastDemandAt > DEMAND_WINDOW_MS) return { run: false, reason: 'idle' };
+  if (!hasTargets(demandedTargets(now))) return { run: false, reason: 'idle' };
   return { run: true, reason: null };
 }
 
@@ -128,23 +204,26 @@ export function refreshGate(now = Date.now()) {
  * What the refresher is doing, for /health.
  *
  * "Why is there no traffic on the board" should be answerable without reading
- * server logs. The pause reason is TomTom's own error code, never the request,
- * so nothing here carries the key.
+ * server logs. Keys are listed by their variable name and state; nothing here
+ * carries a key's value.
  */
 export function getTrafficStatus(now = Date.now()) {
   const provider = getTrafficProvider();
   if (!provider.enabled) return { provider: provider.name, state: 'disabled' };
 
+  const keys = trafficKeyStatus(now);
   const gate = refreshGate(now);
+  const { stationIds, tripIds } = demandedTargets(now);
+  const base = {
+    provider: provider.name,
+    watching: { stations: stationIds.length, trips: tripIds.length },
+    keys,
+  };
+
   if (gate.reason === 'paused') {
-    return {
-      provider: provider.name,
-      state: 'paused',
-      reason: pauseReason,
-      resumesAt: new Date(pausedUntil),
-    };
+    return { ...base, state: 'paused', reason: pauseReason, resumesAt: new Date(pausedUntil) };
   }
-  return { provider: provider.name, state: gate.run ? 'active' : gate.reason };
+  return { ...base, state: gate.run ? 'active' : gate.reason };
 }
 
 /**
@@ -158,7 +237,7 @@ export async function runCycle({ now = Date.now(), refresh = refreshOnce } = {})
 
   if (!gate.run) {
     if (gate.reason !== lastSkip && gate.reason === 'idle') {
-      console.log('[traffic] nobody has opened a board in 10m — lookups paused until someone does');
+      console.log('[traffic] no board with live buses is open — lookups paused until one is');
     }
     lastSkip = gate.reason;
     return { skipped: gate.reason };
@@ -174,12 +253,14 @@ export async function runCycle({ now = Date.now(), refresh = refreshOnce } = {})
 
   inFlight = (async () => {
     try {
-      const result = await refresh();
+      const result = await refresh(demandedTargets(now));
       if (result?.refreshed) {
         console.log(`[traffic] refreshed ${result.refreshed}/${result.considered} segments`);
       }
       return result;
     } catch (err) {
+      // Only reaches here once every key has been refused or is resting —
+      // trafficKeys.js steps past a single refused key on its own.
       if (err?.pauseMs > 0) {
         pausedUntil = now + err.pauseMs;
         pauseReason = err.code ?? `HTTP ${err.status}`;
@@ -206,21 +287,22 @@ export function startTrafficRefresher(intervalMs = DEFAULT_INTERVAL_MS) {
   }
 
   // No run on boot: a freshly started server with nobody on it has nothing
-  // worth paying for. The first request to arrive starts the first cycle.
+  // worth paying for. The first board opened starts the first cycle.
   timer = setInterval(() => runCycle(), intervalMs);
   // Never hold the process open for a cache warmer.
   timer.unref?.();
 
+  const keys = trafficKeyStatus().length;
   console.log(
-    `[traffic] ${provider.name} provider active — refreshing every ${intervalMs / 60000}m ` +
-      'while a board is being viewed'
+    `[traffic] ${provider.name} provider active with ${keys} key${keys === 1 ? '' : 's'} — ` +
+      `refreshing every ${intervalMs / 60000}m for buses on boards being viewed`
   );
   return timer;
 }
 
 /** Test seam: forget demand, pauses and any cycle in flight. */
 export function resetTrafficRefresherState() {
-  lastDemandAt = 0;
+  demand.clear();
   pausedUntil = 0;
   pauseReason = null;
   inFlight = null;

@@ -23,10 +23,14 @@ services:
         sync: false
       - key: JWT_EXPIRES_IN
         value: 12h
-      # Live traffic. Leave TRAFFIC_API_KEY unset to run on static baselines.
+      # Live traffic. Keys are used in turn and a refused one is skipped; add
+      # TRAFFIC_API_KEY3, 4, ... in the dashboard as needed. Leave them all
+      # unset to run on static baselines.
       - key: TRAFFIC_PROVIDER
         value: tomtom
-      - key: TRAFFIC_API_KEY
+      - key: TRAFFIC_API_KEY1
+        sync: false
+      - key: TRAFFIC_API_KEY2
         sync: false
       # CLIENT_ORIGIN and VITE_API_BASE_URL are deliberately absent: the client
       # calls a relative /api on the same origin, so neither is needed.

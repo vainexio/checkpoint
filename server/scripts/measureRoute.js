@@ -20,6 +20,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import { tomtomErrorFrom } from '../services/tomtomError.js';
+import { withTrafficKey } from '../services/trafficKeys.js';
 
 dotenv.config({
   path: path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '.env'),
@@ -112,10 +113,14 @@ const ROUTES = {
 };
 
 async function legMinutes(from, to) {
+  return withTrafficKey((key) => legMinutesWith(key, from, to));
+}
+
+async function legMinutesWith(key, from, to) {
   const url =
     `https://api.tomtom.com/routing/1/calculateRoute/` +
     `${from.lat},${from.lng}:${to.lat},${to.lng}/json` +
-    `?key=${process.env.TRAFFIC_API_KEY}&traffic=true&travelMode=bus&routeType=fastest` +
+    `?key=${encodeURIComponent(key)}&traffic=true&travelMode=bus&routeType=fastest` +
     // Without this TomTom returns only the live time and the breakdown fields
     // come back undefined.
     `&computeTravelTimeFor=all`;

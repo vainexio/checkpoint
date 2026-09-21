@@ -73,7 +73,8 @@ MONGODB_URI=...
 JWT_SECRET=...
 JWT_EXPIRES_IN=12h
 TRAFFIC_PROVIDER=tomtom
-TRAFFIC_API_KEY=...
+TRAFFIC_API_KEY1=...
+TRAFFIC_API_KEY2=...        # optional; add 3, 4, ... as needed
 ```
 
 Don't set `PORT` — Render injects it. Don't set `CLIENT_ORIGIN` or `VITE_API_BASE_URL` — the
@@ -150,7 +151,7 @@ leg against TomTom and fills the fields in.
   calls per route rather than one per keystroke, and results are cached for a day.
 - A leg whose stop has no pin yet comes back unmeasured with the reason, rather than failing
   the whole route. Half a route measured beats an error.
-- With no `TRAFFIC_API_KEY` the button reports that plainly instead of inventing numbers.
+- With no traffic key configured the button reports that plainly instead of inventing numbers.
 
 ## Staff accounts and sign-in
 
@@ -463,8 +464,22 @@ per-segment adjustment the engine applies to the road still ahead.
 
 Checkpoints are what make this affordable. A GPS system has no idea which stretch of highway
 matters, so it polls everything; we know each bus's last confirmed checkpoint, so we ask about
-the one or two segments it is about to drive — **once per segment**, however many buses are on
-it, cached for five minutes, and never on the request path.
+the one segment it is driving — **once per segment**, however many buses are on it, and never on
+the request path.
+
+And only for what someone is looking at. The first version refreshed every in-flight bus every
+five minutes around the clock, and demo trips that never finish kept that going on a server
+nobody had open — about 4,300 requests a day, which emptied TomTom's free monthly allowance in
+days. Now a lookup is spent only on the current leg of a bus that is on a **board or trip page
+someone has open**, every **ten minutes**, and nothing at all when nobody is looking. The stop
+list, the map, admin lists and `/health` never trigger one.
+
+**Several keys, taken in turn.** Set `TRAFFIC_API_KEY1`, `TRAFFIC_API_KEY2`, … — any number,
+gaps allowed. Requests rotate across them so their allowances are drawn down together, and a key
+TomTom refuses (out of credits, bad key, rate limit) is set aside for as long as the refusal
+calls for while the same request is retried on the next. Only when every key is resting does
+lookup stop. `/health` lists each key by variable name with its state, never its value. The old
+single `TRAFFIC_API_KEY` is still read, but only when no numbered key is set.
 
 The split that matters:
 
@@ -473,7 +488,7 @@ The split that matters:
 - Congestion we already know about also **widens the staleness window**, so a bus stuck in a
   reported jam is not accused of having gone silent.
 
-Set `TRAFFIC_API_KEY` in `server/.env` to enable it ([TomTom](https://developer.tomtom.com)
+Set `TRAFFIC_API_KEY1` (and optionally more) in `server/.env` to enable it ([TomTom](https://developer.tomtom.com)
 has a free tier with no card). With no key the provider is inert and ETAs use pure baselines —
 same behaviour as before traffic existed, and every test covers both paths.
 

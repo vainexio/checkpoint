@@ -8,6 +8,24 @@ export default defineConfig({
   resolve: {
     alias: { '@': path.resolve(import.meta.dirname, 'src') },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        /**
+         * The libraries in their own files, which change far less often than
+         * the app: a deploy then re-downloads the app code, not the map and
+         * animation libraries with it. They are still loaded up front and
+         * listed in index.html, so the offline shell (public/sw.js) picks
+         * them up without knowing about this split.
+         */
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          map: ['leaflet', 'react-leaflet'],
+          motion: ['framer-motion'],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     // Keeps development on one origin too, so /api behaves exactly as it will

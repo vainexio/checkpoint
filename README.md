@@ -23,7 +23,7 @@ The map has no moving parts.
 |---|---|---|
 | **Guest** | None at all | Arrivals board, browsable by station. Every bus inbound, soonest first. |
 | **Conductor** | JWT | Their own trips and four taps. Mobile-first, works offline. |
-| **Admin** | JWT | Routes, checkpoints, buses, conductor accounts, trip scheduling, live dashboard. |
+| **Admin** | JWT | Routes and checkpoints, fleet and staff accounts, recurring schedules and one-off trips, trip corrections, live dashboard. |
 
 Staff share **one sign-in** at `/login`. Nobody has to know which of two forms is
 "theirs" before typing a password — the account's role decides where they land, and the
@@ -46,8 +46,12 @@ npm run dev                                         # UI on :5173
 Demo accounts created by the seed (change them before this touches anything real):
 
 - Admin — `admin` / `checkpoint123`
-- Conductors — `rey` / `checkpoint123`, `marlon` / `checkpoint123`
+- Conductors — `rey`, `marlon`, `dennis`, `joel`, all `checkpoint123`
 - Guests need no account at all.
+
+The seed also creates a small timetable of recurring schedules, and the server keeps a week of
+trips generated from it. During a demonstration an admin can rebuild all of it by
+double-clicking the CHECKPOINT wordmark.
 
 ## Deploying to Render
 
@@ -148,6 +152,21 @@ leg against TomTom and fills the fields in.
   the whole route. Half a route measured beats an error.
 - With no `TRAFFIC_API_KEY` the button reports that plainly instead of inventing numbers.
 
+## Staff accounts and sign-in
+
+- **Guessing is throttled.** Five wrong passwords hold an account for 15 minutes, twenty from one
+  address hold that address, and the response says how long to wait. A correct password clears
+  the account's count. Password changes and reset codes are throttled the same way.
+- **A password an admin chose is temporary.** The account can reach only the change-password form
+  until its holder picks their own — enforced by the server, not trusted to the client.
+- **Changing a password ends every older session.** Tokens carry a version that the change
+  increments, so none issued before it survive, not even one from the same second.
+- **Forgotten passwords** need no email: an admin issues a one-time code (8 characters, no
+  lookalike letters, 30 minutes, single use, stored hashed) and the staff member sets their own
+  new password with it from the sign-in page. The admin never learns it.
+- Sessions last 12 hours (`JWT_EXPIRES_IN`), which covers a shift including an overnight Baguio
+  run; there is deliberately no silent renewal, so a lost phone's session ends on its own.
+
 ## Starting from an empty database
 
 The seed is demo data, not a dependency — everything in it can be created through the admin
@@ -162,6 +181,46 @@ UI instead. But a fresh database has no account to sign in as, so:
   one account is otherwise a single point of failure.
 - Locked out anyway? `npm run create-admin -- --username you --password ...` works against
   whatever `MONGODB_URI` points at, and resets an existing account's password.
+
+## Running the timetable
+
+### Recurring schedules
+
+An operator's timetable is a set of departures that repeat — "PITX – Lipa, 06:00, daily, SBL
+3561 with Dennis" — so that is what gets entered, once. The server keeps **a week of ordinary
+trips** generated from each schedule, topped up every hour, and everything downstream (the
+conductor's roster, the boards, the dashboard) works on those trips unchanged.
+
+- **Generating twice never duplicates a day.** Each trip is keyed by its schedule and Manila
+  service day under a unique index, so the hourly run, an edit and a second server racing each
+  other can only ever produce one trip per day.
+- **One day can change without breaking the pattern.** Cancel it and it stays cancelled. Delete
+  it and the day is recorded on the schedule, so it is not put back. Give it a different bus or
+  time and it is marked as changed; editing the schedule later regenerates only the days nobody
+  has touched.
+- **Pausing** clears the untouched trips ahead and keeps the pattern for later. Anything already
+  departed, logged against, or edited by hand is a record and is never removed.
+- The trip list is split into **Today, Upcoming and Past**, and says which trips are recurring
+  and which were entered by hand.
+
+A week of generated trips would bury the buses running now, so every live view reads through one
+window: a board shows departures up to **12 hours** ahead, drops a trip still not departed
+**3 hours** after its time (the operator sees it as "Did not run"), and drops one abandoned for a
+day. A departure more than an hour away is a time on the timetable, not a bus in the bay, so it
+ranks with the arrivals and draws an empty bay rather than a bus boarding.
+
+### Correcting a trip after the fact
+
+A conductor can undo their own tap for five minutes. After that, passengers have acted on the
+board, and a mistake is put right by a dispatcher: the admin trip page shows a trip's full event
+stream in replay order, flags any event the engine ignored and why, and lets an admin **add a
+missed tap, move a tap to the right checkpoint or time, or remove one**.
+
+Every correction is the same three steps: change the event stream, replay the whole trip from it,
+and write an audit record — who, when, the event before and after, and why. Because trip state is
+a replay, a corrected trip lands exactly where it would have been had the mistake never happened.
+A tap moved to a different checkpoint drops the traffic reading it carried, since that described
+another stretch of road.
 
 ## How the ETA works
 
@@ -232,6 +291,23 @@ Three rules keep it honest:
 - **Lateness is always shown.** Clearing the delayed flag must not turn into telling someone
   "On time" about a bus that is twelve minutes away. When the road explains it, the board says
   `12 min late · traffic` — the number stays, the blame moves.
+
+### Rush hour has its own yardstick
+
+One number per leg cannot describe a road that takes 32 minutes at midnight and 39 at six in the
+evening; judged against the off-peak figure, every rush-hour trip reads late every day. So a leg
+can also carry what it takes in the **morning and evening peaks** — the MMDA number-coding hours,
+7–10 AM and 5–8 PM Manila time — and a trip uses the figure for **when the timetable has the bus
+starting that leg**. A 14:00 run to Baguio is judged off-peak out of Cubao and at rush-hour rates
+coming into the evening.
+
+- A leg with no rush-hour figure uses its usual one, so a single-value route plans exactly as
+  before. The engine itself did not change: it still reads one baseline per leg.
+- Every band's figure is frozen onto the trip, so moving a trip to another hour before it leaves
+  re-chooses without reading a route that may have changed since.
+- "Estimate travel times, with rush hour" measures each leg at 11:00, 08:30 and 18:30 on the next
+  weekday. Off-peak used to be measured whenever the button was pressed, so a route built at 6 PM
+  quietly got rush-hour baselines.
 
 ### Asking the question the other way round
 
@@ -417,6 +493,19 @@ Connectivity on provincial routes is unreliable, so a tap must never fail for wa
 The ETA engine reads `reportedAt` only. When a log actually reached the server is recorded as
 `syncedAt` for diagnostics and never enters the arithmetic.
 
+### Opening with no signal
+
+The queue only helps while the app is open, and reloading on a dead stretch used to give a browser
+error. A **service worker** now keeps the app shell — the page, its content-hashed build files and
+the fonts — on the phone. Pages come from the network when there is one, so a deploy is picked up
+at once, and from the stored shell when there is not. It never caches `/api`: trip data is live,
+or it is shown by the app as a snapshot and labelled with when it was saved.
+
+Staff screens keep their last good answer on the device, per account, cleared on sign-out. And
+failing to reach the server no longer signs anyone out; only an actual refusal from the server
+does. Reloading `/conductor` with the server stopped opens signed in, with the trips and a
+"no connection" note.
+
 ### Undo
 
 A wrong button on a moving bus is a matter of when, not if, so every tap can be taken back for
@@ -457,22 +546,27 @@ the viewer's device clock.
 cd server && npm test
 ```
 
-80 tests: the engine's arithmetic (variance, re-projection, skipped checkpoints, out-of-order
-replay, staleness thresholds, traffic applying forward-only without touching a measured
-variance, and the delay flag surviving a slow road while still catching a slow bus) plus API
-integration against an in-memory MongoDB covering the shared login and its
-role boundary, the frozen plan, offline sync, undo and its limits, at-stop versus on-the-road
-position, destination-first journey search, and the public board — plus `npm test` in `client/`
-for the locating strategy, where a coarse refinement must never displace a good fix.
+144 server tests: the engine's arithmetic (variance, re-projection, skipped checkpoints,
+out-of-order replay, staleness thresholds, traffic applying forward-only without touching a
+measured variance, the delay flag surviving a slow road while still catching a slow bus, and
+rush-hour band selection with its single-value fallback) plus API integration against an
+in-memory MongoDB covering the shared login and its role boundary, sign-in throttling, temporary
+passwords and reset codes, the frozen plan, schedule generation and duplicate protection under
+racing generators, single-day overrides, dispatcher corrections and their audit trail, offline
+sync, undo and its limits, at-stop versus on-the-road position, the live board window,
+destination-first journey search, and the public board. `npm test` in `client/` covers the
+locating strategy, where a coarse refinement must never displace a good fix.
 
 ## Project layout
 
 ```
 server/
-  models/       Checkpoint, Route, Bus, User, Trip, CheckpointLog
+  models/       Checkpoint, Route, Bus, User, Trip, CheckpointLog, Schedule, TripCorrection
   services/     etaEngine.js (pure) · tripService.js (persistence bridge)
+                scheduleService.js (recurring trips) · tripWindow.js (what boards show)
                 trafficProvider.js (pluggable) · trafficRefresher.js (cache warmer)
-  controllers/  auth · admin · conductor · public
+                loginThrottle.js · legMeasurer.js (route timings, per band)
+  controllers/  auth · admin · correction · conductor · public
   middleware/   JWT auth, role checks, error handling
   seed.js       Cubao – Baguio demo data
 client/
@@ -480,7 +574,8 @@ client/
   src/components/ui/  shadcn primitives, copied from SCOUT
   src/components/     StatusBadge · StaleNotice · Timeline · JourneyStrip
                       CheckpointMap (Leaflet/OSM) · layout/AppLayout
-  src/hooks/          usePolling · useOfflineQueue · useAuth
+  src/hooks/          usePolling (with on-device snapshots) · useOfflineQueue · useAuth
+  public/sw.js        offline app shell
   src/api/            one module per audience
   src/index.css       SCOUT design tokens
 ```

@@ -37,6 +37,13 @@ export const listConductors = () => api.get('/admin/conductors', opts);
 export const createConductor = (body) => api.post('/admin/conductors', body, opts);
 export const deleteConductor = (id) => api.del(`/admin/conductors/${id}`, opts);
 
+export const listAdmins = () => api.get('/admin/admins', opts);
+export const createAdmin = (body) => api.post('/admin/admins', body, opts);
+export const deleteAdmin = (id) => api.del(`/admin/admins/${id}`, opts);
+
+/** A one-time code a staff member uses to set their own new password. */
+export const createResetCode = (userId) => api.post(`/admin/users/${userId}/reset-code`, {}, opts);
+
 export const listTrips = (query = '') => api.get(`/admin/trips${query}`, opts);
 export const createTrip = (body) => api.post('/admin/trips', body, opts);
 export const updateTrip = (id, body) => api.put(`/admin/trips/${id}`, body, opts);

@@ -57,7 +57,10 @@ if (existing) {
   existing.role = 'admin';
   existing.name = name;
   existing.isActive = true;
-  existing.passwordHash = await User.hashPassword(password);
+  // Through setPassword, so whoever was locking you out loses their session
+  // too. Run by the account holder themselves, so the password is not
+  // temporary.
+  await existing.setPassword(password);
   await existing.save();
   console.log(`Reset the password for existing account "${existing.username}" (now admin).`);
 } else {

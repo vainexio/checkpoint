@@ -26,6 +26,12 @@ const CLIENT_DIST = path.resolve(here, '..', 'client', 'dist');
 export function createApp() {
   const app = express();
 
+  // Render puts one proxy in front of the app. Trusting exactly that hop makes
+  // req.ip the caller's address, which the sign-in throttle counts by — and
+  // trusting no more than that stops a caller spoofing X-Forwarded-For to
+  // dodge it.
+  app.set('trust proxy', 1);
+
   // Only relevant when the client is served from somewhere else (the Vite dev
   // server proxies instead, so this is a no-op in normal development too).
   const origins = (process.env.CLIENT_ORIGIN || 'http://localhost:5173')

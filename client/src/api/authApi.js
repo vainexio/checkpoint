@@ -21,4 +21,21 @@ export async function createFirstAdmin(body) {
 }
 
 export const fetchMe = () => api.get('/auth/me', { auth: true });
+
+/**
+ * Replace your own password. The server ends every other session this account
+ * had and hands back the one that replaces them.
+ */
+export async function changePassword(currentPassword, newPassword) {
+  const res = await api.post('/auth/password', { currentPassword, newPassword }, { auth: true });
+  setToken(res.token);
+  return res.user;
+}
+
+/** Set a new password with a one-time code an admin issued, and sign in. */
+export async function resetPassword({ username, code, newPassword }) {
+  const res = await api.post('/auth/reset', { username, code, newPassword });
+  setToken(res.token);
+  return res.user;
+}
 export const logout = () => setToken(null);

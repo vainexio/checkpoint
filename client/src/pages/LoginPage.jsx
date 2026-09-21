@@ -197,6 +197,15 @@ export default function LoginPage() {
               <Button type="submit" className="w-full" disabled={busy}>
                 {leaving ? 'Taking you there…' : busy ? 'Signing in…' : 'Sign in'}
               </Button>
+
+              <div className="text-center">
+                <Link
+                  to="/reset-password"
+                  className="text-[13px] font-semibold text-primary underline-offset-4 hover:underline"
+                >
+                  Forgot your password? Use a reset code
+                </Link>
+              </div>
             </form>
 
             <p className="mt-6 border-t border-border pt-4 text-[13px] text-muted-foreground">

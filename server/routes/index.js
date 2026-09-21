@@ -18,6 +18,11 @@ router.post('/auth/setup', auth.setupFirstAdmin);
 
 router.post('/auth/login', auth.login);
 router.get('/auth/me', requireAuth, auth.me);
+// Deliberately requireAuth alone: someone who must change a temporary password
+// has to be able to reach the one route that lets them.
+router.post('/auth/password', requireAuth, auth.changePassword);
+// With a one-time code an admin issued. No session, by definition.
+router.post('/auth/reset', auth.resetPassword);
 
 /* ---------------------------------------------------------------- public */
 // No auth middleware below this line, on purpose. A passenger checking a bus
@@ -78,6 +83,9 @@ router.get('/admin/conductors', ...adminOnly, admin.listConductors);
 router.post('/admin/conductors', ...adminOnly, admin.createConductor);
 router.put('/admin/conductors/:id', ...adminOnly, admin.updateConductor);
 router.delete('/admin/conductors/:id', ...adminOnly, admin.deleteConductor);
+
+// Any staff account, admin or conductor.
+router.post('/admin/users/:id/reset-code', ...adminOnly, admin.createResetCode);
 
 router.get('/admin/trips', ...adminOnly, admin.listTrips);
 router.get('/admin/trips/:id', ...adminOnly, admin.getTrip);

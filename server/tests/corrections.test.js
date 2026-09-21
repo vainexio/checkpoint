@@ -66,6 +66,8 @@ beforeEach(async () => {
     username: 'rey',
     password: 'checkpoint123',
   });
+  // Past the first-sign-in password change, which auth.test.js covers.
+  await models.User.updateOne({ username: 'rey' }, { mustChangePassword: false });
   const trip = await asAdmin(request(app).post('/api/admin/trips')).send({
     routeId: route.body._id,
     busId: bus.body._id,

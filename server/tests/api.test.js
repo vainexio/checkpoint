@@ -14,6 +14,9 @@ let app;
 
 const minutesAgo = (m) => new Date(Date.now() - m * 60000).toISOString();
 
+/** Past the first-sign-in password change, which auth.test.js covers. */
+const settle = (username) => User.updateOne({ username }, { mustChangePassword: false });
+
 before(async () => {
   mongod = await MongoMemoryServer.create();
   await mongoose.connect(mongod.getUri());
@@ -81,6 +84,9 @@ async function setupWorld() {
   const conductor = await asAdmin(request(app).post('/api/admin/conductors'))
     .send({ name: 'Rey Santiago', username: 'rey', password: 'checkpoint123' })
     .expect(201);
+  // An admin-chosen password must be replaced on first sign-in. That flow has
+  // its own tests (auth.test.js); here the account is simply ready to use.
+  await settle('rey');
 
   const trip = await asAdmin(request(app).post('/api/admin/trips'))
     .send({
@@ -317,6 +323,7 @@ test('a conductor cannot log against a trip that is not theirs', async () => {
     .set('Authorization', `Bearer ${adminToken}`)
     .send({ name: 'Marlon Cruz', username: 'marlon', password: 'checkpoint123' })
     .expect(201);
+  await settle('marlon');
 
   const other = await request(app)
     .post('/api/auth/login')
@@ -434,6 +441,7 @@ test('one conductor cannot undo another conductor trip update', async () => {
     .set('Authorization', `Bearer ${adminToken}`)
     .send({ name: 'Marlon Cruz', username: 'marlon', password: 'checkpoint123' })
     .expect(201);
+  await settle('marlon');
 
   const other = await request(app)
     .post('/api/auth/login')

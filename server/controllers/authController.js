@@ -1,6 +1,46 @@
+import { randomInt } from 'node:crypto';
+import bcrypt from 'bcryptjs';
 import { User } from '../models/index.js';
 import { signToken } from '../middleware/auth.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
+import {
+  checkAttempt,
+  recordFailure,
+  recordSuccess,
+  tooManyAttempts,
+} from '../services/loginThrottle.js';
+
+/** What the client is told about the person signed in. */
+export const publicUser = (user) => ({
+  id: String(user._id),
+  name: user.name,
+  username: user.username,
+  role: user.role,
+  // The client sends them to the change-password form first; the server
+  // refuses everything else until they have (see middleware/auth.js).
+  mustChangePassword: Boolean(user.mustChangePassword),
+});
+
+export const MIN_PASSWORD_LENGTH = 8;
+
+/** The rules for any password a person chooses for themselves. */
+function passwordProblem(password, { username, current = null } = {}) {
+  if (!password || password.length < MIN_PASSWORD_LENGTH) {
+    return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+  }
+  if (username && password.toLowerCase() === String(username).toLowerCase()) {
+    return 'Password cannot be the same as the username.';
+  }
+  if (current && password === current) {
+    return 'Choose a password different from the current one.';
+  }
+  return null;
+}
+
+const refuse = (res, retryAfterSeconds) =>
+  res.set('Retry-After', String(retryAfterSeconds)).status(429).json({
+    error: tooManyAttempts(retryAfterSeconds),
+  });
 
 /**
  * One sign-in for staff.
@@ -21,22 +61,123 @@ export const login = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Username and password are required.' });
   }
 
-  const user = await User.findOne({
-    username: String(username).toLowerCase().trim(),
-  }).select('+passwordHash');
+  const account = String(username).toLowerCase().trim();
+  const attempt = { account, address: req.ip };
+
+  // Checked before the password is even looked at, so a held account costs a
+  // guesser nothing but the wait — not one more bcrypt comparison.
+  const gate = checkAttempt(attempt);
+  if (!gate.allowed) return refuse(res, gate.retryAfterSeconds);
+
+  const user = await User.findOne({ username: account }).select('+passwordHash');
 
   // One message for both wrong-user and wrong-password, so the form cannot be
-  // used to discover which usernames exist.
+  // used to discover which usernames exist. Unknown names count as failures
+  // too, for the same reason.
   const invalid = { error: 'Incorrect username or password.' };
-  if (!user || !user.isActive) return res.status(401).json(invalid);
+  const ok = user?.isActive && (await user.verifyPassword(password));
+  if (!ok) {
+    recordFailure(attempt);
+    return res.status(401).json(invalid);
+  }
 
-  const ok = await user.verifyPassword(password);
-  if (!ok) return res.status(401).json(invalid);
+  recordSuccess(attempt);
+  return res.json({ token: signToken(user), user: publicUser(user) });
+});
 
-  return res.json({
-    token: signToken(user),
-    user: { id: String(user._id), name: user.name, username: user.username, role: user.role },
+/**
+ * Change your own password. The current one is required even though the
+ * session is valid: a phone left unlocked on a dashboard should not be enough
+ * to take the account over.
+ */
+export const changePassword = asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body ?? {};
+  const user = await User.findById(req.user._id).select('+passwordHash');
+
+  const attempt = { account: `change:${user.username}`, address: req.ip };
+  const gate = checkAttempt(attempt);
+  if (!gate.allowed) return refuse(res, gate.retryAfterSeconds);
+
+  if (!currentPassword || !(await user.verifyPassword(currentPassword))) {
+    recordFailure(attempt);
+    return res.status(400).json({ error: 'Your current password is not correct.' });
+  }
+  recordSuccess(attempt);
+
+  const problem = passwordProblem(newPassword, {
+    username: user.username,
+    current: currentPassword,
   });
+  if (problem) return res.status(400).json({ error: problem });
+
+  await user.setPassword(newPassword);
+  await user.save();
+
+  // Every other session this account had is now refused; this is the one new
+  // session that replaces them.
+  res.json({ token: signToken(user), user: publicUser(user) });
+});
+
+/** An unambiguous code alphabet: no 0/O or 1/I to misread off a screen. */
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+export const RESET_CODE_MINUTES = 30;
+
+export const normaliseCode = (code) => String(code ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+export async function issueResetCode(user) {
+  const raw = Array.from({ length: 8 }, () => CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]).join('');
+  user.resetCodeHash = await bcrypt.hash(raw, 10);
+  user.resetCodeExpiresAt = new Date(Date.now() + RESET_CODE_MINUTES * 60000);
+  await user.save();
+  return { code: `${raw.slice(0, 4)}-${raw.slice(4)}`, expiresAt: user.resetCodeExpiresAt };
+}
+
+/**
+ * Set a new password with a code an admin issued.
+ *
+ * There is no email or SMS here to send a reset link to, and a conductor locked
+ * out at 5 AM in a provincial terminal needs a way back in that does not wait
+ * for an admin to type a password for them. So the admin issues a short-lived,
+ * single-use code — by phone, in person — and the conductor chooses their own
+ * password with it. The admin never learns the new password.
+ */
+export const resetPassword = asyncHandler(async (req, res) => {
+  const { username, code, newPassword } = req.body ?? {};
+  if (!username || !code) {
+    return res.status(400).json({ error: 'Enter your username and the code you were given.' });
+  }
+
+  const account = String(username).toLowerCase().trim();
+  const attempt = { account: `reset:${account}`, address: req.ip };
+  const gate = checkAttempt(attempt);
+  if (!gate.allowed) return refuse(res, gate.retryAfterSeconds);
+
+  const user = await User.findOne({ username: account }).select(
+    '+passwordHash +resetCodeHash +resetCodeExpiresAt'
+  );
+
+  const valid =
+    user?.isActive &&
+    user.resetCodeHash &&
+    user.resetCodeExpiresAt > new Date() &&
+    (await bcrypt.compare(normaliseCode(code), user.resetCodeHash));
+
+  if (!valid) {
+    recordFailure(attempt);
+    return res.status(400).json({
+      error: 'That code is not valid. It may have expired or already been used — ask an admin for a new one.',
+    });
+  }
+
+  const problem = passwordProblem(newPassword, { username: user.username });
+  if (problem) return res.status(400).json({ error: problem });
+
+  recordSuccess(attempt);
+  recordSuccess({ account });
+  await user.setPassword(newPassword);
+  await user.save();
+
+  res.json({ token: signToken(user), user: publicUser(user) });
 });
 
 /**
@@ -96,19 +237,9 @@ export const setupFirstAdmin = asyncHandler(async (req, res) => {
 
   console.log(`[setup] first admin created: ${admin.username}`);
 
-  res.status(201).json({
-    token: signToken(admin),
-    user: { id: String(admin._id), name: admin.name, username: admin.username, role: admin.role },
-  });
+  res.status(201).json({ token: signToken(admin), user: publicUser(admin) });
 });
 
 export const me = asyncHandler(async (req, res) => {
-  res.json({
-    user: {
-      id: String(req.user._id),
-      name: req.user.name,
-      username: req.user.username,
-      role: req.user.role,
-    },
-  });
+  res.json({ user: publicUser(req.user) });
 });

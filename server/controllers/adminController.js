@@ -20,6 +20,7 @@ import {
 } from '../services/scheduleService.js';
 import { liveWindow } from '../services/tripWindow.js';
 import { tripRecord } from './correctionController.js';
+import { issueResetCode, RESET_CODE_MINUTES } from './authController.js';
 import { geocode } from '../services/geocoder.js';
 import { canMeasure, measureLegs } from '../services/legMeasurer.js';
 
@@ -278,6 +279,9 @@ export const createConductor = asyncHandler(async (req, res) => {
     username,
     role: 'conductor',
     passwordHash: await User.hashPassword(password),
+    // The admin chose this password, so it is a temporary one: the conductor
+    // replaces it the first time they sign in.
+    mustChangePassword: true,
   });
   res.status(201).json(conductor);
 });
@@ -293,7 +297,9 @@ export const updateConductor = asyncHandler(async (req, res) => {
     if (req.body.password.length < 8) {
       return res.status(400).json({ error: 'Password must be at least 8 characters.' });
     }
-    conductor.passwordHash = await User.hashPassword(req.body.password);
+    // Set by someone else, so temporary — and it ends the conductor's
+    // existing sessions, which is usually the point of resetting it.
+    await conductor.setPassword(req.body.password, { mustChange: true });
   }
 
   await conductor.save();
@@ -337,6 +343,7 @@ export const createAdmin = asyncHandler(async (req, res) => {
     username,
     role: 'admin',
     passwordHash: await User.hashPassword(password),
+    mustChangePassword: true,
   });
   res.status(201).json(admin);
 });
@@ -352,6 +359,26 @@ export const deleteAdmin = asyncHandler(async (req, res) => {
   const removed = await User.findOneAndDelete({ _id: req.params.id, role: 'admin' });
   if (!removed) return res.status(404).json({ error: 'Admin not found.' });
   res.status(204).end();
+});
+
+/**
+ * Give a staff member a way back into their account without the admin ever
+ * choosing — or knowing — their new password. The code is shown once, works
+ * once, and expires; the person uses it on the sign-in page to set their own.
+ */
+export const createResetCode = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (!user) return res.status(404).json({ error: 'Account not found.' });
+  if (!user.isActive) return res.status(409).json({ error: 'This account is switched off.' });
+
+  const { code, expiresAt } = await issueResetCode(user);
+  res.status(201).json({
+    username: user.username,
+    name: user.name,
+    code,
+    expiresAt,
+    validMinutes: RESET_CODE_MINUTES,
+  });
 });
 
 /* ----------------------------------------------------------------------- trips */

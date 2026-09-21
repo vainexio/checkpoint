@@ -1,10 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import {
+  changePassword as apiChangePassword,
   createFirstAdmin,
   fetchMe,
   fetchSetupStatus,
   login as apiLogin,
   logout as apiLogout,
+  resetPassword as apiResetPassword,
 } from '@/api/authApi.js';
 import { getToken } from '@/api/client.js';
 
@@ -73,8 +75,22 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
+  const changePassword = useCallback(async (current, next) => {
+    const updated = await apiChangePassword(current, next);
+    setUser(updated);
+    return updated;
+  }, []);
+
+  const resetPassword = useCallback(async (body) => {
+    const signedIn = await apiResetPassword(body);
+    setUser(signedIn);
+    return signedIn;
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, checking, setup, login, logout, completeSetup }}>
+    <AuthContext.Provider
+      value={{ user, checking, setup, login, logout, completeSetup, changePassword, resetPassword }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -86,5 +102,10 @@ export function useAuth() {
   return ctx;
 }
 
-/** Where an account belongs once it is signed in. */
-export const homeFor = (user) => (user?.role === 'admin' ? '/admin' : '/conductor');
+/**
+ * Where an account belongs once it is signed in. An account still on a
+ * temporary password belongs at the form that replaces it — the server will
+ * not open anything else to it anyway.
+ */
+export const homeFor = (user) =>
+  user?.mustChangePassword ? '/account/password' : user?.role === 'admin' ? '/admin' : '/conductor';

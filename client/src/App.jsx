@@ -1,5 +1,5 @@
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import { LogOut } from 'lucide-react';
+import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { KeyRound, LogOut } from 'lucide-react';
 
 import { AppLayout, Navbar } from '@/components/layout/AppLayout.jsx';
 import { Button } from '@/components/ui/button.tsx';
@@ -7,6 +7,7 @@ import { AuthProvider, homeFor, useAuth } from '@/hooks/useAuth.jsx';
 
 import LoginPage from '@/pages/LoginPage.jsx';
 import SetupPage from '@/pages/SetupPage.jsx';
+import { ChangePasswordPage, ResetPasswordPage } from '@/pages/AccountPages.jsx';
 
 import StationsPage from '@/pages/guest/StationsPage.jsx';
 import StationBoardPage from '@/pages/guest/StationBoardPage.jsx';
@@ -35,6 +36,8 @@ export default function App() {
       <Routes>
         <Route path="/setup" element={<SetupRoute />} />
         <Route path="/login" element={<LoginRoute />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/account/password" element={<ChangePasswordPage />} />
         {/* Full-screen terminal board: no chrome, no navigation, no input. */}
         <Route path="/display/:stationId" element={<StationDisplayPage />} />
         <Route path="/conductor/*" element={<ConductorApp />} />
@@ -72,6 +75,7 @@ function RequireRole({ role, children }) {
   if (!user) {
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
+  if (user.mustChangePassword) return <Navigate to="/account/password" replace />;
   if (user.role !== role) return <Navigate to={homeFor(user)} replace />;
 
   return children;
@@ -80,12 +84,19 @@ function RequireRole({ role, children }) {
 function SignOutButton() {
   const { logout } = useAuth();
   return (
-    <Button variant="ghost" size="sm" onClick={logout} aria-label="Sign out">
-      <LogOut className="h-3.5 w-3.5 sm:mr-1.5" />
-      {/* The icon carries it on a phone; the word is what makes it unambiguous
-          on a desktop where there is room for it. */}
-      <span className="hidden sm:inline">Sign out</span>
-    </Button>
+    <>
+      <Button variant="ghost" size="sm" asChild>
+        <Link to="/account/password" aria-label="Change password" title="Change password">
+          <KeyRound className="h-3.5 w-3.5" />
+        </Link>
+      </Button>
+      <Button variant="ghost" size="sm" onClick={logout} aria-label="Sign out">
+        <LogOut className="h-3.5 w-3.5 sm:mr-1.5" />
+        {/* The icon carries it on a phone; the word is what makes it unambiguous
+            on a desktop where there is room for it. */}
+        <span className="hidden sm:inline">Sign out</span>
+      </Button>
+    </>
   );
 }
 

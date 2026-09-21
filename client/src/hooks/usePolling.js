@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { readSnapshot, writeSnapshot } from '@/utils/snapshot.js';
 
 /**
  * Poll an endpoint on an interval.
@@ -8,11 +9,34 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  * misleading: it stops while the tab is hidden, and it reports `lastUpdated` so
  * the screen can say when it last actually looked.
  */
-export function usePolling(fetcher, { intervalMs = 15000, enabled = true, deps = [] } = {}) {
-  const [data, setData] = useState(null);
+export function usePolling(
+  fetcher,
+  { intervalMs = 15000, enabled = true, deps = [], cacheKey = null } = {}
+) {
+  /**
+   * With a cacheKey, the last good answer is kept on the device and shown at
+   * once on the next visit — including one with no signal at all. `savedAt`
+   * says how old it is while it is standing in for a live answer, and goes
+   * null the moment a live one arrives.
+   */
+  const [data, setDataState] = useState(() => readSnapshot(cacheKey)?.data ?? null);
+  const [savedAt, setSavedAt] = useState(() => readSnapshot(cacheKey)?.savedAt ?? null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
+
+  const cacheKeyRef = useRef(cacheKey);
+  cacheKeyRef.current = cacheKey;
+
+  // Local changes (an optimistic tap, a synced queue) are the newest truth
+  // there is, so they are kept too.
+  const setData = useCallback((next) => {
+    setDataState((prev) => {
+      const value = typeof next === 'function' ? next(prev) : next;
+      if (value) writeSnapshot(cacheKeyRef.current, value);
+      return value;
+    });
+  }, []);
 
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;
@@ -21,7 +45,9 @@ export function usePolling(fetcher, { intervalMs = 15000, enabled = true, deps =
     if (!quiet) setLoading(true);
     try {
       const result = await fetcherRef.current();
-      setData(result);
+      setDataState(result);
+      writeSnapshot(cacheKeyRef.current, result);
+      setSavedAt(null);
       setError(null);
       setLastUpdated(new Date());
     } catch (err) {
@@ -37,6 +63,14 @@ export function usePolling(fetcher, { intervalMs = 15000, enabled = true, deps =
 
     let cancelled = false;
     let timer = null;
+
+    // A different thing to show (another trip, another account): start from
+    // its own snapshot, not the previous one's data.
+    if (cacheKey) {
+      const snapshot = readSnapshot(cacheKey);
+      setDataState(snapshot?.data ?? null);
+      setSavedAt(snapshot?.savedAt ?? null);
+    }
 
     const tick = async () => {
       if (cancelled) return;
@@ -60,9 +94,17 @@ export function usePolling(fetcher, { intervalMs = 15000, enabled = true, deps =
       document.removeEventListener('visibilitychange', onVisible);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, intervalMs, ...deps]);
+  }, [enabled, intervalMs, cacheKey, ...deps]);
 
-  return { data, error, loading, lastUpdated, refresh: () => load({ quiet: true }), setData };
+  return {
+    data,
+    error,
+    loading,
+    lastUpdated,
+    savedAt,
+    refresh: () => load({ quiet: true }),
+    setData,
+  };
 }
 
 /** A ticking clock, so countdowns keep moving between polls. */

@@ -16,6 +16,7 @@ import {
   UploadCloud,
 } from 'lucide-react';
 import { usePolling } from '@/hooks/usePolling.js';
+import { useAuth } from '@/hooks/useAuth.jsx';
 import { useOfflineQueue } from '@/hooks/useOfflineQueue.js';
 import { fetchMyTrip } from '@/api/conductorApi.js';
 import { applyTap } from '@/utils/optimisticTrip.js';
@@ -60,10 +61,17 @@ export default function ConductorTripPage() {
   const [panel, setPanel] = useState(null); // 'other' | 'delay' | 'arrive' | null
   const [undoError, setUndoError] = useState(null);
 
-  const { data, error, loading, setData } = usePolling(() => fetchMyTrip(tripId), {
-    intervalMs: 30000,
-    deps: [tripId],
-  });
+  const { user } = useAuth();
+  const { data, error, loading, setData, savedAt, lastUpdated } = usePolling(
+    () => fetchMyTrip(tripId),
+    {
+      intervalMs: 30000,
+      deps: [tripId],
+      // The last known trip stays on the phone, so reopening the app on a
+      // stretch with no signal still lands here, buttons and all.
+      cacheKey: user?.id ? `conductor:${user.id}:trip:${tripId}` : null,
+    }
+  );
 
   const onSynced = useCallback((trip) => setData({ trip }), [setData]);
   const { enqueue, undo, pendingCount, isOnline, isSyncing, flush } = useOfflineQueue(tripId, {
@@ -190,12 +198,15 @@ export default function ConductorTripPage() {
 
       {/* Stale, not broken: say the times may have moved on without pretending
           the screen is unusable. Taps still work — they queue. */}
+      {/* Only once a refresh has actually failed: a snapshot shown for the
+          second before the first live answer lands is not "offline". */}
       {error && (
         <Alert className="mb-4">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Cannot reach the server, so these times may be out of date. Your taps are still being
-            saved and will send when the signal returns.
+            Cannot reach the server, so this is the trip as of{' '}
+            <strong>{formatTime(savedAt ?? lastUpdated)}</strong> and times may be out of date. Your
+            taps are still being saved and will send when the signal returns.
           </AlertDescription>
         </Alert>
       )}

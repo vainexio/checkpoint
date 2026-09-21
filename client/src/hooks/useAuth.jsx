@@ -8,7 +8,36 @@ import {
   logout as apiLogout,
   resetPassword as apiResetPassword,
 } from '@/api/authApi.js';
-import { getToken } from '@/api/client.js';
+import { ApiError, getToken } from '@/api/client.js';
+import { clearSnapshots } from '@/utils/snapshot.js';
+
+/**
+ * Who was signed in, remembered on the device.
+ *
+ * Only for one case: opening the app with no signal. The session token is
+ * still valid, but the server cannot be asked who it belongs to, and treating
+ * "cannot reach the server" as "signed out" sent a conductor on a bus with no
+ * signal to a login form they could not use. Anything the server actually
+ * answers — including a refusal — still wins.
+ */
+const USER_KEY = 'checkpoint.user';
+
+const rememberUser = (user) => {
+  try {
+    if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
+    else localStorage.removeItem(USER_KEY);
+  } catch {
+    /* private browsing: nothing is remembered, which is merely less helpful */
+  }
+};
+
+const rememberedUser = () => {
+  try {
+    return JSON.parse(localStorage.getItem(USER_KEY) ?? 'null');
+  } catch {
+    return null;
+  }
+};
 
 /**
  * One staff session, shared by the whole app.
@@ -49,13 +78,28 @@ export function AuthProvider({ children }) {
 
     fetchMe()
       .then((res) => !cancelled && setUser(res.user))
-      .catch(() => !cancelled && setUser(null))
+      .catch((err) => {
+        if (cancelled) return;
+        if (err instanceof ApiError) {
+          // The server answered and said no: the session really is over.
+          rememberUser(null);
+          setUser(null);
+        } else {
+          // No answer at all. Carry on as the person this token belongs to;
+          // the first request that does get through will settle it.
+          setUser(rememberedUser());
+        }
+      })
       .finally(() => !cancelled && setChecking(false));
 
     return () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (user) rememberUser(user);
+  }, [user]);
 
   const login = useCallback(async (username, password) => {
     const signedIn = await apiLogin(username, password);
@@ -72,6 +116,9 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(() => {
     apiLogout();
+    rememberUser(null);
+    // Trip snapshots belong to the person who signed out, not the next one.
+    clearSnapshots();
     setUser(null);
   }, []);
 

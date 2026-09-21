@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { AlertCircle, ArrowRight, ClipboardList } from 'lucide-react';
+import { AlertCircle, ArrowRight, ClipboardList, CloudOff } from 'lucide-react';
 import { usePolling } from '@/hooks/usePolling.js';
 import { fetchMyTrips } from '@/api/conductorApi.js';
 import { StatusBadge } from '@/components/StatusBadge.jsx';
@@ -29,8 +29,14 @@ function byDay(trips, now = new Date()) {
 
 /** A conductor sees their own trips and nothing else. */
 export default function ConductorTripsPage({ user }) {
-  const { data, error, loading } = usePolling(fetchMyTrips, { intervalMs: 30000 });
+  const { data, error, loading, savedAt, lastUpdated } = usePolling(fetchMyTrips, {
+    intervalMs: 30000,
+    // Kept on the phone, so opening the app with no signal still lists them.
+    cacheKey: user?.id ? `conductor:${user.id}:trips` : null,
+  });
   const trips = data?.trips ?? [];
+  // A refresh failed, but there is something saved to show instead.
+  const offline = Boolean(data && error);
   const days = byDay(trips);
 
   return (
@@ -41,11 +47,22 @@ export default function ConductorTripsPage({ user }) {
         description={`Signed in as ${user?.name ?? ''}`}
       />
 
-      {error && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error.message}</AlertDescription>
+      {offline ? (
+        <Alert className="mb-4 tint-muted">
+          <CloudOff className="h-4 w-4" />
+          <AlertDescription>
+            No connection. These are your trips as of{' '}
+            <strong>{formatTime(savedAt ?? lastUpdated)}</strong>; open one to keep tapping — taps are
+            saved on this phone and sent when the signal returns.
+          </AlertDescription>
         </Alert>
+      ) : (
+        error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error.message}</AlertDescription>
+          </Alert>
+        )
       )}
 
       {loading && !data && (

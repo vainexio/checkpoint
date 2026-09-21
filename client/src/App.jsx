@@ -18,6 +18,7 @@ import ConductorTripPage from '@/pages/conductor/ConductorTripPage.jsx';
 
 import AdminDashboardPage from '@/pages/admin/AdminDashboardPage.jsx';
 import AdminTripsPage from '@/pages/admin/AdminTripsPage.jsx';
+import AdminTripDetailPage from '@/pages/admin/AdminTripDetailPage.jsx';
 import AdminRoutesPage from '@/pages/admin/AdminRoutesPage.jsx';
 import AdminFleetPage from '@/pages/admin/AdminFleetPage.jsx';
 
@@ -168,6 +169,7 @@ function AdminApp() {
         <Routes>
           <Route index element={<AdminDashboardPage />} />
           <Route path="trips" element={<AdminTripsPage />} />
+          <Route path="trips/:tripId" element={<AdminTripDetailPage />} />
           <Route path="routes" element={<AdminRoutesPage />} />
           <Route path="fleet" element={<AdminFleetPage />} />
           <Route path="*" element={<Navigate to="/admin" replace />} />

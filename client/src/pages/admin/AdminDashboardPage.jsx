@@ -103,7 +103,7 @@ export default function AdminDashboardPage() {
                     <TableRow key={trip.id} className={cn(trip.isStale && 'bg-muted/60')}>
                       <TableCell>
                         <Link
-                          to={`/trips/${trip.id}`}
+                          to={`/admin/trips/${trip.id}`}
                           className="font-semibold hover:text-primary hover:underline"
                         >
                           {trip.route.name}

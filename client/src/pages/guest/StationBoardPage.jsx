@@ -84,7 +84,9 @@ export default function StationBoardPage() {
   // A bus you can walk up to: standing here, or starting its run from here.
   // "Leaving" described what the bus was about to do; this describes where it
   // is, which is what someone reading the board is trying to find out.
-  const isHere = (a) => a.isHereNow || a.boardKind === 'departure';
+  // A later departure from here is a time, not a bus in the bay, so it waits
+  // under "Arriving" with everything else still to come.
+  const isHere = (a) => a.isHereNow || (a.boardKind === 'departure' && !a.departsLater);
   const serves = (a) => !going || (a.continuesTo ?? []).includes(going.name);
 
   // Everything the destination allows; the tabs then split that, so their
@@ -285,6 +287,7 @@ function ArrivalRow({ arrival, now, stationName, goingTo }) {
   const [open, setOpen] = useState(false);
   const notDepartedYet = arrival.status === 'scheduled';
   const isDeparture = arrival.boardKind === 'departure';
+  const departsLater = isDeparture && arrival.departsLater;
   const hasArrived = arrival.boardKind === 'arrived';
   const isFull = arrival.load === 'full';
   // Live congestion on the leg it is on now, from the road ahead rather than
@@ -306,6 +309,7 @@ function ArrivalRow({ arrival, now, stationName, goingTo }) {
     isFull,
     isHereNow: arrival.isHereNow,
     isDeparture,
+    departsLater,
     notDepartedYet,
     isLate: arrival.status === 'delayed',
     // Live congestion on the leg it is on *now*, not the total it has driven
@@ -394,6 +398,12 @@ function ArrivalRow({ arrival, now, stationName, goingTo }) {
                   <span className="text-muted-foreground">
                     Completed · arrived from{' '}
                     <span className="font-semibold text-foreground">{arrival.origin}</span>
+                  </span>
+                ) : departsLater ? (
+                  <span className="text-muted-foreground">
+                    Leaves from here for{' '}
+                    <span className="font-semibold text-foreground">{arrival.destination}</span>
+                    {' '}· not boarding yet
                   </span>
                 ) : isDeparture ? (
                   <span className="font-semibold text-primary">

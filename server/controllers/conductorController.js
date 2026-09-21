@@ -8,6 +8,7 @@ import {
   recordLogs,
   TRIP_POPULATE,
 } from '../services/tripService.js';
+import { liveWindow } from '../services/tripWindow.js';
 
 /**
  * The conductor's whole world: their own trips, and four taps.
@@ -44,6 +45,9 @@ export const myTrips = asyncHandler(async (req, res) => {
   const trips = await Trip.find({
     conductor: req.user._id,
     status: { $in: ['scheduled', 'in_transit', 'delayed'] },
+    // Their whole roster ahead, but not yesterday's trip that never ran or a
+    // run that was abandoned without an arrival.
+    ...liveWindow(new Date(), { upcomingHours: null }),
   })
     .populate(TRIP_POPULATE)
     .sort({ scheduledDeparture: 1 })
@@ -65,7 +69,7 @@ export const myTrip = asyncHandler(async (req, res) => {
  * tapped, which on a provincial route may be an hour before the phone finds
  * signal again — and it is the only timestamp the ETA engine ever reads.
  */
-function normaliseLog(raw, tripId) {
+export function normaliseLog(raw, tripId) {
   if (!LOG_TYPES.includes(raw.type)) {
     throw Object.assign(new Error(`Unknown update type: ${raw.type}`), { status: 400 });
   }

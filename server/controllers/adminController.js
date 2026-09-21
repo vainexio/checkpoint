@@ -1,7 +1,25 @@
-import { Bus, Checkpoint, CheckpointLog, Route, Trip, User } from '../models/index.js';
+import {
+  Bus,
+  Checkpoint,
+  CheckpointLog,
+  Route,
+  Schedule,
+  Trip,
+  TripCorrection,
+  User,
+} from '../models/index.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { buildPlan } from '../services/etaEngine.js';
 import { presentTrip, presentTrips, TRIP_POPULATE } from '../services/tripService.js';
+import {
+  addDays,
+  GENERATION_DAYS,
+  manilaDate,
+  reapplySchedule,
+  removeUntouchedFutureTrips,
+} from '../services/scheduleService.js';
+import { liveWindow } from '../services/tripWindow.js';
+import { tripRecord } from './correctionController.js';
 import { geocode } from '../services/geocoder.js';
 import { canMeasure, measureLegs } from '../services/legMeasurer.js';
 
@@ -202,6 +220,9 @@ export const updateRoute = asyncHandler(async (req, res) => {
 export const deleteRoute = asyncHandler(async (req, res) => {
   const inUse = await Trip.exists({ route: req.params.id });
   if (inUse) return res.status(409).json({ error: 'This route already has trips.' });
+  if (await Schedule.exists({ route: req.params.id })) {
+    return res.status(409).json({ error: 'A recurring schedule still runs on this route.' });
+  }
   const removed = await Route.findByIdAndDelete(req.params.id);
   if (!removed) return res.status(404).json({ error: 'Route not found.' });
   res.status(204).end();
@@ -233,6 +254,9 @@ export const updateBus = asyncHandler(async (req, res) => {
 export const deleteBus = asyncHandler(async (req, res) => {
   const inUse = await Trip.exists({ bus: req.params.id, status: { $ne: 'arrived' } });
   if (inUse) return res.status(409).json({ error: 'This bus has active trips.' });
+  if (await Schedule.exists({ bus: req.params.id })) {
+    return res.status(409).json({ error: 'A recurring schedule still uses this bus.' });
+  }
   const removed = await Bus.findByIdAndDelete(req.params.id);
   if (!removed) return res.status(404).json({ error: 'Bus not found.' });
   res.status(204).end();
@@ -284,6 +308,9 @@ export const deleteConductor = asyncHandler(async (req, res) => {
   if (inUse) {
     return res.status(409).json({ error: 'This conductor has active trips assigned.' });
   }
+  if (await Schedule.exists({ conductor: req.params.id })) {
+    return res.status(409).json({ error: 'A recurring schedule still assigns this conductor.' });
+  }
   const removed = await User.findOneAndDelete({ _id: req.params.id, role: 'conductor' });
   if (!removed) return res.status(404).json({ error: 'Conductor not found.' });
   res.status(204).end();
@@ -329,25 +356,59 @@ export const deleteAdmin = asyncHandler(async (req, res) => {
 
 /* ----------------------------------------------------------------------- trips */
 
+/**
+ * The start of a Manila day as an instant. Days are Manila days throughout,
+ * because that is the calendar every timetable here is written in.
+ */
+const manilaMidnight = (ymd) => new Date(`${ymd}T00:00:00+08:00`);
+
+/**
+ * Trips by day rather than one long list.
+ *
+ * Once schedules generate a week ahead, "newest first, 100 of them" opens on
+ * next Tuesday and pushes the buses running right now off the page. So the list
+ * is asked for by view — today, what is coming, what is done — and each sorts
+ * the way it is read: today and upcoming soonest first, the past newest first.
+ */
 export const listTrips = asyncHandler(async (req, res) => {
   const filter = {};
   if (req.query.status) filter.status = req.query.status;
   if (req.query.routeId) filter.route = req.query.routeId;
+  if (req.query.scheduleId) filter.schedule = req.query.scheduleId;
+
+  const today = manilaDate();
+  const startOfToday = manilaMidnight(today);
+  const startOfTomorrow = manilaMidnight(addDays(today, 1));
+  let sort = { scheduledDeparture: -1 };
+
+  switch (req.query.view) {
+    case 'today':
+      filter.scheduledDeparture = { $gte: startOfToday, $lt: startOfTomorrow };
+      sort = { scheduledDeparture: 1 };
+      break;
+    case 'upcoming':
+      filter.scheduledDeparture = { $gte: startOfTomorrow };
+      sort = { scheduledDeparture: 1 };
+      break;
+    case 'past':
+      filter.scheduledDeparture = { $lt: startOfToday };
+      break;
+    default:
+      break;
+  }
 
   const trips = await Trip.find(filter)
     .populate(TRIP_POPULATE)
-    .sort({ scheduledDeparture: -1 })
-    .limit(Number(req.query.limit) || 100)
+    .sort(sort)
+    .limit(Math.min(Number(req.query.limit) || 100, 300))
     .lean();
 
   res.json({ generatedAt: new Date(), trips: await presentTrips(trips, { audience: 'admin' }) });
 });
 
+/** One trip, with its full log stream and every correction made to it. */
 export const getTrip = asyncHandler(async (req, res) => {
-  const trip = await Trip.findById(req.params.id).populate(TRIP_POPULATE).lean();
-  if (!trip) return res.status(404).json({ error: 'Trip not found.' });
-  const logs = await CheckpointLog.find({ trip: trip._id }).sort({ reportedAt: 1 }).lean();
-  res.json({ trip: presentTrip(trip, { logs, audience: 'admin' }), logs });
+  res.json(await tripRecord(req.params.id));
 });
 
 /**
@@ -377,7 +438,7 @@ export const createTrip = asyncHandler(async (req, res) => {
     route: route._id,
     bus: bus._id,
     conductor: conductor._id,
-    plan: buildPlan(route),
+    plan: buildPlan(route, { departure }),
     scheduledDeparture: departure,
     status: 'scheduled',
   });
@@ -391,10 +452,38 @@ export const updateTrip = asyncHandler(async (req, res) => {
   if (!trip) return res.status(404).json({ error: 'Trip not found.' });
 
   // The plan is frozen once a trip exists; only assignment and scheduling move.
-  if (req.body.busId) trip.bus = req.body.busId;
-  if (req.body.conductorId) trip.conductor = req.body.conductorId;
-  if (req.body.scheduledDeparture) trip.scheduledDeparture = new Date(req.body.scheduledDeparture);
+  const reassigning = Boolean(req.body.busId || req.body.conductorId || req.body.scheduledDeparture);
+
+  if (reassigning && trip.actualDeparture) {
+    return res.status(409).json({
+      error: 'This trip has already departed. Its bus, conductor and departure are now a record.',
+    });
+  }
+
+  if (req.body.busId) {
+    if (!(await Bus.exists({ _id: req.body.busId }))) {
+      return res.status(400).json({ error: 'That bus does not exist.' });
+    }
+    trip.bus = req.body.busId;
+  }
+  if (req.body.conductorId) {
+    if (!(await User.exists({ _id: req.body.conductorId, role: 'conductor' }))) {
+      return res.status(400).json({ error: 'That conductor does not exist.' });
+    }
+    trip.conductor = req.body.conductorId;
+  }
+  if (req.body.scheduledDeparture) {
+    const departure = new Date(req.body.scheduledDeparture);
+    if (Number.isNaN(departure.getTime())) {
+      return res.status(400).json({ error: 'scheduledDeparture is not a valid date.' });
+    }
+    trip.scheduledDeparture = departure;
+  }
   if (req.body.status === 'cancelled') trip.status = 'cancelled';
+
+  // One day of a pattern changed by hand. Mark it, so that editing the
+  // schedule later regenerates the untouched days and leaves this one alone.
+  if (reassigning && trip.schedule) trip.scheduleOverride = true;
 
   await trip.save();
   const populated = await Trip.findById(trip._id).populate(TRIP_POPULATE).lean();
@@ -406,13 +495,181 @@ export const deleteTrip = asyncHandler(async (req, res) => {
   const trip = await Trip.findByIdAndDelete(req.params.id);
   if (!trip) return res.status(404).json({ error: 'Trip not found.' });
   await CheckpointLog.deleteMany({ trip: trip._id });
+  await TripCorrection.deleteMany({ trip: trip._id });
+
+  // A generated trip that is deleted outright leaves nothing behind to say the
+  // day was taken out, so the next generation run would put it straight back.
+  // Record the day on the schedule instead.
+  if (trip.schedule && trip.serviceDate) {
+    await Schedule.updateOne({ _id: trip.schedule }, { $addToSet: { skipDates: trip.serviceDate } });
+  }
+
   res.status(204).end();
+});
+
+/* ------------------------------------------------------------------- schedules */
+
+const SCHEDULE_POPULATE = [
+  { path: 'route', select: 'name isActive' },
+  { path: 'bus', select: 'plateNumber operatorName' },
+  { path: 'conductor', select: 'name username' },
+];
+
+/**
+ * A schedule as the operator reads it, with what it has actually produced:
+ * the next departure it has on the books, and how many are generated ahead.
+ */
+function presentSchedule(schedule, upcoming = []) {
+  const live = upcoming.filter((t) => t.status !== 'cancelled');
+  return {
+    id: String(schedule._id),
+    route: schedule.route
+      ? { id: String(schedule.route._id), name: schedule.route.name, isActive: schedule.route.isActive }
+      : null,
+    bus: schedule.bus
+      ? { id: String(schedule.bus._id), plateNumber: schedule.bus.plateNumber }
+      : null,
+    conductor: schedule.conductor
+      ? { id: String(schedule.conductor._id), name: schedule.conductor.name }
+      : null,
+    departureTime: schedule.departureTime,
+    daysOfWeek: schedule.daysOfWeek,
+    startDate: schedule.startDate,
+    endDate: schedule.endDate,
+    skipDates: schedule.skipDates,
+    isActive: schedule.isActive,
+    nextDeparture: live[0]?.scheduledDeparture ?? null,
+    upcomingTrips: live.length,
+    cancelledAhead: upcoming.length - live.length,
+  };
+}
+
+async function upcomingBySchedule(ids) {
+  const trips = await Trip.find({ schedule: { $in: ids }, scheduledDeparture: { $gt: new Date() } })
+    .select('schedule scheduledDeparture status')
+    .sort({ scheduledDeparture: 1 })
+    .lean();
+  const out = new Map();
+  for (const t of trips) {
+    const key = String(t.schedule);
+    if (!out.has(key)) out.set(key, []);
+    out.get(key).push(t);
+  }
+  return out;
+}
+
+async function loadPresentedSchedule(id) {
+  const schedule = await Schedule.findById(id).populate(SCHEDULE_POPULATE).lean();
+  if (!schedule) return null;
+  const upcoming = await upcomingBySchedule([schedule._id]);
+  return presentSchedule(schedule, upcoming.get(String(schedule._id)));
+}
+
+export const listSchedules = asyncHandler(async (req, res) => {
+  const schedules = await Schedule.find()
+    .populate(SCHEDULE_POPULATE)
+    .sort({ departureTime: 1 })
+    .lean();
+  const upcoming = await upcomingBySchedule(schedules.map((s) => s._id));
+  res.json({
+    generationDays: GENERATION_DAYS,
+    schedules: schedules.map((s) => presentSchedule(s, upcoming.get(String(s._id)))),
+  });
+});
+
+/** Check the references a schedule points at, so a typo is a 400 and not a 500. */
+async function validateScheduleRefs({ routeId, busId, conductorId }) {
+  if (routeId && !(await Route.exists({ _id: routeId }))) return 'That route does not exist.';
+  if (busId && !(await Bus.exists({ _id: busId }))) return 'That bus does not exist.';
+  if (conductorId && !(await User.exists({ _id: conductorId, role: 'conductor' }))) {
+    return 'That conductor does not exist.';
+  }
+  return null;
+}
+
+const toDays = (value) =>
+  Array.isArray(value) ? value.map(Number).filter((d) => Number.isInteger(d)) : value;
+
+export const createSchedule = asyncHandler(async (req, res) => {
+  const { routeId, busId, conductorId, departureTime, daysOfWeek, startDate, endDate } = req.body;
+
+  if (!routeId || !busId || !conductorId) {
+    return res.status(400).json({ error: 'Choose a route, a bus and a conductor.' });
+  }
+  const problem = await validateScheduleRefs({ routeId, busId, conductorId });
+  if (problem) return res.status(400).json({ error: problem });
+
+  const schedule = await Schedule.create({
+    route: routeId,
+    bus: busId,
+    conductor: conductorId,
+    departureTime,
+    daysOfWeek: toDays(daysOfWeek),
+    startDate: startDate || manilaDate(),
+    endDate: endDate || null,
+  });
+
+  // Generated straight away, so the operator sees the trips it made rather
+  // than waiting for the hourly run to find them.
+  const { created } = await reapplySchedule(schedule._id);
+  res.status(201).json({ schedule: await loadPresentedSchedule(schedule._id), created });
+});
+
+/**
+ * Change the pattern. Its untouched future trips are regenerated to match;
+ * anything already departed, cancelled, logged against, or edited by hand is
+ * left exactly as it is.
+ */
+export const updateSchedule = asyncHandler(async (req, res) => {
+  const schedule = await Schedule.findById(req.params.id);
+  if (!schedule) return res.status(404).json({ error: 'Schedule not found.' });
+
+  const { routeId, busId, conductorId } = req.body;
+  const problem = await validateScheduleRefs({ routeId, busId, conductorId });
+  if (problem) return res.status(400).json({ error: problem });
+
+  if (routeId) schedule.route = routeId;
+  if (busId) schedule.bus = busId;
+  if (conductorId) schedule.conductor = conductorId;
+  if (req.body.departureTime !== undefined) schedule.departureTime = req.body.departureTime;
+  if (req.body.daysOfWeek !== undefined) schedule.daysOfWeek = toDays(req.body.daysOfWeek);
+  if (req.body.startDate !== undefined) schedule.startDate = req.body.startDate || manilaDate();
+  if (req.body.endDate !== undefined) schedule.endDate = req.body.endDate || null;
+  if (req.body.isActive !== undefined) schedule.isActive = Boolean(req.body.isActive);
+
+  await schedule.save();
+
+  // Paused: clear what it had put on the books, generate nothing new.
+  const result = schedule.isActive
+    ? await reapplySchedule(schedule._id)
+    : { removed: await removeUntouchedFutureTrips(schedule._id), created: 0 };
+
+  res.json({ schedule: await loadPresentedSchedule(schedule._id), ...result });
+});
+
+/**
+ * Stop a pattern for good. Future trips it generated and nobody touched go
+ * with it; everything that already ran, or that someone adjusted by hand,
+ * stays — those are records, and a bus someone was told about.
+ */
+export const deleteSchedule = asyncHandler(async (req, res) => {
+  const schedule = await Schedule.findById(req.params.id);
+  if (!schedule) return res.status(404).json({ error: 'Schedule not found.' });
+
+  const removed = await removeUntouchedFutureTrips(schedule._id);
+  await Schedule.deleteOne({ _id: schedule._id });
+  res.json({ removed });
 });
 
 /* ------------------------------------------------------------------- dashboard */
 
 export const dashboard = asyncHandler(async (req, res) => {
-  const trips = await Trip.find({ status: { $in: ['scheduled', 'in_transit', 'delayed'] } })
+  // What is running, and what leaves in the next day — not the whole week the
+  // schedules have generated, which would bury the buses on the road.
+  const trips = await Trip.find({
+    status: { $in: ['scheduled', 'in_transit', 'delayed'] },
+    ...liveWindow(new Date(), { upcomingHours: 24 }),
+  })
     .populate(TRIP_POPULATE)
     .sort({ scheduledDeparture: 1 })
     .lean();

@@ -87,6 +87,22 @@ const tripSchema = new mongoose.Schema(
 
     computedETAs: { type: [computedEtaSchema], default: [] },
 
+    /**
+     * Where this trip came from. Null for a trip an operator entered by hand;
+     * otherwise the schedule that generated it and the Manila service day it
+     * runs on. The pair is unique (see the index below), which is what makes
+     * generation safe to run twice, or from two servers at once.
+     */
+    schedule: { type: mongoose.Schema.Types.ObjectId, ref: 'Schedule', default: null },
+    serviceDate: { type: String, default: null },
+
+    /**
+     * Set when an operator changes this one trip by hand — a different bus
+     * today, a later departure. Editing the schedule afterwards regenerates
+     * its untouched trips and leaves this one exactly as it was set.
+     */
+    scheduleOverride: { type: Boolean, default: false },
+
     // Recorded once on arrival. Phase 2 baseline recalibration reads this;
     // nothing consumes it yet.
     finalVarianceMinutes: { type: Number, default: null },
@@ -101,5 +117,13 @@ const tripSchema = new mongoose.Schema(
 
 tripSchema.index({ status: 1, scheduledDeparture: -1 });
 tripSchema.index({ conductor: 1, status: 1 });
+
+// One trip per schedule per day, enforced by the database rather than by a
+// check-then-insert that two generators could both pass. Hand-entered trips
+// carry no schedule and are outside the index entirely.
+tripSchema.index(
+  { schedule: 1, serviceDate: 1 },
+  { unique: true, partialFilterExpression: { schedule: { $type: 'objectId' } } }
+);
 
 export default mongoose.model('Trip', tripSchema);

@@ -7,6 +7,7 @@ import {
   resolvePosition,
 } from './etaEngine.js';
 import { getAdjustments, getSegmentDetail } from './trafficProvider.js';
+import { didNotRun } from './tripWindow.js';
 
 /**
  * The bridge between the pure ETA engine and the database.
@@ -226,6 +227,18 @@ export function presentTrip(trip, { logs = [], now = new Date(), audience = 'pub
         : null,
     finalVarianceMinutes: state.finalVarianceMinutes,
     exactVarianceMinutes: state.exactVarianceMinutes,
+    // Generated from a recurring schedule, or entered by hand — and whether an
+    // operator has since changed this one day of the pattern.
+    source: trip.schedule
+      ? {
+          kind: 'schedule',
+          scheduleId: String(trip.schedule),
+          serviceDate: trip.serviceDate,
+          overridden: Boolean(trip.scheduleOverride),
+        }
+      : { kind: 'manual' },
+    // Still "scheduled" hours after it should have left: it did not run.
+    didNotRun: didNotRun({ ...trip, status: state.status, actualDeparture: state.actualDeparture }, now),
     ignoredLogs: state.ignoredLogs,
     expectedAtNextCheckpoint: staleness.expectedAtNextCheckpoint,
     staleAfter: staleness.staleAfter,

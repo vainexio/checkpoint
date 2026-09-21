@@ -28,9 +28,19 @@ dotenv.config({ path: path.join(path.dirname(fileURLToPath(import.meta.url)), '.
 
 import mongoose from 'mongoose';
 
-import { Bus, Checkpoint, CheckpointLog, Route, Trip, User } from './models/index.js';
+import {
+  Bus,
+  Checkpoint,
+  CheckpointLog,
+  Route,
+  Schedule,
+  Trip,
+  TripCorrection,
+  User,
+} from './models/index.js';
 import { buildPlan } from './services/etaEngine.js';
 import { recomputeTrip } from './services/tripService.js';
+import { generateScheduledTrips, manilaDate } from './services/scheduleService.js';
 
 const FRESH = process.argv.includes('--fresh');
 
@@ -241,7 +251,33 @@ const BUSES = [
   { plateNumber: 'SBL 8806', operatorName: 'Southbound Lines' },
   { plateNumber: 'SBL 1390', operatorName: 'Southbound Lines' },
   { plateNumber: 'SBL 7024', operatorName: 'Southbound Lines' },
+  // The scheduled fleet: these run the timetable below rather than a staged
+  // demo trip, so no bus is ever booked on two runs at once.
+  { plateNumber: 'SBL 3561', operatorName: 'Southbound Lines' },
+  { plateNumber: 'SBL 6189', operatorName: 'Southbound Lines' },
+  { plateNumber: 'NRT 1057', operatorName: 'Northline Express' },
+  { plateNumber: 'NRT 7730', operatorName: 'Northline Express' },
 ];
+
+/**
+ * The timetable. Each line is one recurring departure in Manila time, and the
+ * server keeps a week of trips generated from it. Days count from Sunday = 0.
+ *
+ * Paired where a real operator would pair them: the bus that leaves PITX for
+ * Lipa at 06:00 is the one that comes back at 14:30, and the overnight to
+ * Baguio turns round for the 10:00 home.
+ */
+const DAILY = [0, 1, 2, 3, 4, 5, 6];
+const SCHEDULES = [
+  { route: 'PITX – Lipa', bus: 'SBL 3561', conductor: 'dennis', time: '06:00', days: DAILY },
+  { route: 'Lipa – PITX', bus: 'SBL 3561', conductor: 'dennis', time: '14:30', days: [1, 2, 3, 4, 5, 6] },
+  { route: 'PITX – Lucena', bus: 'SBL 6189', conductor: 'joel', time: '07:30', days: [1, 3, 5] },
+  { route: 'Cubao – Baguio', bus: 'NRT 1057', conductor: 'rey', time: '22:00', days: DAILY },
+  { route: 'Baguio – Cubao', bus: 'NRT 1057', conductor: 'rey', time: '10:00', days: DAILY },
+  { route: 'Cubao – Baguio', bus: 'NRT 7730', conductor: 'marlon', time: '13:00', days: [1, 2, 3, 4, 5] },
+];
+
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 /**
  * Trips described by what the board should show, not by raw timestamps. Each
@@ -513,7 +549,9 @@ export async function reseed() {
   if (FRESH) {
     await Promise.all([
       CheckpointLog.deleteMany({}),
+      TripCorrection.deleteMany({}),
       Trip.deleteMany({}),
+      Schedule.deleteMany({}),
       Route.deleteMany({}),
       Checkpoint.deleteMany({}),
       Bus.deleteMany({}),
@@ -596,6 +634,7 @@ export async function reseed() {
   const existing = await Trip.find({}).select('_id').lean();
   if (existing.length) {
     await CheckpointLog.deleteMany({ trip: { $in: existing.map((t) => t._id) } });
+    await TripCorrection.deleteMany({});
     await Trip.deleteMany({});
   }
 
@@ -667,8 +706,32 @@ export async function reseed() {
     await recomputeTrip(trip._id);
   }
 
+  /* -------------------------------------------------------------- schedules */
+  // Rebuilt like the trips. The generator then fills a week ahead, exactly as
+  // the running server does every hour.
+  await Schedule.deleteMany({});
+  const today = manilaDate();
+  for (const spec of SCHEDULES) {
+    await Schedule.create({
+      route: routeByName.get(spec.route)._id,
+      bus: busByPlate.get(spec.bus)._id,
+      conductor: conductorByUsername.get(spec.conductor)._id,
+      departureTime: spec.time,
+      daysOfWeek: spec.days,
+      startDate: today,
+    });
+  }
+  const generated = await generateScheduledTrips();
+
+  console.log(`\nSchedules  ${SCHEDULES.length}, generating ${generated.created} trips ahead`);
+  for (const spec of SCHEDULES) {
+    const days =
+      spec.days.length === 7 ? 'daily' : spec.days.map((d) => DAY_NAMES[d]).join(' ');
+    console.log(`  ${spec.time}  ${spec.route.padEnd(15)} ${spec.bus.padEnd(9)} ${days}`);
+  }
+
   /* ---------------------------------------------------------------- summary */
-  const summary = await Trip.find({})
+  const summary = await Trip.find({ schedule: null })
     .populate('bus', 'plateNumber')
     .populate('route', 'name')
     // Insertion order, so the summary lines up with TRIPS above.
@@ -693,7 +756,7 @@ export async function reseed() {
   for (const c of CONDUCTORS) console.log(`  Conductor  ${c.username} / ${c.password}`);
   console.log('\nGuests need no account at all.');
 
-  return { trips: summary.length };
+  return { trips: summary.length + generated.created };
 }
 
 /* Only when run as a script, so importing this file has no side effects. */

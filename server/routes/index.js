@@ -4,6 +4,7 @@ import * as auth from '../controllers/authController.js';
 import * as admin from '../controllers/adminController.js';
 import * as conductor from '../controllers/conductorController.js';
 import * as pub from '../controllers/publicController.js';
+import * as correction from '../controllers/correctionController.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 
 const router = Router();
@@ -83,6 +84,18 @@ router.get('/admin/trips/:id', ...adminOnly, admin.getTrip);
 router.post('/admin/trips', ...adminOnly, admin.createTrip);
 router.put('/admin/trips/:id', ...adminOnly, admin.updateTrip);
 router.delete('/admin/trips/:id', ...adminOnly, admin.deleteTrip);
+
+// Putting a trip's record right after the conductor's undo window has closed.
+// Every change replays the trip and is written to its audit trail.
+router.post('/admin/trips/:id/logs', ...adminOnly, correction.addLog);
+router.put('/admin/trips/:id/logs/:logId', ...adminOnly, correction.editLog);
+router.delete('/admin/trips/:id/logs/:logId', ...adminOnly, correction.deleteLog);
+
+// Recurring departures. Trips are generated from these for a rolling window.
+router.get('/admin/schedules', ...adminOnly, admin.listSchedules);
+router.post('/admin/schedules', ...adminOnly, admin.createSchedule);
+router.put('/admin/schedules/:id', ...adminOnly, admin.updateSchedule);
+router.delete('/admin/schedules/:id', ...adminOnly, admin.deleteSchedule);
 
 /* Demo housekeeping: rebuild the seeded data during a live demonstration. */
 router.post('/admin/reseed', ...adminOnly, admin.reseedDemoData);

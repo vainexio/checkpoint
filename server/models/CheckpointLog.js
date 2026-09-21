@@ -91,6 +91,11 @@ const checkpointLogSchema = new mongoose.Schema(
     // When the log actually reached the server. Diagnostic only.
     syncedAt: { type: Date, default: Date.now },
 
+    // Who put this event in the stream. Almost always the conductor on the
+    // bus; "admin" is a dispatcher filling in a tap that was missed, and is
+    // shown as such so nobody mistakes it for a live report.
+    recordedBy: { type: String, enum: ['conductor', 'admin'], default: 'conductor' },
+
     // Idempotency key generated on the device. An offline queue that retries
     // will resubmit; without this a flaky connection double-logs a checkpoint
     // and corrupts the variance.

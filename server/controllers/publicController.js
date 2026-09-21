@@ -1,6 +1,7 @@
 import { Checkpoint, CheckpointLog, Route, Trip } from '../models/index.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { presentTrip, presentTrips, TRIP_POPULATE } from '../services/tripService.js';
+import { liveWindow } from '../services/tripWindow.js';
 
 /**
  * Guest-facing reads. No auth middleware touches any of these — a passenger at
@@ -18,6 +19,16 @@ const ACTIVE_STATUSES = ['scheduled', 'in_transit', 'delayed'];
  * flights up for a while rather than erasing them on touchdown.
  */
 const RECENTLY_ARRIVED_MINUTES = 45;
+
+/**
+ * How close to departure a bus is taken to be standing in its bay.
+ *
+ * With schedules a board carries the day's later departures too, and the 18:00
+ * to Lipa is not "waiting here" at 09:00 — the bus is probably still on its
+ * way in from somewhere else. Inside this window it is boarding; outside it,
+ * it is a departure time and nothing more.
+ */
+const BOARDING_WINDOW_MINUTES = 60;
 
 /** Stations only. Landmarks are timing points; they get no board. */
 export const listStations = asyncHandler(async (req, res) => {
@@ -150,9 +161,11 @@ export const stationBoard = asyncHandler(async (req, res) => {
     return res.status(404).json({ error: 'Station not found.' });
   }
 
+  const now = new Date();
   const trips = await Trip.find({
     status: { $in: [...ACTIVE_STATUSES, 'arrived'] },
     'plan.checkpoint': station._id,
+    ...liveWindow(now),
   })
     .populate(TRIP_POPULATE)
     .lean();
@@ -222,11 +235,18 @@ export const stationBoard = asyncHandler(async (req, res) => {
           ? trip.scheduledDeparture
           : (stop.actualArrival ?? stop.projectedArrival ?? stop.scheduledArrival);
 
+      // Leaves from here, but not soon enough to be in the bay yet.
+      const departsLater =
+        isDeparture &&
+        new Date(trip.scheduledDeparture).getTime() - now.getTime() >
+          BOARDING_WINDOW_MINUTES * 60000;
+
       return {
         tripId: trip.id,
         route: trip.route.name,
         boardKind,
         boardTime,
+        departsLater,
         origin: trip.stops[0]?.name ?? null,
         destination: trip.stops.at(-1)?.name ?? null,
         bus: trip.bus,
@@ -304,10 +324,11 @@ export const stationBoard = asyncHandler(async (req, res) => {
       const rank = (x) => {
         if (x.boardKind === 'arrived') return 3; // done, kept for context
         if (x.isStale) return 2; // nobody can vouch for this time
-        // Standing here, or starting its run from here: the only buses someone
-        // at this stop can walk up to right now. They lead the board, and the
-        // ones still on their way follow in the order they will turn up.
-        if (x.isHereNow || x.boardKind === 'departure') return 0;
+        // Standing here, or boarding for a run that starts here: the only buses
+        // someone at this stop can walk up to right now. They lead the board,
+        // and everything else follows in the order it will turn up — a later
+        // departure included, which is a time on the timetable, not a bus.
+        if (x.isHereNow || (x.boardKind === 'departure' && !x.departsLater)) return 0;
         return 1;
       };
       if (rank(a) !== rank(b)) return rank(a) - rank(b);
@@ -369,6 +390,7 @@ export const searchJourneys = asyncHandler(async (req, res) => {
     // one genuinely only wants what is still running.
     status: { $in: ACTIVE_STATUSES },
     'plan.checkpoint': destination._id,
+    ...liveWindow(),
   })
     .populate(TRIP_POPULATE)
     .lean();
@@ -521,7 +543,7 @@ export const searchJourneys = asyncHandler(async (req, res) => {
 
 /** Everything currently moving, for the all-routes overview. */
 export const listActiveTrips = asyncHandler(async (req, res) => {
-  const filter = { status: { $in: ACTIVE_STATUSES } };
+  const filter = { status: { $in: ACTIVE_STATUSES }, ...liveWindow() };
   if (req.query.routeId) filter.route = req.query.routeId;
 
   const trips = await Trip.find(filter)

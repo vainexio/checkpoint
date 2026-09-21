@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
  * So place decides the composition, and everything else is a modifier on top:
  *
  *   atStop      it is here, in front of you, doors open
+ *   later       leaves from here, but not for a while — the bay is still empty
  *   elsewhere   parked at a different stop, with the road between you and it
  *   travelling  on the road, coming toward you
  *   done        the trip is over
@@ -261,6 +262,24 @@ function MiniBus({ door = 'shut', dim = false }) {
   );
 }
 
+/**
+ * The bay a later departure will leave from, with nothing in it yet.
+ *
+ * Marked out at exactly the size the bus is drawn, so it reads as "the bus goes
+ * here" rather than as a missing picture. Drawing the bus itself would say it
+ * is already standing there, which for a departure hours away it is not.
+ */
+function EmptyBay() {
+  return (
+    <span
+      className="relative block h-[35px] w-[96px] shrink rounded-[6px] border-2 border-dashed border-muted-foreground sm:w-[172px]"
+      aria-hidden
+    >
+      <span className="absolute inset-x-[10px] bottom-[5px] h-[2px] rounded-full bg-muted" />
+    </span>
+  );
+}
+
 /** Dashes slide only when the bus is actually moving. */
 function Road({ moving, crawl, stillness }) {
   const run = moving && !stillness;
@@ -380,7 +399,7 @@ export function BusStatusScene({ scene, atLabel, hereLabel }) {
             </motion.span>
           )}
 
-          <MiniBus door={door} dim={place === 'done'} />
+          {place === 'later' ? <EmptyBay /> : <MiniBus door={door} dim={place === 'done'} />}
 
           {/* The car ahead pulls away, and the bus closes it up. */}
           {crawling && (
@@ -460,17 +479,22 @@ export function sceneFor({
   isFull,
   isHereNow,
   isDeparture,
+  // A departure from here that is not boarding yet. Only meaningful alongside
+  // isDeparture; defaults to boarding so existing callers keep their picture.
+  departsLater = false,
   notDepartedYet,
   isLate,
   inTraffic,
 }) {
   const place = hasArrived
     ? 'done'
-    : isHereNow || isDeparture
-      ? 'atStop'
-      : notDepartedYet
-        ? 'elsewhere'
-        : 'travelling';
+    : isDeparture && departsLater
+      ? 'later'
+      : isHereNow || isDeparture
+        ? 'atStop'
+        : notDepartedYet
+          ? 'elsewhere'
+          : 'travelling';
 
   return {
     place,

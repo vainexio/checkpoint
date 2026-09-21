@@ -10,6 +10,7 @@ import mongoose from 'mongoose';
 
 import { createApp } from './app.js';
 import { startTrafficRefresher } from './services/trafficRefresher.js';
+import { startScheduleGenerator } from './services/scheduleService.js';
 
 const PORT = process.env.PORT || 4000;
 
@@ -34,6 +35,11 @@ async function start() {
   // Warms the traffic cache for the road buses are about to drive. Silently
   // does nothing when no TRAFFIC_API_KEY is set.
   startTrafficRefresher();
+
+  // Keeps a week of trips generated from the recurring schedules. Safe to run
+  // from every instance at once: the database refuses a second trip for the
+  // same schedule and day.
+  startScheduleGenerator();
 }
 
 start().catch((err) => {

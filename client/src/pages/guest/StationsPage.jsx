@@ -16,6 +16,7 @@ import { usePolling } from '@/hooks/usePolling.js';
 import { fetchMapData, fetchNearbyStations, fetchStations } from '@/api/publicApi.js';
 import { PageHeader } from '@/components/layout/AppLayout.jsx';
 import { CheckpointMap } from '@/components/CheckpointMap.jsx';
+import { JourneyPlanner } from '@/components/JourneyPlanner.jsx';
 import { Card, CardContent } from '@/components/ui/card.tsx';
 import { Input } from '@/components/ui/input.tsx';
 import { Button } from '@/components/ui/button.tsx';
@@ -149,6 +150,19 @@ export default function StationsPage() {
         icon={Bus}
         title="Find your stop"
         description="Search for a station or terminal, or use your location, to see every bus heading its way. Once you are on a stop, you can ask where it can take you."
+      />
+
+      {/*
+        * Destination first, because that is the half of the question a
+        * passenger actually knows. Finding the stop to stand at is the answer,
+        * and on a network where three routes pass the same town it is the part
+        * that is genuinely hard.
+        */}
+      <JourneyPlanner
+        stations={all}
+        you={you}
+        locating={locating}
+        onRequestLocation={findNearby}
       />
 
       {/* ------------------------------------------------------------ search */}

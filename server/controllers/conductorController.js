@@ -23,6 +23,7 @@ const LOG_TYPES = [
   'left_checkpoint',
   'delayed',
   'arrived',
+  'terminated',
   'load_report',
 ];
 const LOAD_LEVELS = ['seats', 'few', 'full'];
@@ -83,8 +84,9 @@ export function normaliseLog(raw, tripId) {
     throw Object.assign(new Error('A checkpoint update must name a checkpoint.'), { status: 400 });
   }
 
-  if (raw.type === 'delayed' && raw.delayReason && !DELAY_REASONS.includes(raw.delayReason)) {
-    throw Object.assign(new Error(`Unknown delay reason: ${raw.delayReason}`), { status: 400 });
+  const carriesReason = raw.type === 'delayed' || raw.type === 'terminated';
+  if (carriesReason && raw.delayReason && !DELAY_REASONS.includes(raw.delayReason)) {
+    throw Object.assign(new Error(`Unknown reason: ${raw.delayReason}`), { status: 400 });
   }
 
   if (raw.load && !LOAD_LEVELS.includes(raw.load)) {
@@ -100,7 +102,7 @@ export function normaliseLog(raw, tripId) {
     type: raw.type,
     checkpoint:
       raw.type === 'passed_checkpoint' || raw.type === 'left_checkpoint' ? raw.checkpoint : null,
-    delayReason: raw.type === 'delayed' ? (raw.delayReason ?? 'other') : null,
+    delayReason: carriesReason ? (raw.delayReason ?? 'other') : null,
     load: raw.load ?? null,
     reportedAt,
     syncedAt: new Date(),

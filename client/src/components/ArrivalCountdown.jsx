@@ -22,6 +22,10 @@ import { formatDuration, formatTime, relativeMinutes } from '@/utils/time.js';
  */
 const STALE_OVERDUE_MINUTES = 10;
 
+/**
+ * A cancelled trip has no number. Everything here exists to answer "how long
+ * do I wait", and the answer is "do not".
+ */
 export function ArrivalCountdown({
   time,
   now = new Date(),
@@ -32,6 +36,7 @@ export function ArrivalCountdown({
 }) {
   const minutes = relativeMinutes(time, now);
   const hasArrived = kind === 'arrived';
+  const cancelled = kind === 'cancelled';
 
   /**
    * Past its estimate, with nobody confirming it anywhere.
@@ -46,7 +51,10 @@ export function ArrivalCountdown({
   const lostIt = isStale && !hasArrived && !isHereNow && overdue > STALE_OVERDUE_MINUTES;
 
   // A bus standing at your stop is not a countdown — it is an instruction.
-  const headline = isHereNow
+  // A cancelled one is the opposite instruction, and equally not a number.
+  const headline = cancelled
+    ? 'Cancelled'
+    : isHereNow
     ? 'Boarding'
     : minutes === null
       ? '—'
@@ -58,7 +66,9 @@ export function ArrivalCountdown({
             'Any moment'
           : formatDuration(minutes);
 
-  const label = isHereNow
+  const label = cancelled
+    ? 'Not running'
+    : isHereNow
     ? 'At this stop now'
     : hasArrived
       ? 'Arrived'
@@ -73,7 +83,9 @@ export function ArrivalCountdown({
             ? 'Departs in'
             : 'Arrives in';
 
-  const tone = isHereNow
+  const tone = cancelled
+    ? 'text-destructive'
+    : isHereNow
     ? 'text-success'
     : hasArrived
       ? 'text-muted-foreground'
@@ -89,7 +101,7 @@ export function ArrivalCountdown({
       <div
         className={cn(
           'mb-1 text-[11px] font-bold uppercase tracking-[0.12em]',
-          isHereNow ? 'text-success' : 'text-muted-foreground'
+          isHereNow ? 'text-success' : cancelled ? 'text-destructive' : 'text-muted-foreground'
         )}
       >
         {label}
@@ -97,7 +109,9 @@ export function ArrivalCountdown({
 
       <div
         className={cn(
-          'tabular text-[34px] font-extrabold leading-none tracking-[-0.03em] sm:text-[40px]',
+          'font-extrabold leading-none tracking-[-0.03em]',
+          // A word, not a number: it does not need the size the figures do.
+          cancelled ? 'text-[26px] sm:text-[30px]' : 'tabular text-[34px] sm:text-[40px]',
           tone
         )}
       >
@@ -109,7 +123,14 @@ export function ArrivalCountdown({
 
       {/* Still shown, just no longer shouted: this is the number you match
           against a printed timetable or read out to someone meeting you. */}
-      <div className="mt-1.5 text-[15px] font-semibold tabular text-muted-foreground">
+      <div
+        className={cn(
+          'mt-1.5 text-[15px] font-semibold tabular text-muted-foreground',
+          // The time it would have come, struck through: it explains which bus
+          // this row is without offering it as an arrival.
+          cancelled && 'line-through'
+        )}
+      >
         {formatTime(time)}
       </div>
 

@@ -409,6 +409,13 @@ export default function AdminTripDetailPage() {
                   ? formatVariance(trip.conditionsAllowanceMinutes)
                   : '—'}
               </Fact>
+              {trip.terminated && (
+                <Fact label="Ended early">
+                  {DELAY[trip.terminated.reason] ?? 'Other'}
+                  {trip.terminated.nearCheckpoint && `, at ${trip.terminated.nearCheckpoint}`}
+                </Fact>
+              )}
+              {trip.abandoned && <Fact label="Closed">Stopped reporting</Fact>}
               <Fact label="Measured against">
                 <Yardstick stops={stops} />
               </Fact>

@@ -29,6 +29,7 @@ const checkpointLogSchema = new mongoose.Schema(
      *   left_checkpoint     — pulled out of this point, now on the road again
      *   delayed             — ad-hoc note, changes no arithmetic
      *   arrived             — reached the destination, trip over
+     *   terminated          — cannot finish the run; the trip ends here
      *   load_report         — how full the bus is, reported on its own
      */
     type: {
@@ -39,6 +40,7 @@ const checkpointLogSchema = new mongoose.Schema(
         'left_checkpoint',
         'delayed',
         'arrived',
+        'terminated',
         'load_report',
       ],
       required: true,
@@ -77,7 +79,7 @@ const checkpointLogSchema = new mongoose.Schema(
      */
     trafficAllowanceMinutes: { type: Number, default: null },
 
-    // Only meaningful when type === "delayed".
+    // Why, for a "delayed" note or a "terminated" run.
     delayReason: {
       type: String,
       enum: ['traffic', 'loading', 'breakdown', 'inspection', 'weather', 'other'],

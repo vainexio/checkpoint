@@ -111,8 +111,20 @@ const tripSchema = new mongoose.Schema(
      */
     scheduleOverride: { type: Boolean, default: false },
 
-    // Recorded once on arrival. Phase 2 baseline recalibration reads this;
-    // nothing consumes it yet.
+    /**
+     * When housekeeping gave up on a trip that departed and then went silent
+     * for hours past its expected arrival — a conductor who forgot the last
+     * tap, or a phone that died.
+     *
+     * Not a status: nothing was observed, so nothing is asserted about where
+     * the bus went. It simply stops being advertised and is marked in the
+     * operator's list. A later tap clears it, because then there is an
+     * observation again (see tripService#recomputeTrip).
+     */
+    abandonedAt: { type: Date, default: null },
+
+    // Recorded once on arrival. Baseline recalibration reads this to suggest
+    // updated leg times (services/recalibration.js).
     finalVarianceMinutes: { type: Number, default: null },
   },
   { timestamps: true }

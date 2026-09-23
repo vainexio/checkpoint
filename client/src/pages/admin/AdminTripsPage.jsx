@@ -234,6 +234,15 @@ export default function AdminTripsPage() {
                               <span className="inline-flex rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
                                 Did not run
                               </span>
+                            ) : trip.abandoned ? (
+                              // Departed, then silence. Nothing is claimed about
+                              // where it went, only that it stopped reporting.
+                              <span
+                                className="inline-flex rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground"
+                                title="No report for hours past its expected arrival, so it was closed. A later tap reopens it."
+                              >
+                                Stopped reporting
+                              </span>
                             ) : (
                               <StatusBadge
                                 status={trip.status}

@@ -39,6 +39,13 @@ const DELAY_REASONS = [
   { value: 'other', label: 'Other' },
 ];
 
+/** Why a run ends early. Traffic and loading make a bus late, not finished. */
+const STOP_REASONS = DELAY_REASONS.filter((r) =>
+  ['breakdown', 'inspection', 'weather', 'other'].includes(r.value)
+);
+
+const REASON_LABEL = Object.fromEntries(DELAY_REASONS.map((r) => [r.value, r.label.toLowerCase()]));
+
 /**
  * The conductor's screen, built around one question: what do I press right now?
  *
@@ -453,6 +460,37 @@ export default function ConductorTripPage() {
                 </>
               )}
 
+              {/* The bus is not finishing the run. Quiet, because it is rare
+                  and irreversible from here, but reachable, because the
+                  alternative is a board telling people to wait for a bus that
+                  is being towed. */}
+              <SecondaryButton onClick={() => setPanel(panel === 'stop' ? null : 'stop')}>
+                This bus cannot continue
+              </SecondaryButton>
+              {panel === 'stop' && (
+                <>
+                  <p className="px-1 pt-1 text-[13px] text-muted-foreground">
+                    Ends the trip here. Everyone waiting further down the route is told the bus is
+                    not coming. Pick what happened:
+                  </p>
+                  <ChipRow>
+                    {STOP_REASONS.map((reason) => (
+                      <Chip
+                        key={reason.value}
+                        onClick={() =>
+                          tap(
+                            { type: 'terminated', delayReason: reason.value },
+                            `Trip ended: ${reason.label.toLowerCase()}`
+                          )
+                        }
+                      >
+                        {reason.label}
+                      </Chip>
+                    ))}
+                  </ChipRow>
+                </>
+              )}
+
               {/* Ending the trip early is the most destructive thing here, so
                   it is the quietest control and always asks first. */}
               {!atFinalLeg && (
@@ -474,7 +512,16 @@ export default function ConductorTripPage() {
         <Alert className="mb-4">
           <Check className="h-4 w-4" />
           <AlertDescription>
-            This trip is {trip.status}. No further updates are needed.
+            {trip.terminated ? (
+              <>
+                This trip was ended early —{' '}
+                {REASON_LABEL[trip.terminated.reason] ?? 'other'}
+                {trip.terminated.nearCheckpoint && <> at {trip.terminated.nearCheckpoint}</>}.
+                Passengers down the route have been told. No further updates are needed.
+              </>
+            ) : (
+              <>This trip is {trip.status}. No further updates are needed.</>
+            )}
           </AlertDescription>
         </Alert>
       )}

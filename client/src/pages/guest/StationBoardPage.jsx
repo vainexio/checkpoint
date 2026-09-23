@@ -49,6 +49,16 @@ const DELAY_TEXT = {
  * the biggest thing on the row and the plate number is the second biggest, not
  * a footnote.
  */
+/** Why a bus is not coming, said the way you would say it to someone waiting. */
+const CANCEL_REASON = {
+  breakdown: 'a breakdown',
+  inspection: 'being held at an inspection',
+  weather: 'the weather',
+  traffic: 'conditions on the road',
+  loading: 'a problem at the terminal',
+  other: 'a problem',
+};
+
 export default function StationBoardPage() {
   const { stationId } = useParams();
   const now = useNow(20000);
@@ -289,6 +299,7 @@ function ArrivalRow({ arrival, now, stationName, goingTo }) {
   const isDeparture = arrival.boardKind === 'departure';
   const departsLater = isDeparture && arrival.departsLater;
   const hasArrived = arrival.boardKind === 'arrived';
+  const isCancelled = arrival.boardKind === 'cancelled';
   const isFull = arrival.load === 'full';
   // Live congestion on the leg it is on now, from the road ahead rather than
   // the whole trip's history.
@@ -306,6 +317,7 @@ function ArrivalRow({ arrival, now, stationName, goingTo }) {
     : null;
   const scene = sceneFor({
     hasArrived,
+    isCancelled,
     isFull,
     isHereNow: arrival.isHereNow,
     isDeparture,
@@ -392,7 +404,29 @@ function ArrivalRow({ arrival, now, stationName, goingTo }) {
               * changes what the passenger should do in the next few seconds, so
               * it stays on the face of the card.
               */}
-            {(arrival.isHereNow || isDeparture || hasArrived || notDepartedYet) && (
+            {isCancelled && (
+              <div className="mt-2 text-[13px] leading-relaxed">
+                <span className="font-semibold text-destructive">
+                  Cancelled — this bus is not coming.
+                </span>{' '}
+                <span className="text-muted-foreground">
+                  {arrival.terminated ? (
+                    <>
+                      The conductor reported {CANCEL_REASON[arrival.terminated.reason] ?? 'a problem'}
+                      {arrival.terminated.nearCheckpoint && (
+                        <> at {arrival.terminated.nearCheckpoint}</>
+                      )}
+                      .
+                    </>
+                  ) : (
+                    <>The operator cancelled this trip.</>
+                  )}{' '}
+                  Look for the next one below.
+                </span>
+              </div>
+            )}
+
+            {!isCancelled && (arrival.isHereNow || isDeparture || hasArrived || notDepartedYet) && (
               <div className="mt-2 text-[13px] leading-relaxed">
                 {hasArrived ? (
                   <span className="text-muted-foreground">

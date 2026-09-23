@@ -143,8 +143,10 @@ function DisplayRow({ arrival, now }) {
   const minutesAway = relativeMinutes(arrival.boardTime, now);
 
   // The same trip is a departure at its origin and an arrival everywhere else.
-  const kind =
-    arrival.boardKind === 'departure'
+  const cancelled = arrival.boardKind === 'cancelled';
+  const kind = cancelled
+    ? { label: 'Cancelled', tone: 'text-destructive' }
+    : arrival.boardKind === 'departure'
       ? { label: 'Departs', tone: 'text-primary' }
       : arrival.boardKind === 'arrived'
         ? { label: 'Arrived', tone: 'text-muted-foreground' }
@@ -167,6 +169,7 @@ function DisplayRow({ arrival, now }) {
         <div
           className={cn(
             'mt-0.5 font-mono tabular text-[40px] font-bold leading-none tracking-tight',
+            cancelled && 'text-muted-foreground line-through',
             arrival.isHereNow && 'text-success',
             (arrival.isStale || arrival.boardKind !== 'arrival') &&
               !arrival.isHereNow &&
@@ -175,8 +178,10 @@ function DisplayRow({ arrival, now }) {
         >
           {formatTime(arrival.boardTime)}
         </div>
-        <div className="mt-1 text-[15px] font-semibold text-muted-foreground">
-          {arrival.isHereNow
+        <div className={cn('mt-1 text-[15px] font-semibold', cancelled ? 'text-destructive' : 'text-muted-foreground')}>
+          {cancelled
+            ? 'not running'
+            : arrival.isHereNow
             ? 'At the stand'
             : arrival.boardKind === 'arrived'
               ? 'On the stand'
@@ -200,7 +205,12 @@ function DisplayRow({ arrival, now }) {
           </span>
         </div>
         <div className="mt-1 truncate text-[17px] text-muted-foreground">
-          {arrival.isHereNow ? (
+          {cancelled ? (
+            <span className="font-bold text-destructive">
+              This bus is not coming
+              {arrival.terminated?.nearCheckpoint && <> — stopped at {arrival.terminated.nearCheckpoint}</>}
+            </span>
+          ) : arrival.isHereNow ? (
             <span className="font-bold text-success">At this stop — boarding</span>
           ) : arrival.boardKind === 'arrived' ? (
             <>Completed from {arrival.origin}</>

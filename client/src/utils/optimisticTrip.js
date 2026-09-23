@@ -111,6 +111,22 @@ export function applyTap(trip, entry, reportedAt) {
       break;
     }
 
+    case 'terminated': {
+      // The run is over where it stands. Every projection ahead is withdrawn,
+      // because a time on screen for a bus that is not coming is worse than
+      // no time at all.
+      next.status = 'cancelled';
+      next.terminated = {
+        reason: entry.delayReason ?? 'other',
+        reportedAt,
+        nearCheckpoint: next.lastConfirmedCheckpoint?.name ?? null,
+      };
+      for (const stop of stops) {
+        if (stop.progress !== 'passed') stop.projectedArrival = null;
+      }
+      break;
+    }
+
     case 'delayed': {
       // Context only. A delay report is not anchored to a measured distance and
       // must not move anything.

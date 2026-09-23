@@ -21,6 +21,16 @@ const ACTIVE_STATUSES = ['scheduled', 'in_transit', 'delayed'];
 const RECENTLY_ARRIVED_MINUTES = 45;
 
 /**
+ * How long a cancelled trip stays on the board of a stop it never reached.
+ *
+ * A bus that is not coming is news, and the people it matters most to are the
+ * ones already waiting for it. Dropping it the moment it is cancelled leaves
+ * them watching an empty board, deciding for themselves how long to give it;
+ * saying so plainly for a while is the difference between waiting and leaving.
+ */
+const CANCELLED_NOTICE_MINUTES = 45;
+
+/**
  * How close to departure a bus is taken to be standing in its bay.
  *
  * With schedules a board carries the day's later departures too, and the 18:00
@@ -163,7 +173,7 @@ export const stationBoard = asyncHandler(async (req, res) => {
 
   const now = new Date();
   const trips = await Trip.find({
-    status: { $in: [...ACTIVE_STATUSES, 'arrived'] },
+    status: { $in: [...ACTIVE_STATUSES, 'arrived', 'cancelled'] },
     'plan.checkpoint': station._id,
     ...liveWindow(now),
   })
@@ -186,6 +196,15 @@ export const stationBoard = asyncHandler(async (req, res) => {
      */
     .filter(({ trip, stop, index }) => {
       if (!stop) return false;
+
+      if (trip.status === 'cancelled') {
+        // Only where it would still have been useful: a stop it had not
+        // reached, and only while the news is fresh.
+        const minutesSince = trip.cancelledAt
+          ? (Date.now() - new Date(trip.cancelledAt).getTime()) / 60000
+          : Infinity;
+        return stop.progress === 'pending' && minutesSince <= CANCELLED_NOTICE_MINUTES;
+      }
 
       if (trip.status === 'arrived') {
         // Only at the end of its own route, and only while it is plausibly
@@ -213,6 +232,7 @@ export const stationBoard = asyncHandler(async (req, res) => {
       );
       const isDeparture = index === 0 && !trip.actualDeparture;
       const hasArrived = trip.status === 'arrived';
+      const isCancelled = trip.status === 'cancelled';
       const isHereNow =
         trip.position === 'at_stop' &&
         trip.lastConfirmedCheckpoint?.checkpointId === stop.checkpointId;
@@ -223,17 +243,24 @@ export const stationBoard = asyncHandler(async (req, res) => {
        * "expected arrival" for a bus parked at its own starting terminal is
        * simply the wrong sentence.
        */
-      const boardKind = hasArrived
-        ? 'arrived'
-        : isDeparture
-          ? 'departure'
-          : 'arrival';
+      const boardKind = isCancelled
+        ? 'cancelled'
+        : hasArrived
+          ? 'arrived'
+          : isDeparture
+            ? 'departure'
+            : 'arrival';
 
+      // A cancelled trip has no projection any more — the engine withdraws
+      // them — so the row is placed by when it was due, which is where someone
+      // waiting for it will look.
       const boardTime = hasArrived
         ? stop.actualArrival
-        : isDeparture
-          ? trip.scheduledDeparture
-          : (stop.actualArrival ?? stop.projectedArrival ?? stop.scheduledArrival);
+        : isCancelled
+          ? (stop.scheduledArrival ?? trip.scheduledDeparture)
+          : isDeparture
+            ? trip.scheduledDeparture
+            : (stop.actualArrival ?? stop.projectedArrival ?? stop.scheduledArrival);
 
       // Leaves from here, but not soon enough to be in the bay yet.
       const departsLater =
@@ -247,6 +274,10 @@ export const stationBoard = asyncHandler(async (req, res) => {
         boardKind,
         boardTime,
         departsLater,
+        // Why it is not coming, and where it got to. Null for a trip an
+        // operator cancelled before it ever left.
+        terminated: trip.terminated,
+        cancelledAt: trip.cancelledAt,
         origin: trip.stops[0]?.name ?? null,
         destination: trip.stops.at(-1)?.name ?? null,
         bus: trip.bus,
@@ -323,6 +354,9 @@ export const stationBoard = asyncHandler(async (req, res) => {
        */
       const rank = (x) => {
         if (x.boardKind === 'arrived') return 3; // done, kept for context
+        // Not coming at all. Above a finished trip, below anything running:
+        // it is news for whoever is waiting, but nothing to act on.
+        if (x.boardKind === 'cancelled') return 2;
         if (x.isStale) return 2; // nobody can vouch for this time
         // Standing here, or boarding for a run that starts here: the only buses
         // someone at this stop can walk up to right now. They lead the board,

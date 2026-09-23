@@ -80,6 +80,11 @@ export async function recordLogs(tripId, logDocs) {
         (Array.isArray(err.writeErrors) && err.writeErrors.every((e) => e.err?.code === 11000));
       if (!isDuplicateOnly) throw err;
     }
+
+    // Anything arriving for a trip housekeeping had given up on reopens it.
+    // Judged by the news reaching us, not by the timestamp on it: a tap made
+    // twenty minutes ago and synced now is still proof the bus is reporting.
+    await Trip.updateOne({ _id: tripId, abandonedAt: { $ne: null } }, { $set: { abandonedAt: null } });
   }
   return recomputeTrip(tripId);
 }
@@ -106,6 +111,11 @@ export async function recomputeTrip(tripId) {
   trip.conditionsAllowanceMinutes = state.conditionsAllowanceMinutes;
   trip.computedETAs = state.computedETAs;
   trip.finalVarianceMinutes = state.finalVarianceMinutes;
+  // A correction that adds a confirmation later than the moment we gave up
+  // reopens the trip too.
+  if (trip.abandonedAt && state.lastConfirmedAt && state.lastConfirmedAt > trip.abandonedAt) {
+    trip.abandonedAt = null;
+  }
 
   await trip.save();
   return { trip, state, logs };
@@ -212,6 +222,15 @@ export function presentTrip(trip, { logs = [], now = new Date(), audience = 'pub
     isStale: staleness.isStale,
     minutesSinceLastConfirm: staleness.minutesSinceLastConfirm,
     latestDelay: state.latestDelay,
+    // Why the run ended early, when, and where it had got to — so a board can
+    // say "cancelled at Turbina, breakdown" instead of a bus simply vanishing.
+    terminated: state.terminated,
+    // When this trip stopped being something to wait for, whichever way it
+    // ended: the conductor's report, or an operator cancelling it.
+    cancelledAt: state.terminated?.reportedAt ?? (state.status === 'cancelled' ? trip.updatedAt ?? null : null),
+    // Departed, then silent for hours past its arrival. Nothing is claimed
+    // about where it went; it is simply no longer advertised.
+    abandoned: Boolean(trip.abandonedAt),
     traffic: buildTrafficNote(plan, state, now),
     stops,
   };

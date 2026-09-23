@@ -181,7 +181,9 @@ const TYPE_RANK = {
   passed_checkpoint: 1,
   left_checkpoint: 2,
   arrived: 3,
-  delayed: 4,
+  // After an arrival: if both land on the same second, the bus got there.
+  terminated: 4,
+  delayed: 5,
 };
 
 const sortLogs = (logs) =>
@@ -232,6 +234,9 @@ export function computeTripState({
    */
   let conditionsAllowance = 0;
   let latestDelay = null;
+  // Set when the bus cannot finish the run: a breakdown, an accident, a bus
+  // pulled out of service. The trip ends where it stands.
+  let terminated = null;
   // When the bus pulled out of the checkpoint it most recently reached. Null
   // while it is still standing there.
   let leftLastCheckpointAt = null;
@@ -384,6 +389,34 @@ export function computeTripState({
         break;
       }
 
+      /**
+       * The run is over without reaching the end.
+       *
+       * Distinct from a delay, which says "later", and from an arrival, which
+       * says "here". This says "not at all", and it is the one thing a
+       * passenger waiting further down the route most needs to be told: every
+       * projection ahead of it is withdrawn rather than quietly kept ticking.
+       *
+       * Allowed before departure too — a bus that will not start at the
+       * terminal is exactly this, reported from the bay.
+       */
+      case 'terminated': {
+        if (actualArrival) {
+          skip(log, 'after_arrival');
+          break;
+        }
+        if (terminated) {
+          skip(log, 'already_terminated');
+          break;
+        }
+        terminated = {
+          reason: log.delayReason ?? 'other',
+          reportedAt: toDate(log.reportedAt),
+          nearCheckpoint: lastConfirmedIndex >= 0 ? plan[lastConfirmedIndex].name : null,
+        };
+        break;
+      }
+
       case 'load_report':
         // Nothing further to do — the load was picked up above, and this
         // carries no position information at all.
@@ -435,6 +468,9 @@ export function computeTripState({
     if (actualDeparture) {
       if (seen.progress === 'passed' && seen.actualArrival) {
         projectedArrival = seen.actualArrival;
+      } else if (terminated) {
+        // The bus is not coming. A time here would be read as a promise.
+        projectedArrival = null;
       } else {
         trafficMinutes = trafficAheadTo(index);
         projectedArrival = addMinutes(
@@ -468,7 +504,7 @@ export function computeTripState({
   const faultVariance = exactVariance - conditionsAllowance;
 
   let status;
-  if (cancelled) status = 'cancelled';
+  if (cancelled || terminated) status = 'cancelled';
   else if (actualArrival) status = 'arrived';
   else if (!actualDeparture) status = 'scheduled';
   else status = faultVariance > DELAY_THRESHOLD_MINUTES ? 'delayed' : 'in_transit';
@@ -523,6 +559,9 @@ export function computeTripState({
     computedETAs,
     finalVarianceMinutes: actualArrival ? Math.round(exactVariance) : null,
     latestDelay,
+    // Null unless the run was ended early, in which case: why, when, and the
+    // last point it had reached.
+    terminated,
     ignoredLogs: ignored,
   };
 }

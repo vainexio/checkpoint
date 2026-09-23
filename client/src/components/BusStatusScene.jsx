@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
  *
  *   atStop      it is here, in front of you, doors open
  *   later       leaves from here, but not for a while — the bay is still empty
+ *   cancelled   not coming at all: the road is empty and the stop is waiting
  *   elsewhere   parked at a different stop, with the road between you and it
  *   travelling  on the road, coming toward you
  *   done        the trip is over
@@ -269,13 +270,21 @@ function MiniBus({ door = 'shut', dim = false }) {
  * here" rather than as a missing picture. Drawing the bus itself would say it
  * is already standing there, which for a departure hours away it is not.
  */
-function EmptyBay() {
+function EmptyBay({ crossed = false }) {
   return (
     <span
-      className="relative block h-[35px] w-[96px] shrink rounded-[6px] border-2 border-dashed border-muted-foreground sm:w-[172px]"
+      className={cn(
+        'relative block h-[35px] w-[96px] shrink rounded-[6px] border-2 border-dashed sm:w-[172px]',
+        crossed ? 'border-destructive' : 'border-muted-foreground'
+      )}
       aria-hidden
     >
       <span className="absolute inset-x-[10px] bottom-[5px] h-[2px] rounded-full bg-muted" />
+      {/* Struck through: this bus is not coming at all, which is a different
+          fact from one that has not pulled in yet. */}
+      {crossed && (
+        <span className="absolute left-[8px] right-[8px] top-1/2 h-[3px] -translate-y-1/2 rounded-full bg-destructive" />
+      )}
     </span>
   );
 }
@@ -368,7 +377,9 @@ export function BusStatusScene({ scene, atLabel, hereLabel }) {
   const crawling = travelling && scene.traffic;
   // Away from you: the road between the bus and your stop is the point, so the
   // two ends are pushed apart. Here or finished: one tableau, centred.
-  const spread = travelling || place === 'elsewhere';
+  // Away from you, or never arriving: in both the road between the bus's bay
+  // and your stop is the point, so the two ends are pushed apart.
+  const spread = travelling || place === 'elsewhere' || place === 'cancelled';
 
   const door = full ? 'barred' : place === 'atStop' ? 'open' : 'shut';
 
@@ -399,7 +410,11 @@ export function BusStatusScene({ scene, atLabel, hereLabel }) {
             </motion.span>
           )}
 
-          {place === 'later' ? <EmptyBay /> : <MiniBus door={door} dim={place === 'done'} />}
+          {place === 'later' || place === 'cancelled' ? (
+            <EmptyBay crossed={place === 'cancelled'} />
+          ) : (
+            <MiniBus door={door} dim={place === 'done'} />
+          )}
 
           {/* The car ahead pulls away, and the bus closes it up. */}
           {crawling && (
@@ -476,6 +491,7 @@ export function BusStatusScene({ scene, atLabel, hereLabel }) {
  */
 export function sceneFor({
   hasArrived,
+  isCancelled = false,
   isFull,
   isHereNow,
   isDeparture,
@@ -486,8 +502,10 @@ export function sceneFor({
   isLate,
   inTraffic,
 }) {
-  const place = hasArrived
-    ? 'done'
+  const place = isCancelled
+    ? 'cancelled'
+    : hasArrived
+      ? 'done'
     : isDeparture && departsLater
       ? 'later'
       : isHereNow || isDeparture

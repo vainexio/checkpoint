@@ -36,6 +36,9 @@ export function liveWindow(now = new Date(), { upcomingHours = UPCOMING_HOURS } 
   if (upcomingHours !== null) departure.$lte = new Date(t + upcomingHours * HOUR_MS);
 
   return {
+    // Housekeeping closes trips that went silent for good; they are nothing to
+    // wait for, whatever their stored status still says.
+    abandonedAt: null,
     scheduledDeparture: departure,
     $or: [
       { actualDeparture: { $ne: null } },

@@ -11,6 +11,7 @@ import mongoose from 'mongoose';
 import { createApp } from './app.js';
 import { startTrafficRefresher } from './services/trafficRefresher.js';
 import { startScheduleGenerator } from './services/scheduleService.js';
+import { startHousekeeping } from './services/housekeeping.js';
 
 const PORT = process.env.PORT || 4000;
 
@@ -40,6 +41,10 @@ async function start() {
   // from every instance at once: the database refuses a second trip for the
   // same schedule and day.
   startScheduleGenerator();
+
+  // Closes trips that departed and then went silent for hours past their own
+  // expected arrival — usually a forgotten last tap.
+  startHousekeeping();
 }
 
 start().catch((err) => {

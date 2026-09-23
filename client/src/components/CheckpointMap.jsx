@@ -143,11 +143,16 @@ function FocusOn({ point, zoom = 15 }) {
  * if the person has not started moving it themselves: re-centring under
  * somebody's finger is the same fault FitTo exists to avoid.
  *
- * The box is never smaller than the accuracy circle, so a fix good to 3 km is
- * shown as 3 km of uncertainty rather than zoomed to street level as if exact.
+ * How close it gets is the whole point of pressing the button, so the box is
+ * small: about two blocks across. A coarse fix widens it, because zooming to a
+ * street the device cannot vouch for would be a lie — but only so far, since
+ * past a kilometre or two the view stops being useful and the accuracy circle
+ * is still drawn around the dot to show what is really known.
  */
 const FLY_SECONDS = 0.9;
-const MIN_FRAME_METRES = 450;
+const MIN_FRAME_METRES = 120;
+const MAX_FRAME_METRES = 1200;
+const MAX_FRAME_ZOOM = 17;
 
 function FlyTo({ frame }) {
   const map = useMap();
@@ -171,12 +176,12 @@ function FlyTo({ frame }) {
     if (isNewRequest) userMoved.current = false;
     else if (userMoved.current) return undefined;
 
-    const radius = Math.max(frame.radiusM ?? 0, MIN_FRAME_METRES);
+    const radius = Math.min(Math.max(frame.radiusM ?? 0, MIN_FRAME_METRES), MAX_FRAME_METRES);
     const bounds = L.latLng(frame.center.lat, frame.center.lng).toBounds(radius * 2);
     for (const p of frame.include ?? []) bounds.extend(p);
 
     flying.current = true;
-    map.flyToBounds(bounds, { padding: [36, 36], maxZoom: 16, duration: FLY_SECONDS });
+    map.flyToBounds(bounds, { padding: [24, 24], maxZoom: MAX_FRAME_ZOOM, duration: FLY_SECONDS });
 
     // moveend clears it too, but a flight to where the map already is may not
     // fire one, and a stuck flag would read every later drag as ours.

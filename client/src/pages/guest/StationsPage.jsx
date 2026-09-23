@@ -44,12 +44,12 @@ const COARSE_FIX_METRES = 2000;
 const NEARBY_REFETCH_METRES = 200;
 
 /**
- * The nearest stop is pulled into the near-me view only within this distance.
- * Further than that, fitting it would zoom back out to a regional view — the
- * very thing the button is meant to get you out of — and the list below already
- * says how far it is.
+ * The nearest stop joins the near-me view only if it is close enough to see
+ * without giving up the zoom — a stop across the road, not one across town.
+ * Fitting anything further pulls the map back out to the view the button
+ * exists to get you out of, and the list below already says how far it is.
  */
-const FRAME_NEAREST_KM = 5;
+const FRAME_NEAREST_KM = 0.6;
 
 export default function StationsPage() {
   const stations = usePolling(fetchStations, { intervalMs: 120000 });

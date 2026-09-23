@@ -1,5 +1,5 @@
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { motion, useMotionValue, useReducedMotion } from 'framer-motion';
 import { Street, useStreetGeometry, useWheelSpin } from './Street.jsx';
 import { BusStatusScene } from '@/components/BusStatusScene.jsx';
@@ -285,11 +285,9 @@ export function PageHeader({
               <h1 className="text-[21px] font-black leading-tight tracking-tight sm:text-[27px]">
                 {title}
               </h1>
-              {description && (
-                <div className="mt-1 max-w-2xl text-[14px] font-medium text-muted-foreground sm:text-[15px]">
-                  {description}
-                </div>
-              )}
+              <HeaderDescription className="text-[14px] font-medium text-muted-foreground sm:text-[15px]">
+                {description}
+              </HeaderDescription>
             </div>
           </div>
           {actions && (
@@ -315,11 +313,9 @@ export function PageHeader({
             <h1 className="text-[22px] font-black leading-tight tracking-tight sm:text-[28px]">
               {title}
             </h1>
-            {description && (
-              <div className="mt-1 max-w-2xl text-[14px] font-medium text-muted-foreground sm:text-[15px]">
-                {description}
-              </div>
-            )}
+            <HeaderDescription className="text-[14px] font-medium text-muted-foreground sm:text-[15px]">
+              {description}
+            </HeaderDescription>
           </div>
         </div>
         {actions && (
@@ -351,11 +347,9 @@ export function PageHeader({
               <h1 className="text-[21px] font-black leading-tight tracking-tight sm:text-[27px]">
                 {title}
               </h1>
-              {description && (
-                <div className="mt-1.5 max-w-2xl text-[13.5px] font-medium leading-relaxed text-primary-foreground sm:text-[14.5px]">
-                  {description}
-                </div>
-              )}
+              <HeaderDescription className="mt-1.5 text-[13.5px] font-medium leading-relaxed text-primary-foreground sm:text-[14.5px]">
+                {description}
+              </HeaderDescription>
             </div>
           </div>
 
@@ -364,6 +358,55 @@ export function PageHeader({
           )}
         </div>
       </Street>
+    </div>
+  );
+}
+
+/**
+ * The line under a page title, folded away on a phone.
+ *
+ * It explains the page, which is worth reading once and never again — and on a
+ * 375px screen it pushed the first bus below the fold on the one screen people
+ * open while standing at a stop. So it is two lines there, with a word to read
+ * the rest, and whole from the small breakpoint up where it costs nothing.
+ *
+ * The toggle appears only when there is actually something hidden, measured
+ * rather than guessed from the text length: the same sentence wraps
+ * differently on every phone.
+ */
+function HeaderDescription({ children, className }) {
+  const [open, setOpen] = useState(false);
+  const [clipped, setClipped] = useState(false);
+  const ref = useRef(null);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const measure = () => setClipped(el.scrollHeight > el.clientHeight + 1);
+    measure();
+    // Rotating the phone, or a font landing late, changes the answer.
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [children, open]);
+
+  if (!children) return null;
+
+  return (
+    <div className={cn('mt-1 max-w-2xl', className)}>
+      <p ref={ref} className={cn(!open && 'line-clamp-2 sm:line-clamp-none')}>
+        {children}
+      </p>
+      {(clipped || open) && (
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="mt-0.5 font-semibold underline underline-offset-2 sm:hidden"
+        >
+          {open ? 'Less' : 'More'}
+        </button>
+      )}
     </div>
   );
 }

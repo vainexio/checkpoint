@@ -130,11 +130,14 @@ export default function StationBoardPage() {
              row they fit on one line and the buses start higher. */
           <div className="flex flex-wrap items-center gap-2 sm:flex-col sm:items-end">
             <LiveIndicator lastUpdated={lastUpdated} />
+            {/* A link to the wall screen, for whoever sets one up. Hidden on a
+                phone: nobody hangs one of those from a phone, and the row it
+                costs is the row the first bus wants. */}
             <a
               href={`/display/${stationId}`}
               target="_blank"
               rel="noreferrer noopener"
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-[13px] font-semibold text-foreground transition-colors hover:border-primary/50 hover:text-primary-strong"
+              className="hidden cursor-pointer items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-[13px] font-semibold text-foreground transition-colors hover:border-primary/50 hover:text-primary-strong sm:inline-flex"
             >
               <MonitorPlay className="h-3.5 w-3.5" />
               Terminal display

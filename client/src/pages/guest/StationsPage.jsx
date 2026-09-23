@@ -225,8 +225,15 @@ export default function StationsPage() {
         </p>
       )}
 
-      {/* --------------------------------------------------------------- map */}
-      <Card className="mb-8 overflow-hidden">
+      {/*
+        * On a phone the map comes after the stops.
+        *
+        * It is 320px of ocean before anything you can tap, and someone opening
+        * this while standing somewhere wants the list first. On a wider screen
+        * it costs nothing to show both, so the order goes back.
+        */}
+      <div className="flex flex-col">
+      <Card className="order-2 mb-8 overflow-hidden sm:order-1">
         <CardContent className="p-0">
           <CheckpointMap
             checkpoints={mapCheckpoints}
@@ -260,6 +267,7 @@ export default function StationsPage() {
       </Card>
 
       {/* ----------------------------------------------------------- results */}
+      <div className="order-1 sm:order-2">
       {stations.loading && !stations.data && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[0, 1, 2].map((i) => (
@@ -324,6 +332,8 @@ export default function StationsPage() {
           )}
         </>
       )}
+      </div>
+      </div>
     </>
   );
 }

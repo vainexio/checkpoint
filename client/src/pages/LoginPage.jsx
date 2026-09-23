@@ -201,7 +201,7 @@ export default function LoginPage() {
               <div className="text-center">
                 <Link
                   to="/reset-password"
-                  className="text-[13px] font-semibold text-primary underline-offset-4 hover:underline"
+                  className="text-[13px] font-semibold text-primary-strong underline-offset-4 hover:underline"
                 >
                   Forgot your password? Use a reset code
                 </Link>
@@ -211,7 +211,7 @@ export default function LoginPage() {
             <p className="mt-6 border-t border-border pt-4 text-[13px] text-muted-foreground">
               <Link
                 to="/"
-                className="inline-flex items-center gap-1.5 font-semibold text-primary underline-offset-4 hover:underline"
+                className="inline-flex items-center gap-1.5 font-semibold text-primary-strong underline-offset-4 hover:underline"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
                 Just checking on a bus?

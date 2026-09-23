@@ -29,6 +29,9 @@
   --color-warning: hsl(var(--warning));
   --color-warning-foreground: hsl(var(--warning-foreground));
   --color-warning-strong: hsl(var(--warning-strong));
+  --color-primary-strong: hsl(var(--primary-strong));
+  --color-success-strong: hsl(var(--success-strong));
+  --color-destructive-strong: hsl(var(--destructive-strong));
 
   --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
@@ -61,9 +64,16 @@
   --popover: 0 0% 100%;
   --popover-foreground: 168 26% 14%;
 
-  /* Muted sage. Anything active or selected wears this. */
-  --primary: 160 26% 40%;
+  /* Muted sage. Anything active or selected wears this. Two points darker than
+     it was: white on it measured 4.52:1, clearing AA by a hair and failing it
+     under any rounding. At 38% the same green carries white at 4.9:1, and the
+     change is invisible beside the old one. */
+  --primary: 160 26% 38%;
   --primary-foreground: 0 0% 100%;
+  /* The same sage, darkened for *words*. The fill above is the brand — it is on
+     the buses, the buttons and the stop signs, and must not move — but as text
+     on a white card it reads 3.6:1, under AA. Words use this instead. */
+  --primary-strong: 160 26% 34%;
 
   /* A deeper sage for the second voice, used sparingly. */
   --accent: 168 32% 32%;
@@ -74,13 +84,18 @@
   --secondary-foreground: 168 30% 22%;
 
   --muted: 158 26% 88%;
-  --muted-foreground: 168 12% 42%;
+  /* Measured against the three surfaces text sits on — the page, a white card
+     and the pale block. At 42% this was 3.8:1 on a card, under the 4.5:1 that
+     body text needs; 37% clears it on all three without changing its character. */
+  --muted-foreground: 168 12% 37%;
 
   --destructive: 358 58% 52%;
   --destructive-foreground: 0 0% 100%;
+  --destructive-strong: 358 58% 47%;
 
   --success: 152 44% 38%;
   --success-foreground: 0 0% 100%;
+  --success-strong: 152 44% 31%;
 
   --warning: 36 78% 56%;
   --warning-foreground: 220 20% 15%;
@@ -108,6 +123,8 @@
 
   --primary: 158 38% 58%;
   --primary-foreground: 170 30% 10%;
+  /* Inverted for a dark ground: text needs to be lighter, not darker. */
+  --primary-strong: 158 38% 70%;
 
   --accent: 160 34% 52%;
   --accent-foreground: 170 30% 10%;
@@ -120,9 +137,11 @@
 
   --destructive: 358 62% 62%;
   --destructive-foreground: 0 0% 100%;
+  --destructive-strong: 358 62% 72%;
 
   --success: 152 44% 52%;
   --success-foreground: 170 30% 10%;
+  --success-strong: 152 44% 64%;
 
   --warning: 36 74% 60%;
   --warning-foreground: 170 30% 10%;
@@ -132,6 +151,25 @@
   --border: 170 14% 24%;
   --input: 170 14% 24%;
   --ring: 158 38% 58%;
+}
+
+/*
+ * OpenStreetMap's credit, legible.
+ *
+ * Leaflet ships it at a grey that measures 3.6:1 on the map's white strip. It
+ * is the credit to the people whose data this runs on; it should be readable.
+ */
+/* Scoped through .leaflet-container to outrank Leaflet's own stylesheet, which
+   is imported after this file and sets a translucent white. */
+.leaflet-container .leaflet-control-attribution {
+  /* Opaque, so the text sits on a known colour rather than on whatever tile
+     happens to be underneath. */
+  background: hsl(var(--card));
+}
+
+.leaflet-container .leaflet-control-attribution,
+.leaflet-container .leaflet-control-attribution a {
+  color: hsl(var(--muted-foreground));
 }
 
 @layer base {

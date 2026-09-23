@@ -156,7 +156,7 @@ export function ScheduleManager({ routes, buses, conductors, onTripsChanged }) {
       <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
         <div className="min-w-0">
           <CardTitle className="flex items-center gap-2">
-            <CalendarSync className="h-4 w-4 text-primary" />
+            <CalendarSync className="h-4 w-4 text-primary-strong" />
             Recurring schedules
           </CardTitle>
           <p className="mt-1 text-[13px] text-muted-foreground">
@@ -261,7 +261,7 @@ export function ScheduleManager({ routes, buses, conductors, onTripsChanged }) {
                     key={p.label}
                     type="button"
                     onClick={() => setForm({ ...form, daysOfWeek: p.days })}
-                    className="rounded-lg px-2 py-1.5 text-[12px] font-semibold text-primary hover:underline"
+                    className="rounded-lg px-2 py-1.5 text-[12px] font-semibold text-primary-strong hover:underline"
                   >
                     {p.label}
                   </button>
@@ -388,7 +388,7 @@ export function ScheduleManager({ routes, buses, conductors, onTripsChanged }) {
                     size="sm"
                     disabled={busy}
                     aria-label="Delete schedule"
-                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    className="text-destructive-strong hover:bg-destructive/10 hover:text-destructive-strong"
                     onClick={() => {
                       if (
                         !window.confirm(

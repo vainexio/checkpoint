@@ -212,7 +212,7 @@ export default function AdminTripsPage() {
                           <TableCell>
                             <Link
                               to={`/admin/trips/${trip.id}`}
-                              className="font-semibold hover:text-primary hover:underline"
+                              className="font-semibold hover:text-primary-strong hover:underline"
                             >
                               {trip.route.name}
                             </Link>
@@ -298,7 +298,7 @@ export default function AdminTripsPage() {
                               variant="ghost"
                               size="sm"
                               aria-label="Delete trip"
-                              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              className="text-destructive-strong hover:bg-destructive/10 hover:text-destructive-strong"
                               onClick={() => {
                                 const note =
                                   trip.source?.kind === 'schedule'
@@ -353,7 +353,7 @@ function SourceTag({ source }) {
     );
   }
   return (
-    <span className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-primary">
+    <span className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-primary-strong">
       <Repeat className="h-3 w-3" /> Recurring
       {source.overridden && <span className="text-muted-foreground"> · changed for this day</span>}
     </span>

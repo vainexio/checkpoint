@@ -762,7 +762,7 @@ export default function AdminRoutesPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      className="text-destructive-strong hover:bg-destructive/10 hover:text-destructive-strong"
                       onClick={async () => {
                         try {
                           await deleteRoute(route._id);
@@ -829,7 +829,7 @@ export default function AdminRoutesPage() {
                 <MapPin
                   className={cn(
                     'h-3 w-3',
-                    cp.location?.lat != null ? 'text-primary' : 'text-muted-foreground/50'
+                    cp.location?.lat != null ? 'text-primary-strong' : 'text-muted-foreground/50'
                   )}
                 />
                 {cp.name}
@@ -842,7 +842,7 @@ export default function AdminRoutesPage() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                  className="h-6 w-6 text-muted-foreground hover:text-destructive-strong"
                   onClick={async () => {
                     try {
                       await deleteCheckpoint(cp._id);
@@ -1077,7 +1077,7 @@ function NewCheckpointCard({ draftPin, suggested, onClear, onCreated, onError })
     <Card className="border-primary/40">
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-primary" />
+          <MapPin className="h-4 w-4 text-primary-strong" />
           New checkpoint here
         </CardTitle>
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClear}>

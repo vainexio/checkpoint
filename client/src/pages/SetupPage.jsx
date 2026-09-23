@@ -54,7 +54,7 @@ export default function SetupPage({ setup, onDone }) {
               <span className="text-[15px] font-extrabold tracking-[0.16em]">CHECKPOINT</span>
             </Link>
             <CardTitle className="flex items-center gap-2 text-2xl font-black tracking-tight">
-              <ShieldPlus className="h-5 w-5 text-primary" />
+              <ShieldPlus className="h-5 w-5 text-primary-strong" />
               Set up this system
             </CardTitle>
             <CardDescription>

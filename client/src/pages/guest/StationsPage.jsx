@@ -348,7 +348,7 @@ function StationCard({ station, you = null, far = false }) {
       <Link to={`/stations/${station.id}`} className="block">
         <CardContent className="flex items-center justify-between gap-3 p-5 pb-3">
           <span className="flex min-w-0 items-start gap-3">
-            <MapPin className="mt-1 h-4 w-4 shrink-0 text-primary" />
+            <MapPin className="mt-1 h-4 w-4 shrink-0 text-primary-strong" />
             <span className="min-w-0">
               <span className="block truncate text-[17px] font-bold">{station.name}</span>
               {station.area && (
@@ -367,7 +367,7 @@ function StationCard({ station, you = null, far = false }) {
           <ArrowRight
             className={cn(
               'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
-              'group-hover:translate-x-0.5 group-hover:text-primary'
+              'group-hover:translate-x-0.5 group-hover:text-primary-strong'
             )}
           />
         </CardContent>
@@ -379,7 +379,7 @@ function StationCard({ station, you = null, far = false }) {
             href={directions}
             target="_blank"
             rel="noreferrer noopener"
-            className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary-strong"
           >
             <Footprints className="h-3.5 w-3.5" />
             Walking directions

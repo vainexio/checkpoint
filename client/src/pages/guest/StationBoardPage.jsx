@@ -134,7 +134,7 @@ export default function StationBoardPage() {
               href={`/display/${stationId}`}
               target="_blank"
               rel="noreferrer noopener"
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-[13px] font-semibold text-foreground transition-colors hover:border-primary/50 hover:text-primary"
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-[13px] font-semibold text-foreground transition-colors hover:border-primary/50 hover:text-primary-strong"
             >
               <MonitorPlay className="h-3.5 w-3.5" />
               Terminal display
@@ -144,7 +144,7 @@ export default function StationBoardPage() {
                 href={directionsUrl(data.station.location)}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-[13px] font-semibold text-foreground transition-colors hover:border-primary/50 hover:text-primary"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-[13px] font-semibold text-foreground transition-colors hover:border-primary/50 hover:text-primary-strong"
               >
                 <Footprints className="h-3.5 w-3.5" />
                 {/* Two buttons only fit side by side on a phone if the second
@@ -352,7 +352,7 @@ function ArrivalRow({ arrival, now, stationName, goingTo }) {
       />
 
       {isFull && (
-        <div className="flex items-center gap-2 bg-destructive/10 px-5 py-2 text-[13px] font-bold text-destructive">
+        <div className="flex items-center gap-2 bg-destructive/10 px-5 py-2 text-[13px] font-bold text-destructive-strong">
           <Ban className="h-3.5 w-3.5 shrink-0" />
           Not picking up passengers — don't wait for this one
         </div>
@@ -373,7 +373,7 @@ function ArrivalRow({ arrival, now, stationName, goingTo }) {
             <div className="text-[17px] font-extrabold tracking-tight">{arrival.route}</div>
 
             {goingTo && (
-              <div className="mb-2 text-[13px] font-semibold text-primary">
+              <div className="mb-2 text-[13px] font-semibold text-primary-strong">
                 Gets you to {goingTo}
                 {arrivesAtGoing && <> by {formatTime(arrivesAtGoing)}</>}
               </div>
@@ -406,7 +406,7 @@ function ArrivalRow({ arrival, now, stationName, goingTo }) {
               */}
             {isCancelled && (
               <div className="mt-2 text-[13px] leading-relaxed">
-                <span className="font-semibold text-destructive">
+                <span className="font-semibold text-destructive-strong">
                   Cancelled — this bus is not coming.
                 </span>{' '}
                 <span className="text-muted-foreground">
@@ -440,11 +440,11 @@ function ArrivalRow({ arrival, now, stationName, goingTo }) {
                     {' '}· not boarding yet
                   </span>
                 ) : isDeparture ? (
-                  <span className="font-semibold text-primary">
+                  <span className="font-semibold text-primary-strong">
                     Waiting here · departs for {arrival.destination}
                   </span>
                 ) : arrival.isHereNow ? (
-                  <span className="font-semibold text-success">
+                  <span className="font-semibold text-success-strong">
                     At this stop now — boarding
                   </span>
                 ) : (
@@ -552,7 +552,7 @@ function ArrivalRow({ arrival, now, stationName, goingTo }) {
               <JourneyStrip journey={arrival.journey} />
               <Link
                 to={`/trips/${arrival.tripId}`}
-                className="inline-block font-semibold text-primary underline-offset-4 hover:underline"
+                className="inline-block font-semibold text-primary-strong underline-offset-4 hover:underline"
               >
                 Full trip details →
               </Link>

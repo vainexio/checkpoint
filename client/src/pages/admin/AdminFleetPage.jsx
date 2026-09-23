@@ -93,7 +93,7 @@ const DeleteButton = ({ onClick }) => (
   <Button
     variant="ghost"
     size="sm"
-    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+    className="text-destructive-strong hover:bg-destructive/10 hover:text-destructive-strong"
     onClick={onClick}
   >
     <Trash2 className="h-3.5 w-3.5" />
@@ -122,7 +122,7 @@ function BusPanel({ buses, onError }) {
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle className="flex items-center gap-2">
-          <Bus className="h-4 w-4 text-primary" />
+          <Bus className="h-4 w-4 text-primary-strong" />
           Buses
         </CardTitle>
         <span className="font-mono text-xs text-muted-foreground">{buses.items.length}</span>
@@ -219,7 +219,7 @@ function StaffPanel({ title, icon: Icon, staff, create, remove, onResetCode, onE
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle className="flex items-center gap-2">
-          <Icon className="h-4 w-4 text-primary" />
+          <Icon className="h-4 w-4 text-primary-strong" />
           {title}
         </CardTitle>
         <span className="font-mono text-xs text-muted-foreground">{staff.items.length}</span>

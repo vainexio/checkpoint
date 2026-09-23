@@ -244,7 +244,7 @@ export default function ConductorTripPage() {
                   Recorded at {formatTime(receipt.at)}
                 </div>
                 {undoError && (
-                  <div className="mt-1 text-[13px] font-medium text-destructive">{undoError}</div>
+                  <div className="mt-1 text-[13px] font-medium text-destructive-strong">{undoError}</div>
                 )}
               </div>
               {/* Wrong button on a moving bus is a matter of when, not if. */}
@@ -570,7 +570,7 @@ function SeatCard({ trip, standingAt, onPick }) {
             </div>
             <div className="mt-1 text-[15px] font-bold">
               {needsAnswer ? (
-                <span className="text-primary">How full are you leaving {standingAt.name}?</span>
+                <span className="text-primary-strong">How full are you leaving {standingAt.name}?</span>
               ) : level ? (
                 level.label
               ) : (
@@ -698,7 +698,7 @@ function SecondaryButton({ children, onClick, danger = false }) {
         'bg-card px-4 py-3 text-left text-[15px] font-medium transition-colors',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         danger
-          ? 'text-destructive hover:border-destructive/40 hover:bg-destructive/5'
+          ? 'text-destructive-strong hover:border-destructive/40 hover:bg-destructive/5'
           : 'hover:border-foreground/20 hover:bg-muted'
       )}
     >
@@ -744,7 +744,7 @@ function QueueBanner({ pendingCount, isOnline, isSyncing, onRetry }) {
 
   return (
     <Alert className="mb-4 border-primary/30 bg-primary/5">
-      <UploadCloud className="h-4 w-4 text-primary" />
+      <UploadCloud className="h-4 w-4 text-primary-strong" />
       <AlertDescription className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span>
           <strong className="font-bold text-foreground">

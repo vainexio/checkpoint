@@ -84,16 +84,16 @@ export function ArrivalCountdown({
             : 'Arrives in';
 
   const tone = cancelled
-    ? 'text-destructive'
+    ? 'text-destructive-strong'
     : isHereNow
-    ? 'text-success'
+    ? 'text-success-strong'
     : hasArrived
       ? 'text-muted-foreground'
       : isStale
         ? 'text-muted-foreground'
         : // Close enough that it changes what you do in the next minute.
           minutes !== null && minutes <= 10
-          ? 'text-primary'
+          ? 'text-primary-strong'
           : 'text-foreground';
 
   return (
@@ -101,7 +101,7 @@ export function ArrivalCountdown({
       <div
         className={cn(
           'mb-1 text-[11px] font-bold uppercase tracking-[0.12em]',
-          isHereNow ? 'text-success' : cancelled ? 'text-destructive' : 'text-muted-foreground'
+          isHereNow ? 'text-success-strong' : cancelled ? 'text-destructive-strong' : 'text-muted-foreground'
         )}
       >
         {label}

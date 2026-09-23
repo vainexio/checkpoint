@@ -108,9 +108,9 @@ export function SeatBadge({ load, reportedAtName, reportedAt, className, showSou
 
   const Icon = level.icon;
   const tone = {
-    success: 'bg-success/15 text-success border-success/30',
+    success: 'bg-success/15 text-success-strong border-success/30',
     warning: 'bg-warning/20 text-warning-strong border-warning/40',
-    destructive: 'bg-destructive/10 text-destructive border-destructive/30',
+    destructive: 'bg-destructive/10 text-destructive-strong border-destructive/30',
   }[level.tone];
 
   /*

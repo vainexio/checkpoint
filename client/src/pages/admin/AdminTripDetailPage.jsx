@@ -267,7 +267,7 @@ export default function AdminTripDetailPage() {
                                 )}
                                 {why && (
                                   <div className="mt-0.5 flex items-center gap-1 text-[12px] font-medium text-foreground">
-                                    <AlertTriangle className="h-3.5 w-3.5 text-warning" />
+                                    <AlertTriangle className="h-3.5 w-3.5 text-warning-strong" />
                                     Ignored by the engine: {why}
                                   </div>
                                 )}
@@ -297,7 +297,7 @@ export default function AdminTripDetailPage() {
                                   size="sm"
                                   disabled={busy}
                                   aria-label="Delete update"
-                                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                  className="text-destructive-strong hover:bg-destructive/10 hover:text-destructive-strong"
                                   onClick={() => {
                                     const reason = window.prompt(
                                       `Remove "${describe(log, names, stops)}"?\n\nThe trip will be recomputed without it. Reason (optional):`
@@ -341,7 +341,7 @@ export default function AdminTripDetailPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <History className="h-4 w-4 text-primary" />
+                <History className="h-4 w-4 text-primary-strong" />
                 Corrections
               </CardTitle>
             </CardHeader>

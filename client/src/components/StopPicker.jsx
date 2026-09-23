@@ -67,7 +67,7 @@ export function StopPicker({
           )}
         >
           <span className="flex min-w-0 items-center gap-2">
-            <MapPin className="h-4 w-4 shrink-0 text-primary" />
+            <MapPin className="h-4 w-4 shrink-0 text-primary-strong" />
             <span className="min-w-0 truncate font-semibold">{label || placeholder}</span>
           </span>
           <span className="flex shrink-0 items-center gap-1">
@@ -145,7 +145,7 @@ export function StopPicker({
             >
               {extraOption.icon}
               {extraOption.label}
-              {value === null && <Check className="ml-auto h-4 w-4 text-primary" />}
+              {value === null && <Check className="ml-auto h-4 w-4 text-primary-strong" />}
             </button>
           )}
 

@@ -58,8 +58,8 @@ export default function AdminDashboardPage() {
       {counts && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Stat label="Active" value={counts.active} icon={Activity} />
-          <Stat label="In transit" value={counts.inTransit} icon={Activity} tone="text-success" />
-          <Stat label="Delayed" value={counts.delayed} icon={Clock} tone="text-warning" />
+          <Stat label="In transit" value={counts.inTransit} icon={Activity} tone="text-success-strong" />
+          <Stat label="Delayed" value={counts.delayed} icon={Clock} tone="text-warning-strong" />
           <Stat
             label="Not reporting"
             value={counts.stale}
@@ -78,7 +78,7 @@ export default function AdminDashboardPage() {
           {data && trips.length === 0 && (
             <div className="rounded-xl border border-dashed py-14 text-center text-muted-foreground">
               No active trips.{' '}
-              <Link to="/admin/trips" className="font-semibold text-primary hover:underline">
+              <Link to="/admin/trips" className="font-semibold text-primary-strong hover:underline">
                 Schedule one →
               </Link>
             </div>
@@ -104,7 +104,7 @@ export default function AdminDashboardPage() {
                       <TableCell>
                         <Link
                           to={`/admin/trips/${trip.id}`}
-                          className="font-semibold hover:text-primary hover:underline"
+                          className="font-semibold hover:text-primary-strong hover:underline"
                         >
                           {trip.route.name}
                         </Link>

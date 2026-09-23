@@ -102,7 +102,7 @@ export function Navbar({ home = '/', links = [], right = null }) {
           <span
             className={cn(
               'hidden text-[15px] font-extrabold tracking-[0.16em] sm:inline',
-              demo.active && 'text-primary'
+              demo.active && 'text-primary-strong'
             )}
           >
             {demo.label ?? 'CHECKPOINT'}
@@ -277,7 +277,7 @@ export function PageHeader({
         <div className="flex flex-col justify-between gap-3 p-4 sm:flex-row sm:items-end sm:gap-6 sm:p-5">
           <div className="flex min-w-0 items-start gap-3 sm:gap-4">
             {Icon && (
-              <div className="mt-[3px] flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary sm:h-12 sm:w-12">
+              <div className="mt-[3px] flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary-strong sm:h-12 sm:w-12">
                 <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
             )}
@@ -307,7 +307,7 @@ export function PageHeader({
       <div className="mb-5 flex flex-col justify-between gap-3 sm:mb-7 sm:flex-row sm:items-end sm:gap-6">
         <div className="flex min-w-0 items-start gap-3 sm:gap-4">
           {Icon && (
-            <div className="mt-[3px] flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary sm:h-12 sm:w-12">
+            <div className="mt-[3px] flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary-strong sm:h-12 sm:w-12">
               <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
             </div>
           )}

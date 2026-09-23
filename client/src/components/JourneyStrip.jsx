@@ -54,7 +54,7 @@ export function JourneyStrip({ journey }) {
                 <span
                   className={cn(
                     'mt-1.5 line-clamp-2 text-[11px] leading-tight',
-                    stop.isYourStop ? 'font-bold text-primary' : 'text-muted-foreground',
+                    stop.isYourStop ? 'font-bold text-primary-strong' : 'text-muted-foreground',
                     stop.type === 'landmark' && !stop.isYourStop && 'italic'
                   )}
                 >
@@ -71,12 +71,12 @@ export function JourneyStrip({ journey }) {
                   </span>
                 )}
                 {stop.isLastConfirmed && !busAtThisStop && (
-                  <span className="mt-1 rounded-full bg-success/15 px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-success">
+                  <span className="mt-1 rounded-full bg-success/15 px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-success-strong">
                     left
                   </span>
                 )}
                 {stop.isYourStop && (
-                  <span className="mt-1 rounded-full bg-primary/15 px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-primary">
+                  <span className="mt-1 rounded-full bg-primary/15 px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-primary-strong">
                     this stop
                   </span>
                 )}

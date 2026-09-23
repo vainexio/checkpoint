@@ -81,7 +81,7 @@ export function JourneyPlanner({ stations, you, onRequestLocation, locating, ori
             <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">From</label>
             {origin ? (
               <div className="flex h-10 items-center gap-2 rounded-xl border border-border bg-muted/50 px-3 text-sm font-semibold">
-                <MapPin className="h-4 w-4 shrink-0 text-primary" />
+                <MapPin className="h-4 w-4 shrink-0 text-primary-strong" />
                 <span className="truncate">{origin.name}</span>
               </div>
             ) : (
@@ -95,7 +95,7 @@ export function JourneyPlanner({ stations, you, onRequestLocation, locating, ori
                   icon: locating ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Crosshair className="h-4 w-4 text-primary" />
+                    <Crosshair className="h-4 w-4 text-primary-strong" />
                   ),
                   onSelect: () => {
                     setFrom(null);
@@ -128,7 +128,7 @@ export function JourneyPlanner({ stations, you, onRequestLocation, locating, ori
           </p>
         )}
 
-        {error && <p className="mt-3 text-[13px] text-destructive">{error}</p>}
+        {error && <p className="mt-3 text-[13px] text-destructive-strong">{error}</p>}
 
         {loading && !result && (
           <div className="mt-5 space-y-3">
@@ -193,7 +193,7 @@ function OptionRow({ option, you, now }) {
       )}
     >
       {isFull && (
-        <div className="flex items-center gap-2 bg-destructive/10 px-4 py-1.5 text-[12px] font-bold text-destructive">
+        <div className="flex items-center gap-2 bg-destructive/10 px-4 py-1.5 text-[12px] font-bold text-destructive-strong">
           <Ban className="h-3.5 w-3.5 shrink-0" />
           Not picking up passengers — do not wait for this one
         </div>
@@ -213,7 +213,7 @@ function OptionRow({ option, you, now }) {
 
             {/* The answer to the question actually asked: which curb. */}
             <div className="flex items-start gap-2 text-[15px]">
-              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary-strong" />
               <span>
                 <span className="text-muted-foreground">Board at </span>
                 <span className="font-bold">{option.boardAt.name}</span>

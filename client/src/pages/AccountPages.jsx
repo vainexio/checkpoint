@@ -32,7 +32,7 @@ function AccountCard({ icon: Icon, title, description, children, footer }) {
               <span className="text-[15px] font-extrabold tracking-[0.16em]">CHECKPOINT</span>
             </Link>
             <CardTitle className="flex items-center gap-2 text-2xl font-black tracking-tight">
-              <Icon className="h-5 w-5 text-primary" />
+              <Icon className="h-5 w-5 text-primary-strong" />
               {title}
             </CardTitle>
             <CardDescription>{description}</CardDescription>
@@ -124,7 +124,7 @@ export function ChangePasswordPage() {
         ) : (
           <Link
             to={homeFor(user)}
-            className="inline-flex items-center gap-1.5 font-semibold text-primary underline-offset-4 hover:underline"
+            className="inline-flex items-center gap-1.5 font-semibold text-primary-strong underline-offset-4 hover:underline"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             Back without changing it
@@ -212,7 +212,7 @@ export function ResetPasswordPage() {
       footer={
         <Link
           to="/login"
-          className="inline-flex items-center gap-1.5 font-semibold text-primary underline-offset-4 hover:underline"
+          className="inline-flex items-center gap-1.5 font-semibold text-primary-strong underline-offset-4 hover:underline"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           Back to sign in

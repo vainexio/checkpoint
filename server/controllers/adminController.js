@@ -19,6 +19,7 @@ import {
   removeUntouchedFutureTrips,
 } from '../services/scheduleService.js';
 import { liveWindow } from '../services/tripWindow.js';
+import { calibrate, DEFAULT_WINDOW_DAYS } from '../services/recalibration.js';
 import { tripRecord } from './correctionController.js';
 import { issueResetCode, RESET_CODE_MINUTES } from './authController.js';
 import { geocode } from '../services/geocoder.js';
@@ -229,6 +230,43 @@ export const deleteRoute = asyncHandler(async (req, res) => {
   const removed = await Route.findByIdAndDelete(req.params.id);
   if (!removed) return res.status(404).json({ error: 'Route not found.' });
   res.status(204).end();
+});
+
+/**
+ * What the trips that already ran say this route's legs really take.
+ *
+ * The one number that decides whether every ETA on a route is right is the
+ * baseline, and it is the number nobody can check by looking. Every completed
+ * trip has already measured it — this reads those measurements back and offers
+ * them, per leg and per rush-hour band, with how many trips agree and how
+ * widely they disagree. Nothing is applied: the operator decides, because they
+ * know about the market day and the closed lane that the data cannot.
+ */
+export const routeCalibration = asyncHandler(async (req, res) => {
+  const route = await populateRoute(Route.findById(req.params.id)).lean();
+  if (!route) return res.status(404).json({ error: 'Route not found.' });
+
+  const days = Math.min(Math.max(Number(req.query.days) || DEFAULT_WINDOW_DAYS, 1), 180);
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  // Only finished trips: a trip still running has legs it has not driven yet,
+  // and a cancelled one stopped mid-leg, which is not a measurement of it.
+  const trips = await Trip.find({
+    route: route._id,
+    status: 'arrived',
+    scheduledDeparture: { $gte: since },
+  })
+    .select('computedETAs')
+    .sort({ scheduledDeparture: -1 })
+    .limit(500)
+    .lean();
+
+  res.json({
+    route: { id: String(route._id), name: route.name },
+    windowDays: days,
+    tripsConsidered: trips.length,
+    ...calibrate(route, trips),
+  });
 });
 
 /* ----------------------------------------------------------------------- buses */

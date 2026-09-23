@@ -25,6 +25,10 @@ export const listRoutes = () => api.get('/admin/routes', opts);
 export const measureRouteLegs = (checkpointIds, { bands = false } = {}) =>
   api.post('/admin/routes/measure', { checkpointIds, bands }, opts);
 
+/** What completed trips say each leg of this route really takes. */
+export const fetchRouteCalibration = (id, days = 30) =>
+  api.get(`/admin/routes/${id}/calibration?days=${days}`, opts);
+
 export const createRoute = (body) => api.post('/admin/routes', body, opts);
 export const updateRoute = (id, body) => api.put(`/admin/routes/${id}`, body, opts);
 export const deleteRoute = (id) => api.del(`/admin/routes/${id}`, opts);

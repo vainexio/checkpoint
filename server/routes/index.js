@@ -63,6 +63,8 @@ router.put('/admin/checkpoints/:id', ...adminOnly, admin.updateCheckpoint);
 router.delete('/admin/checkpoints/:id', ...adminOnly, admin.deleteCheckpoint);
 
 router.post('/admin/routes/measure', ...adminOnly, admin.measureRouteLegs);
+// What the trips that already ran say this route's legs take.
+router.get('/admin/routes/:id/calibration', ...adminOnly, admin.routeCalibration);
 
 router.get('/admin/routes', ...adminOnly, admin.listRoutes);
 router.get('/admin/routes/:id', ...adminOnly, admin.getRoute);

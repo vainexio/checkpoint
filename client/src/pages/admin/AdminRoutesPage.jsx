@@ -23,6 +23,7 @@ import {
   deleteRoute,
   geocodePlace,
   measureRouteLegs,
+  fetchRouteCalibration,
   listCheckpoints,
   listRoutes,
   updateRoute,
@@ -207,6 +208,8 @@ export default function AdminRoutesPage() {
   const [withPeaks, setWithPeaks] = useState(false);
   // The route being edited, or null when building a new one.
   const [editingRouteId, setEditingRouteId] = useState(null);
+  // What this route's finished trips say its legs really take.
+  const [calibration, setCalibration] = useState(null);
   const [saving, setSaving] = useState(false);
   const [measuring, setMeasuring] = useState(false);
   const [measureNote, setMeasureNote] = useState(null);
@@ -293,6 +296,7 @@ export default function AdminRoutesPage() {
     setWithPeaks(false);
     setEditingRouteId(null);
     setMeasureNote(null);
+    setCalibration(null);
   };
 
   /** Load an existing route into the builder to change it. */
@@ -312,11 +316,42 @@ export default function AdminRoutesPage() {
     setEditingRouteId(route._id);
     setPreviewRouteId(null);
     setMeasureNote(null);
+    setCalibration(null);
+    // What the buses that already ran this route have to say about it. Free:
+    // it reads trips already recorded, and asks no provider anything.
+    fetchRouteCalibration(route._id)
+      .then(setCalibration)
+      .catch(() => setCalibration(null));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // A blank peak means "same as usual", which is stored as no figure at all.
   const peakValue = (v) => (v === '' || v == null ? null : Math.max(0, Number(v) || 0));
+
+  /** Which builder field a measured band belongs in. */
+  const FIELD_FOR_BAND = { offPeak: 'minutes', amPeak: 'amPeak', pmPeak: 'pmPeak' };
+
+  /**
+   * Take what the trips measured. Nothing is saved yet — it fills the field,
+   * so the operator still sees it, can adjust it, and has to press save.
+   */
+  const applyMeasured = (toCheckpointId, band, minutes) => {
+    const field = FIELD_FOR_BAND[band];
+    if (band !== 'offPeak') setWithPeaks(true);
+    setStops((current) =>
+      current.map((stop) =>
+        stop.id === toCheckpointId ? { ...stop, [field]: String(minutes), estimated: false } : stop
+      )
+    );
+  };
+
+  const applyAllMeasured = () => {
+    for (const leg of calibration?.legs ?? []) {
+      for (const band of leg.bands) {
+        if (band.worthChanging) applyMeasured(leg.toCheckpointId, band.band, band.measuredMinutes);
+      }
+    }
+  };
 
   const saveRoute = async (e) => {
     e.preventDefault();
@@ -615,6 +650,14 @@ export default function AdminRoutesPage() {
                   </Select>
                 </div>
 
+                {editingRouteId && (
+                  <Calibration
+                    calibration={calibration}
+                    onApply={applyMeasured}
+                    onApplyAll={applyAllMeasured}
+                  />
+                )}
+
                 {/* Offered before the save, because it fills the fields above it. */}
                 <Button
                   type="button"
@@ -829,6 +872,98 @@ export default function AdminRoutesPage() {
  * the traffic provider — worst case the search returns nothing and the map
  * click still works.
  */
+const BAND_LABEL = { offPeak: 'usual', amPeak: 'morning rush', pmPeak: 'evening rush' };
+
+/**
+ * What the buses that already ran this route say its legs take.
+ *
+ * The baseline is the one number in the system nobody can check by looking,
+ * and every finished trip has already measured it — this reads those
+ * measurements back rather than asking a routing provider what it thinks.
+ * It suggests and never applies: the operator knows about the market day and
+ * the closed lane, and pressing a button is how that knowledge gets its say.
+ */
+function Calibration({ calibration, onApply, onApplyAll }) {
+  if (!calibration) return null;
+
+  const worth = calibration.legs.flatMap((leg) =>
+    leg.bands.filter((b) => b.worthChanging).map((band) => ({ leg, band }))
+  );
+
+  if (!calibration.tripsConsidered) {
+    return (
+      <p className="rounded-lg border border-border bg-muted/40 p-3 text-[13px] text-muted-foreground">
+        No completed trips on this route in the last {calibration.windowDays} days yet. Once buses
+        have run it, their own times will be offered here.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-2 rounded-lg border border-border bg-muted/40 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[13px] font-semibold">What your trips say</p>
+          <p className="text-[12px] text-muted-foreground">
+            From {calibration.tripsConsidered} completed trip
+            {calibration.tripsConsidered === 1 ? '' : 's'} in the last {calibration.windowDays} days,
+            measured the way the ETA measures them: one confirmation to the next.
+          </p>
+        </div>
+        {worth.length > 1 && (
+          <Button type="button" variant="outline" size="sm" onClick={onApplyAll}>
+            Use all {worth.length}
+          </Button>
+        )}
+      </div>
+
+      {worth.length === 0 ? (
+        <p className="text-[13px] text-muted-foreground">
+          {/* Two different silences: not enough evidence yet, and enough
+              evidence that nothing needs changing. They must not read alike. */}
+          {calibration.legs.every((leg) => leg.bands.every((b) => b.samples < calibration.minSamples))
+            ? `Not enough trips yet to argue with what you have set — it takes ${calibration.minSamples} on a leg before a suggestion is worth making.`
+            : 'Every leg with enough trips behind it is within a couple of minutes of what you have set. Nothing worth changing.'}
+        </p>
+      ) : (
+        <ul className="space-y-1.5">
+          {worth.map(({ leg, band }) => (
+            <li
+              key={`${leg.toCheckpointId}-${band.band}`}
+              className="flex flex-wrap items-center justify-between gap-2 text-[13px]"
+            >
+              <span className="min-w-0">
+                <span className="font-medium">
+                  {leg.fromName} → {leg.toName}
+                </span>
+                <span className="text-muted-foreground">
+                  {' '}
+                  · {band.samples} trip{band.samples === 1 ? '' : 's'} say{' '}
+                  <span className="font-semibold text-foreground">{band.measuredMinutes} min</span>
+                  {BAND_LABEL[band.band] !== 'usual' && ` at ${BAND_LABEL[band.band]}`}, you have{' '}
+                  {band.currentMinutes}
+                  {band.spread.lowMinutes !== band.spread.highMinutes && (
+                    <> · most fall between {band.spread.lowMinutes} and {band.spread.highMinutes}</>
+                  )}
+                </span>
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7"
+                onClick={() => onApply(leg.toCheckpointId, band.band, band.measuredMinutes)}
+              >
+                Use {band.measuredMinutes}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function PlaceSearch({ onPick }) {
   const [q, setQ] = useState('');
   const [results, setResults] = useState([]);

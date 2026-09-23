@@ -18,6 +18,51 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const CLIENT_DIST = path.resolve(here, '..', 'client', 'dist');
 
 /**
+ * What the browser is allowed to load, and what it must not assume.
+ *
+ * Written out rather than pulled from a library, because each line here is a
+ * decision about this product and is worth being able to read:
+ *
+ *   - Scripts and data come from this origin alone. Nothing here loads a
+ *     third-party script, so an injected one has nowhere to call home.
+ *   - Map tiles come from OpenStreetMap and fonts from Google Fonts — the only
+ *     two outside origins the client touches.
+ *   - Inline styles are allowed because Leaflet and the animations set them on
+ *     elements; inline *scripts* are not, which is the half that matters.
+ *   - The page may not be framed at all, so it cannot be dressed up as someone
+ *     else's site.
+ *   - The only device permission this product ever asks for is the passenger's
+ *     own location, and only on its own pages. No camera, no microphone.
+ *
+ * The policy is skipped when the built client is absent — that is the Vite dev
+ * server's job, and its tooling needs freedoms production should never have.
+ */
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com",
+  "img-src 'self' data: blob: https://*.tile.openstreetmap.org",
+  "connect-src 'self'",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "object-src 'none'",
+].join('; ');
+
+export function securityHeaders(req, res, next) {
+  res.set('X-Content-Type-Options', 'nosniff');
+  res.set('Referrer-Policy', 'no-referrer');
+  res.set('X-Frame-Options', 'DENY');
+  res.set('Permissions-Policy', 'geolocation=(self), camera=(), microphone=(), payment=()');
+  // Render terminates TLS in front of us, so this only ever reaches a browser
+  // over https; a year, and subdomains too.
+  res.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  if (fs.existsSync(CLIENT_DIST)) res.set('Content-Security-Policy', CSP);
+  next();
+}
+
+/**
  * The Express app, with no database connection and no listener of its own.
  * server.js boots it for real; the integration tests mount it against an
  * in-memory MongoDB.
@@ -44,6 +89,7 @@ export function createApp() {
 
   app.use(cors({ origin: origins }));
   app.use(express.json({ limit: '256kb' }));
+  app.use(securityHeaders);
 
   app.get('/health', (req, res) => {
     res.json({

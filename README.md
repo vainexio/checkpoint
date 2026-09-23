@@ -555,6 +555,35 @@ outright that times update when a conductor confirms a checkpoint.
 All timestamps are stored in UTC and displayed in `Asia/Manila` explicitly, never by trusting
 the viewer's device clock.
 
+## Backups
+
+Atlas's free tier keeps no backups of its own, so the only copy of an operator's history is one
+somebody takes:
+
+```bash
+cd server && npm run backup      # -> backups/checkpoint-2026-09-24-1830.gz
+```
+
+It reads `MONGODB_URI` from `server/.env`, never prints it, and needs the
+[MongoDB Database Tools](https://www.mongodb.com/docs/database-tools/installation/) on PATH.
+Restoring is deliberately a command you type on purpose, because it overwrites live data:
+
+```bash
+mongorestore --uri="<MONGODB_URI>" --gzip --archive=backups/<file>.gz --drop
+```
+
+Trips and their logs are the part worth keeping: routes, stops and accounts can be rebuilt from
+the admin screens, but a conductor's confirmations cannot.
+
+## Staying awake
+
+A free Render service sleeps after ~15 minutes of quiet and takes about 50 seconds to wake,
+which looks like a broken site to whoever opens it first.
+[`.github/workflows/keep-warm.yml`](.github/workflows/keep-warm.yml) pings `/health` every ten
+minutes between 06:00 and 23:00 Manila — enough to stay warm through the hours anyone might
+look, while leaving the night to sleep, which keeps the month inside the free 750 hours. Any
+external uptime monitor does the same job.
+
 ## Tests
 
 ```bash

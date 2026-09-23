@@ -10,7 +10,8 @@
     "dev": "node --watch server.js",
     "seed": "node seed.js",
     "test": "node --test \"tests/*.test.js\"",
-    "create-admin": "node scripts/createAdmin.js"
+    "create-admin": "node scripts/createAdmin.js",
+    "backup": "node scripts/backup.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

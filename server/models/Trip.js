@@ -126,6 +126,11 @@ const tripSchema = new mongoose.Schema(
 tripSchema.index({ status: 1, scheduledDeparture: -1 });
 tripSchema.index({ conductor: 1, status: 1 });
 
+// Every board asks the same question: which trips call at this stop, in the
+// window around now. Without this the answer is a collection scan, invisible
+// on demo data and ruinous on an operator's year of trips.
+tripSchema.index({ 'plan.checkpoint': 1, scheduledDeparture: -1 });
+
 // One trip per schedule per day, enforced by the database rather than by a
 // check-then-insert that two generators could both pass. Hand-entered trips
 // carry no schedule and are outside the index entirely.

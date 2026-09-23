@@ -210,6 +210,28 @@ window: a board shows departures up to **12 hours** ahead, drops a trip still no
 day. A departure more than an hour away is a time on the timetable, not a bus in the bay, so it
 ranks with the arrivals and draws an empty bay rather than a bus boarding.
 
+### When a trip ends badly
+
+Two endings that are not an arrival, and both are told rather than hidden.
+
+**The bus cannot finish.** A conductor can report a breakdown, an inspection or weather from the
+bus, before or after departure. The trip ends where it stands: every projection ahead of it is
+withdrawn — a time on a board for a bus that is not coming is worse than no time — and the stops
+down the line read **"Cancelled — this bus is not coming"**, with what was reported and where, for
+45 minutes. Stops it had already passed are not told to stop waiting for a bus that went by an
+hour ago. A trip an operator cancels before it leaves says so on the board it would have left
+from, and invents no reason nobody gave.
+
+**Nobody closed it.** The last tap is the easiest to forget: the bus is in, everyone is getting
+off, the phone stays in a pocket. Housekeeping closes a trip that is *both* six hours past its own
+expected arrival and six hours silent — generous, because a bus can be genuinely late and a phone
+can be out of signal on a mountain stretch, and closing one that is merely quiet is worse than
+leaving it open. Closing asserts nothing about where the bus went: no arrival is invented and no
+cancellation recorded, because neither was observed. It stops being advertised and reads
+"Stopped reporting" in the operator's list. **Any report that arrives afterwards reopens it** —
+judged by the news reaching us, not the timestamp on it, so a tap made twenty minutes ago and
+synced now still counts.
+
 ### Correcting a trip after the fact
 
 A conductor can undo their own tap for five minutes. After that, passengers have acted on the
@@ -310,6 +332,29 @@ coming into the evening.
   weekday. Off-peak used to be measured whenever the button was pressed, so a route built at 6 PM
   quietly got rush-hour baselines.
 
+### The route corrects its own baselines
+
+The baseline is the one number that decides whether every ETA on a route is right, and the one
+nobody can check by looking. Every finished trip has already measured it: the gap between two
+confirmations is exactly what that leg took that day, dwell and traffic included — the same
+quantity variance is computed against. **What the trips say** in the route builder reads those
+measurements back, per leg and per rush-hour band, and offers them.
+
+It suggests and never applies. An operator knows about the market day, the closed lane and the new
+terminal entrance that the data does not, so a suggestion reads "twelve trips say 44 minutes, you
+have 38", with the spread beside it and a button that fills the field — leaving the save to a
+person.
+
+- **The median, not the mean.** One bus that broke down for an hour would drag an average into
+  nonsense, and that is exactly the kind of thing that happens on a provincial route. Anything
+  over four times the current baseline is discarded outright and counted.
+- **Five trips before it argues.** Fewer are measured and shown, never urged: a handful cannot
+  outvote what an operator set.
+- **Per band.** An evening run corrects the evening figure. Otherwise recalibration would slowly
+  drag every baseline towards whatever hour the route happens to run most.
+- **A skipped checkpoint measures nothing**, rather than splitting the gap across two legs and
+  inventing both.
+
 ### Asking the question the other way round
 
 A stop board answers "what comes here", which is only useful once you have
@@ -317,8 +362,9 @@ already worked out where to stand. On a network where routes overlap, that is th
 genuinely hard part — three buses pass Santo Tomas and only two are any use to
 someone heading for Lipa.
 
-`GET /api/public/journeys?to=<stop>` takes the destination as the required field
-and returns the boarding stop as the *answer*:
+It is the first thing on the home page, above the stop search — whose heading
+has always read "Or find a stop". `GET /api/public/journeys?to=<stop>` takes the
+destination as the required field and returns the boarding stop as the *answer*:
 
 - A destination is **any stop later on the same trip**, never just the last one.
   A bus terminating in Lucena will happily drop you at Lipa on the way.
@@ -590,15 +636,17 @@ external uptime monitor does the same job.
 cd server && npm test
 ```
 
-144 server tests: the engine's arithmetic (variance, re-projection, skipped checkpoints,
+182 server tests: the engine's arithmetic (variance, re-projection, skipped checkpoints,
 out-of-order replay, staleness thresholds, traffic applying forward-only without touching a
 measured variance, the delay flag surviving a slow road while still catching a slow bus, and
-rush-hour band selection with its single-value fallback) plus API integration against an
-in-memory MongoDB covering the shared login and its role boundary, sign-in throttling, temporary
+rush-hour band selection with its single-value fallback, a run ended early withdrawing its
+projections, and giving up on a silent trip only when it is both overdue and quiet) plus API
+integration against an in-memory MongoDB covering the shared login and its role boundary, sign-in throttling, temporary
 passwords and reset codes, the frozen plan, schedule generation and duplicate protection under
 racing generators, single-day overrides, dispatcher corrections and their audit trail, offline
 sync, undo and its limits, at-stop versus on-the-road position, the live board window,
-destination-first journey search, and the public board. `npm test` in `client/` covers the
+cancellations reaching the stops ahead and lapsing afterwards, baseline suggestions from
+completed trips, destination-first journey search, and the public board. `npm test` in `client/` covers the
 locating strategy, where a coarse refinement must never displace a good fix.
 
 ## Project layout
@@ -608,6 +656,7 @@ server/
   models/       Checkpoint, Route, Bus, User, Trip, CheckpointLog, Schedule, TripCorrection
   services/     etaEngine.js (pure) · tripService.js (persistence bridge)
                 scheduleService.js (recurring trips) · tripWindow.js (what boards show)
+                recalibration.js (what the trips say) · housekeeping.js (closing silent trips)
                 trafficProvider.js (pluggable) · trafficRefresher.js (cache warmer)
                 loginThrottle.js · legMeasurer.js (route timings, per band)
   controllers/  auth · admin · correction · conductor · public
@@ -626,6 +675,6 @@ client/
 
 ## Not built yet (deliberately)
 
-GPS tracking of vehicles in any form · multi-operator tenancy · automatic baseline
-recalibration from historical trips (the data is logged, the job is not built) · payments and
-the paid operator-analytics tier · push notifications and SMS fallback.
+GPS tracking of vehicles in any form · multi-operator tenancy · *automatic* baseline
+recalibration (measurements are read back and suggested, but nothing is ever applied without an
+operator) · payments and the paid operator-analytics tier · push notifications and SMS fallback.

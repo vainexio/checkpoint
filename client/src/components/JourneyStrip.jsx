@@ -19,7 +19,11 @@ export function JourneyStrip({ journey }) {
     // pt-1 gives the bus badge, which is taller than a plain dot, room inside
     // the horizontal scroll container instead of being clipped by it.
     <div className="overflow-x-auto pb-1 pt-1">
-      <ol className="flex min-w-max items-start gap-0">
+      {/* Fills the card when there is room and scrolls when there is not:
+          min-w-max keeps every stop at a readable width on a phone, while
+          w-full lets the connecting lines take up the slack on a desktop,
+          where the strip used to huddle on the left of an empty card. */}
+      <ol className="flex w-full min-w-max items-start gap-0">
         {journey.map((stop, i) => {
           const done = stop.progress === 'passed' || stop.progress === 'skipped';
           const isLast = i === journey.length - 1;
@@ -28,7 +32,7 @@ export function JourneyStrip({ journey }) {
           const busAtThisStop = stop.isBusHere;
 
           return (
-            <li key={`${stop.name}-${i}`} className="flex items-start">
+            <li key={`${stop.name}-${i}`} className={cn('flex items-start', !isLast && 'flex-1')}>
               <div className="flex w-[86px] flex-col items-center text-center">
                 <span className="relative flex h-4 items-center">
                   {busAtThisStop ? (
@@ -79,7 +83,7 @@ export function JourneyStrip({ journey }) {
               </div>
 
               {!isLast && (
-                <span className="relative mt-[7px] flex h-4 w-10 shrink-0 items-center justify-center">
+                <span className="relative mt-[7px] flex h-4 min-w-[40px] flex-1 items-center justify-center">
                   <span
                     className={cn(
                       'absolute inset-x-0 h-0.5 rounded',

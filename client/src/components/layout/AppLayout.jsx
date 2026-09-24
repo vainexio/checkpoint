@@ -79,17 +79,12 @@ function useDemoReseed() {
   return { run, label, active: state !== null };
 }
 
-/**
- * The top row: the brand, the sections, and whatever account controls the
- * product hands it. On a phone the sections move to the tab bar below and this
- * keeps only the two ends.
- */
-function Navbar({ home = '/', links = [], right = null, hasTabBar = false }) {
+export function Navbar({ home = '/', links = [], right = null }) {
   const demo = useDemoReseed();
 
   return (
     <header className="sticky top-0 z-50 w-full glass-panel">
-      <div className="container mx-auto flex h-[56px] max-w-7xl items-center gap-2 px-4 sm:h-[68px] sm:gap-6 sm:px-6">
+      <div className="container mx-auto flex h-[60px] max-w-7xl items-center gap-2 px-3 sm:h-[68px] sm:gap-6 sm:px-6">
         <Link
           to={home}
           onDoubleClick={demo.run}
@@ -97,18 +92,16 @@ function Navbar({ home = '/', links = [], right = null, hasTabBar = false }) {
         >
           <BrandMark />
           {/*
-            * The wordmark used to be the first thing to go on a phone, because
-            * the links were fighting it for the same row. They are not any
-            * more — on a phone they live in the tab bar at the bottom — so the
-            * name of the product can stay on screen where it belongs.
+            * The wordmark is the first thing to go on a phone.
             *
-            * It still folds away on the narrowest handsets alongside a nav that
-            * has nowhere else to go (the guest app, with its single link).
+            * At 375px it ate 150 of the 375 pixels and squeezed the nav until
+            * "My trips" rendered as "My" and "Arrivals board" was clipped away
+            * entirely — a conductor could not reach half the app. The mark alone
+            * still says whose app this is, and it is a link home either way.
             */}
           <span
             className={cn(
-              'text-[15px] font-extrabold tracking-[0.16em]',
-              hasTabBar ? 'inline' : 'hidden sm:inline',
+              'hidden text-[15px] font-extrabold tracking-[0.16em] sm:inline',
               demo.active && 'text-primary-strong'
             )}
           >
@@ -116,17 +109,7 @@ function Navbar({ home = '/', links = [], right = null, hasTabBar = false }) {
           </span>
         </Link>
 
-        {/*
-          * On a phone this row carries the brand and the account controls and
-          * nothing else; the sections are reachable from the tab bar instead of
-          * from a strip that had to be scrolled sideways to be discovered.
-          */}
-        <nav
-          className={cn(
-            'no-scrollbar min-w-0 flex-1 items-center gap-0.5 overflow-x-auto sm:gap-1',
-            hasTabBar ? 'hidden md:flex' : 'flex'
-          )}
-        >
+        <nav className="no-scrollbar flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto sm:gap-1">
           {links.map((link) => (
             <NavLink
               key={link.to}
@@ -156,102 +139,20 @@ function Navbar({ home = '/', links = [], right = null, hasTabBar = false }) {
           ))}
         </nav>
 
-        {hasTabBar && <span className="flex-1 md:hidden" />}
-
         {right && <div className="flex shrink-0 items-center gap-2 sm:gap-3">{right}</div>}
       </div>
     </header>
   );
 }
 
-/**
- * The navigation for anything narrower than a laptop: a bar of destinations
- * across the bottom of the screen, where a thumb already is.
- *
- * It replaces a sideways-scrolling strip in the header, which could not show
- * what it held: at 390px an admin's "Fleet" was entirely off the right-hand
- * edge, with nothing on screen to say a fourth section existed, and at 640px it
- * still was. The sections a product has should be visible, and reachable
- * without a gesture nobody thought to try — so this lasts until the medium
- * breakpoint, which is where the header can genuinely hold the links.
- *
- * Each destination gets an icon as well as a word, because at this size the
- * icon is what is read first and the word is what settles it.
- */
-function MobileTabBar({ links }) {
-  return (
-    <nav
-      /* Opaque, not glass: the rows scrolling underneath it were showing
-         through a translucent bar and turning the labels into a smear. */
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card md:hidden"
-      style={{
-        paddingBottom: 'env(safe-area-inset-bottom)',
-        boxShadow: '0 -8px 24px -12px hsl(168 26% 22% / 0.28)',
-      }}
-      aria-label="Sections"
-    >
-      <div className="mx-auto flex max-w-lg items-stretch">
-        {links.map((link) => (
-          <NavLink
-            key={link.to}
-            to={link.to}
-            end={link.end}
-            className={({ isActive }) =>
-              cn(
-                'relative flex min-w-0 flex-1 flex-col items-center gap-1 px-1 pb-2 pt-2.5 text-[11px] font-semibold leading-tight transition-colors',
-                isActive ? 'text-primary-strong' : 'text-muted-foreground'
-              )
-            }
-          >
-            {({ isActive }) => (
-              <>
-                {isActive && (
-                  <motion.span
-                    layoutId="tabbar-active"
-                    className="absolute inset-x-2 top-0 h-[3px] rounded-b-full bg-primary"
-                    initial={false}
-                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                  />
-                )}
-                {link.icon && <link.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={2.2} />}
-                <span className="w-full truncate text-center">{link.shortLabel ?? link.label}</span>
-              </>
-            )}
-          </NavLink>
-        ))}
-      </div>
-    </nav>
-  );
-}
-
-/**
- * The shell every signed-in and guest page sits in.
- *
- * It owns the navigation rather than being handed a finished header, because
- * the two halves of that navigation now live at opposite ends of the screen on
- * a phone — the brand and account controls at the top, the sections in a tab
- * bar at the bottom — and something has to know about both to leave room for
- * the second one.
- *
- * A tab bar is only worth the screen it costs when there is somewhere to go:
- * with a single section it would be a label pretending to be a control, so the
- * guest app keeps its one link in the header.
- */
-export function AppLayout({ children, home = '/', links = [], right = null }) {
+export function AppLayout({ children, navbar }) {
   const location = useLocation();
-  const hasTabBar = links.length > 1;
 
   return (
     <div className="relative flex min-h-[100dvh] flex-col bg-background text-foreground selection:bg-primary/20">
-      <Navbar home={home} links={links} right={right} hasTabBar={hasTabBar} />
+      {navbar}
 
-      <main
-        className={cn(
-          'relative z-10 mx-auto w-full max-w-7xl flex-1 px-4 py-7 sm:px-6 sm:py-10',
-          // Clear of the tab bar, and of the home indicator underneath it.
-          hasTabBar && 'pb-[calc(76px+env(safe-area-inset-bottom))] md:pb-10'
-        )}
-      >
+      <main className="relative z-10 mx-auto w-full max-w-7xl flex-1 px-4 py-10 sm:px-6">
         {/*
           * No AnimatePresence around the route.
           *
@@ -277,8 +178,6 @@ export function AppLayout({ children, home = '/', links = [], right = null }) {
           {children}
         </motion.div>
       </main>
-
-      {hasTabBar && <MobileTabBar links={links} />}
     </div>
   );
 }

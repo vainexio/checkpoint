@@ -97,10 +97,10 @@ export function ArrivalCountdown({
           : 'text-foreground';
 
   return (
-    <div className={cn('text-right', className)}>
+    <div className={cn('text-left sm:text-right', className)}>
       <div
         className={cn(
-          'mb-0.5 text-[10px] font-bold uppercase tracking-[0.12em] sm:text-[11px]',
+          'mb-1 text-[11px] font-bold uppercase tracking-[0.12em]',
           isHereNow ? 'text-success-strong' : cancelled ? 'text-destructive-strong' : 'text-muted-foreground'
         )}
       >
@@ -111,7 +111,7 @@ export function ArrivalCountdown({
         className={cn(
           'font-extrabold leading-none tracking-[-0.03em]',
           // A word, not a number: it does not need the size the figures do.
-          cancelled ? 'text-[22px] sm:text-[28px]' : 'tabular text-[30px] sm:text-[38px]',
+          cancelled ? 'text-[26px] sm:text-[30px]' : 'tabular text-[34px] sm:text-[40px]',
           tone
         )}
       >
@@ -125,7 +125,7 @@ export function ArrivalCountdown({
           against a printed timetable or read out to someone meeting you. */}
       <div
         className={cn(
-          'mt-1 text-[14px] font-semibold tabular text-muted-foreground sm:text-[15px]',
+          'mt-1.5 text-[15px] font-semibold tabular text-muted-foreground',
           // The time it would have come, struck through: it explains which bus
           // this row is without offering it as an arrival.
           cancelled && 'line-through'

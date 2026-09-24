@@ -88,7 +88,7 @@ export default function TripDetailPage() {
   });
 
   return (
-    <div className="mx-auto max-w-3xl lg:max-w-none">
+    <div className="mx-auto max-w-3xl">
       {back}
 
       <PageHeader
@@ -108,14 +108,6 @@ export default function TripDetailPage() {
         actions={<LiveIndicator lastUpdated={lastUpdated} />}
       />
 
-      {/*
-        * Two columns once there is room, and the reason is the checkpoints
-        * list: it is the tallest thing on the page and the least urgent, so
-        * stacked it pushed the arrival time — the one number anyone opened
-        * this page for — up against the top of a very long scroll. Beside it,
-        * the whole trip is one screen.
-        */}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)] lg:items-start">
       <div className="space-y-4">
         {trip.isStale && (
           <StaleNotice
@@ -152,7 +144,7 @@ export default function TripDetailPage() {
             <div className="sm:text-right">
               <div
                 className={cn(
-                  'font-mono tabular text-[40px] font-bold leading-none tracking-tight sm:text-[52px]',
+                  'font-mono tabular text-[44px] font-bold leading-none tracking-tight sm:text-[56px]',
                   (trip.isStale || notDepartedYet) && 'text-muted-foreground'
                 )}
               >
@@ -170,10 +162,7 @@ export default function TripDetailPage() {
         </Card>
 
         <Card>
-          {/* Two across until the column is genuinely wide: at four, "Scheduled
-              departure" wrapped while its neighbours did not and the row of
-              values came out on two different baselines. */}
-          <CardContent className="grid grid-cols-2 gap-x-5 gap-y-4 p-5 sm:p-6 xl:grid-cols-4">
+          <CardContent className="grid grid-cols-2 gap-5 p-6 sm:grid-cols-4">
             <Fact label="Scheduled departure" mono value={formatTime(trip.scheduledDeparture)} />
             <Fact
               label="Actual departure"
@@ -198,13 +187,6 @@ export default function TripDetailPage() {
           </CardContent>
         </Card>
 
-        <p className="hidden text-[13px] leading-relaxed text-muted-foreground lg:block">
-          Times are estimates based on confirmed checkpoints and this route's usual segment
-          times. Shown in Manila time.
-        </p>
-      </div>
-
-      <div className="space-y-4">
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0">
             <CardTitle>Checkpoints</CardTitle>
@@ -214,18 +196,17 @@ export default function TripDetailPage() {
           </CardHeader>
           <CardContent>
             <Timeline
-              stops={trip.stops}
-              isArrived={trip.status === 'arrived'}
-              position={trip.position}
-            />
+            stops={trip.stops}
+            isArrived={trip.status === 'arrived'}
+            position={trip.position}
+          />
           </CardContent>
         </Card>
 
-        <p className="pb-4 text-center text-[13px] text-muted-foreground lg:hidden">
+        <p className="pb-4 text-center text-[13px] text-muted-foreground">
           Times are estimates based on confirmed checkpoints and this route's usual segment
           times. Shown in Manila time.
         </p>
-      </div>
       </div>
     </div>
   );

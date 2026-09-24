@@ -153,7 +153,7 @@ export function ScheduleManager({ routes, buses, conductors, onTripsChanged }) {
 
   return (
     <Card>
-      <CardHeader className="gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
+      <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
         <div className="min-w-0">
           <CardTitle className="flex items-center gap-2">
             <CalendarSync className="h-4 w-4 text-primary-strong" />
@@ -165,7 +165,7 @@ export function ScheduleManager({ routes, buses, conductors, onTripsChanged }) {
           </p>
         </div>
         {editing === null && (
-          <Button size="sm" className="shrink-0 self-start" onClick={() => open()}>
+          <Button size="sm" onClick={() => open()}>
             <Plus className="mr-1.5 h-3.5 w-3.5" />
             Add schedule
           </Button>
@@ -325,11 +325,8 @@ export function ScheduleManager({ routes, buses, conductors, onTripsChanged }) {
                   !s.isActive && 'bg-muted/50'
                 )}
               >
-                {/* The departure time held an 84px column of its own, which on
-                    a phone left the route 250px to wrap in. Above the line
-                    instead, where it reads as this schedule's heading. */}
-                <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-start sm:gap-4">
-                  <div className="shrink-0 font-mono text-[17px] font-bold tabular sm:w-[84px]">
+                <div className="flex min-w-0 items-start gap-4">
+                  <div className="w-[84px] shrink-0 font-mono text-[17px] font-bold tabular">
                     {formatClock(s.departureTime)}
                   </div>
                   <div className="min-w-0">

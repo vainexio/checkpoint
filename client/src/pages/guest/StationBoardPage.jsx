@@ -266,22 +266,11 @@ export default function StationBoardPage() {
         * layout animation is what makes a filter feel like the same list being
         * sorted instead of a different page arriving.
         */}
-      {/*
-        * Two columns on a wide screen.
-        *
-        * A board is read top to bottom, so one column is the honest ordering —
-        * but at 1440px a single column of full-width rows put seven buses over
-        * two and a half screens, with 700px of empty card between each plate
-        * and its arrival time. Paired, the whole board is visible at once and
-        * the rows are the width they were designed at. Soonest-first still
-        * reads correctly: left to right, then down, the way a timetable does.
-        */}
-      <div className="relative z-10 grid items-start gap-3 xl:grid-cols-2">
+      <div className="relative z-10 space-y-3">
         <AnimatePresence initial={false} mode="popLayout">
           {shown.map((arrival, i) => (
             <motion.div
               key={arrival.tripId}
-              className="h-full"
               layout
               initial={{ opacity: 0, y: 14, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -366,39 +355,28 @@ function ArrivalRow({ arrival, now, stationName, goingTo }) {
       />
 
       {isFull && (
-        <div className="flex items-center gap-2 bg-destructive/10 px-3.5 py-1.5 text-[13px] font-bold text-destructive-strong sm:px-4">
+        <div className="flex items-center gap-2 bg-destructive/10 px-5 py-2 text-[13px] font-bold text-destructive-strong">
           <Ban className="h-3.5 w-3.5 shrink-0" />
           Not picking up passengers — don't wait for this one
         </div>
       )}
-      <CardContent className="p-3.5 sm:p-4">
-        {/*
-          * The wait sits beside the bus, not under it.
-          *
-          * Stacking them put "arrives in 34 min" a whole block below the plate
-          * it belongs to, which on a phone cost ninety pixels a row and meant
-          * roughly one and a half buses fitted on a screen. Side by side from
-          * the narrowest width up, the two halves of the answer — which bus,
-          * and how long — are read in one movement.
-          */}
-        <div className="flex items-start justify-between gap-3">
+      <CardContent className="p-4 sm:p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
             {/* The plate is how you pick this bus out of five at a curb, so it
-                is set as an identifier, not as metadata — and it shares its
-                line with the route rather than taking one of its own. */}
-            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-              {arrival.bus && (
-                <span className="inline-flex items-center rounded-lg border-2 border-foreground/15 bg-muted/60 px-2 py-0.5">
-                  <span className="font-mono text-[15px] font-bold tracking-[0.08em]">
-                    {arrival.bus.plateNumber}
-                  </span>
+                is set as an identifier, not as metadata. */}
+            {arrival.bus && (
+              <div className="mb-1.5 inline-flex items-center gap-2 rounded-lg border-2 border-foreground/15 bg-muted/60 px-2.5 py-1">
+                <span className="font-mono text-[17px] font-bold tracking-[0.08em]">
+                  {arrival.bus.plateNumber}
                 </span>
-              )}
-              <span className="text-[16px] font-extrabold tracking-tight">{arrival.route}</span>
-            </div>
+              </div>
+            )}
+
+            <div className="text-[17px] font-extrabold tracking-tight">{arrival.route}</div>
 
             {goingTo && (
-              <div className="mt-1 text-[13px] font-semibold text-primary-strong">
+              <div className="mb-2 text-[13px] font-semibold text-primary-strong">
                 Gets you to {goingTo}
                 {arrivesAtGoing && <> by {formatTime(arrivesAtGoing)}</>}
               </div>
@@ -446,7 +424,7 @@ function ArrivalRow({ arrival, now, stationName, goingTo }) {
                   ) : (
                     <>The operator cancelled this trip.</>
                   )}{' '}
-                  Look for the next one on this board.
+                  Look for the next one below.
                 </span>
               </div>
             )}
@@ -482,7 +460,7 @@ function ArrivalRow({ arrival, now, stationName, goingTo }) {
           </div>
 
           <ArrivalCountdown
-            className="shrink-0 text-right"
+            className="shrink-0 sm:min-w-[150px]"
             time={arrival.boardTime}
             now={now}
             kind={arrival.boardKind}
@@ -492,7 +470,7 @@ function ArrivalRow({ arrival, now, stationName, goingTo }) {
         </div>
 
         {arrival.isStale && (
-          <div className="mt-3 flex items-start gap-2 border-t border-dashed border-border pt-2.5 text-[13px] text-muted-foreground">
+          <div className="mt-4 flex items-start gap-2 border-t border-dashed border-border pt-3 text-[13px] text-muted-foreground">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>
               No update in {formatElapsed(arrival.minutesSinceLastConfirm)} — this time may be out
@@ -501,11 +479,11 @@ function ArrivalRow({ arrival, now, stationName, goingTo }) {
           </div>
         )}
 
-        <div className="mt-2.5 border-t border-border pt-1.5">
+        <div className="mt-3 border-t border-border pt-2">
           <Button
             variant="ghost"
             size="sm"
-            className="-ml-2 h-7 text-[13px] text-muted-foreground"
+            className="-ml-2 h-8 text-muted-foreground"
             onClick={() => setOpen((v) => !v)}
           >
             <ChevronDown

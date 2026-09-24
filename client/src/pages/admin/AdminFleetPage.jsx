@@ -61,15 +61,7 @@ export default function AdminFleetPage() {
         </Alert>
       )}
 
-      {/*
-        * Three panels, so three columns once the screen is wide enough.
-        *
-        * On a two-column grid the third — Admins — dropped to a row of its own
-        * and left a card-sized hole beside it, which reads as something having
-        * failed to load rather than as a layout. At xl they sit as a row of
-        * equals; below that the pair-and-one is close enough to fill the width.
-        */}
-      <div className="grid items-start gap-4 [&>*]:min-w-0 lg:grid-cols-2 xl:grid-cols-3">
+      <div className="grid items-start gap-4 lg:grid-cols-2">
         <BusPanel buses={buses} onError={setError} />
         <StaffPanel
           title="Conductors"

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   AlertCircle,
@@ -23,7 +23,14 @@ import { Input } from '@/components/ui/input.tsx';
 import { Label } from '@/components/ui/label.tsx';
 import { Alert, AlertDescription } from '@/components/ui/alert.tsx';
 import { Skeleton } from '@/components/ui/skeleton.tsx';
-import { ResponsiveTable } from '@/components/ResponsiveTable.jsx';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table.tsx';
 import { cn } from '@/lib/utils.ts';
 import {
   formatDateTime,
@@ -187,11 +194,11 @@ export default function AdminTripDetailPage() {
         </Alert>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+      <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
         <div className="min-w-0 space-y-4">
           <Card>
-            <CardHeader className="gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
+            <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
+              <div>
                 <CardTitle>Event log</CardTitle>
                 <p className="mt-1 text-[13px] text-muted-foreground">
                   In the order the ETA engine replays them. Any change here recomputes the trip
@@ -199,12 +206,7 @@ export default function AdminTripDetailPage() {
                 </p>
               </div>
               {!adding && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="shrink-0 self-start"
-                  onClick={() => setAdding(true)}
-                >
+                <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
                   <Plus className="mr-1.5 h-3.5 w-3.5" />
                   Add missing update
                 </Button>
@@ -228,126 +230,110 @@ export default function AdminTripDetailPage() {
                   Nothing has been reported for this trip yet.
                 </div>
               ) : (
-                <ResponsiveTable
-                  rows={logs}
-                  rowKey={(log) => log._id}
-                  rowClassName={(log) => cn(ignored.get(log.clientLogId) && 'bg-warning/10')}
-                  cardClassName={(log) =>
-                    cn(ignored.get(log.clientLogId) && 'border-warning/50')
-                  }
-                  expanded={(log) =>
-                    editingId === log._id ? (
-                      <LogEditor
-                        title="Correct this update"
-                        log={log}
-                        stops={stops}
-                        busy={busy}
-                        onCancel={() => setEditingId(null)}
-                        onSave={async (body) => {
-                          if (await apply(() => editTripLog(tripId, log._id, body))) {
-                            setEditingId(null);
-                          }
-                        }}
-                      />
-                    ) : null
-                  }
-                  columns={[
-                    {
-                      key: 'what',
-                      header: 'What',
-                      lead: true,
-                      className: 'align-top',
-                      cell: (log) => {
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>When</TableHead>
+                        <TableHead>What</TableHead>
+                        <TableHead>By</TableHead>
+                        <TableHead className="text-right">Correct</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {logs.map((log) => {
                         const lateMinutes = Math.round(
                           (new Date(log.syncedAt) - new Date(log.reportedAt)) / 60000
                         );
                         const why = ignored.get(log.clientLogId);
                         return (
-                          <>
-                            <div className="font-medium">{describe(log, names, stops)}</div>
-                            {lateMinutes >= 3 && log.recordedBy !== 'admin' && (
-                              <div className="text-[12px] text-muted-foreground">
-                                Reached the server {lateMinutes} min later — sent from the offline
-                                queue
-                              </div>
+                          <Fragment key={log._id}>
+                            <TableRow className={cn(why && 'bg-warning/10')}>
+                              <TableCell className="whitespace-nowrap align-top">
+                                <div className="font-mono text-[13px] font-semibold tabular">
+                                  {formatTime(log.reportedAt)}
+                                </div>
+                                <div className="text-[11px] text-muted-foreground">
+                                  {formatDay(log.reportedAt)}
+                                </div>
+                              </TableCell>
+                              <TableCell className="align-top">
+                                <div className="font-medium">{describe(log, names, stops)}</div>
+                                {lateMinutes >= 3 && log.recordedBy !== 'admin' && (
+                                  <div className="text-[12px] text-muted-foreground">
+                                    Reached the server {lateMinutes} min later — sent from the
+                                    offline queue
+                                  </div>
+                                )}
+                                {why && (
+                                  <div className="mt-0.5 flex items-center gap-1 text-[12px] font-medium text-foreground">
+                                    <AlertTriangle className="h-3.5 w-3.5 text-warning-strong" />
+                                    Ignored by the engine: {why}
+                                  </div>
+                                )}
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap align-top text-[13px]">
+                                {log.recordedBy === 'admin' ? (
+                                  <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-semibold">
+                                    Dispatcher
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground">Conductor</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap text-right align-top">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="mr-1.5"
+                                  disabled={busy}
+                                  onClick={() => setEditingId(editingId === log._id ? null : log._id)}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                  <span className="sr-only">Edit</span>
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={busy}
+                                  aria-label="Delete update"
+                                  className="text-destructive-strong hover:bg-destructive/10 hover:text-destructive-strong"
+                                  onClick={() => {
+                                    const reason = window.prompt(
+                                      `Remove "${describe(log, names, stops)}"?\n\nThe trip will be recomputed without it. Reason (optional):`
+                                    );
+                                    if (reason === null) return;
+                                    apply(() => deleteTripLog(tripId, log._id, reason));
+                                  }}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                            {editingId === log._id && (
+                              <TableRow className="hover:bg-transparent">
+                                <TableCell colSpan={4} className="bg-muted/40">
+                                  <LogEditor
+                                    title="Correct this update"
+                                    log={log}
+                                    stops={stops}
+                                    busy={busy}
+                                    onCancel={() => setEditingId(null)}
+                                    onSave={async (body) => {
+                                      if (await apply(() => editTripLog(tripId, log._id, body))) {
+                                        setEditingId(null);
+                                      }
+                                    }}
+                                  />
+                                </TableCell>
+                              </TableRow>
                             )}
-                            {why && (
-                              <div className="mt-0.5 flex items-start gap-1 text-[12px] font-medium text-foreground">
-                                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning-strong" />
-                                Ignored by the engine: {why}
-                              </div>
-                            )}
-                          </>
+                          </Fragment>
                         );
-                      },
-                    },
-                    {
-                      key: 'when',
-                      header: 'When',
-                      aside: true,
-                      className: 'whitespace-nowrap align-top',
-                      cell: (log) => (
-                        <>
-                          <div className="font-mono text-[13px] font-semibold tabular">
-                            {formatTime(log.reportedAt)}
-                          </div>
-                          <div className="text-[11px] text-muted-foreground">
-                            {formatDay(log.reportedAt)}
-                          </div>
-                        </>
-                      ),
-                    },
-                    {
-                      key: 'by',
-                      header: 'By',
-                      className: 'whitespace-nowrap align-top text-[13px]',
-                      cell: (log) =>
-                        log.recordedBy === 'admin' ? (
-                          <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-semibold">
-                            Dispatcher
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">Conductor</span>
-                        ),
-                    },
-                    {
-                      key: 'correct',
-                      header: 'Correct',
-                      bare: true,
-                      headClassName: 'text-right',
-                      className: 'whitespace-nowrap text-right align-top',
-                      cell: (log) => (
-                        <div className="flex items-center gap-1.5 lg:justify-end">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={busy}
-                            onClick={() => setEditingId(editingId === log._id ? null : log._id)}
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                            <span className="sr-only">Edit</span>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={busy}
-                            aria-label="Delete update"
-                            className="text-destructive-strong hover:bg-destructive/10 hover:text-destructive-strong"
-                            onClick={() => {
-                              const reason = window.prompt(
-                                `Remove "${describe(log, names, stops)}"?\n\nThe trip will be recomputed without it. Reason (optional):`
-                              );
-                              if (reason === null) return;
-                              apply(() => deleteTripLog(tripId, log._id, reason));
-                            }}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      ),
-                    },
-                  ]}
-                />
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -401,9 +387,7 @@ export default function AdminTripDetailPage() {
           </Card>
         </div>
 
-        {/* Pinned: the event log runs long and the replay summary is the thing
-            you check each edit against, so it should not scroll away. */}
-        <div className="space-y-4 lg:sticky lg:top-[84px]">
+        <div className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>As it now replays</CardTitle>

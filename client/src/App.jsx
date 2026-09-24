@@ -1,16 +1,7 @@
 import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import {
-  Bus,
-  ClipboardList,
-  KeyRound,
-  LayoutDashboard,
-  LogOut,
-  MapPin,
-  Route as RouteIcon,
-  Users,
-} from 'lucide-react';
+import { KeyRound, LogOut } from 'lucide-react';
 
-import { AppLayout } from '@/components/layout/AppLayout.jsx';
+import { AppLayout, Navbar } from '@/components/layout/AppLayout.jsx';
 import { Button } from '@/components/ui/button.tsx';
 import { AuthProvider, homeFor, useAuth } from '@/hooks/useAuth.jsx';
 
@@ -116,12 +107,16 @@ function GuestApp() {
 
   return (
     <AppLayout
-      home="/"
-      links={[{ to: '/', label: 'Arrivals', icon: MapPin, end: true }]}
-      right={
-        <Button variant="outline" size="sm" asChild>
-          <a href={user ? homeFor(user) : '/login'}>{user ? 'Staff area' : 'Staff sign-in'}</a>
-        </Button>
+      navbar={
+        <Navbar
+          home="/"
+          links={[{ to: '/', label: 'Arrivals', end: true }]}
+          right={
+            <Button variant="outline" size="sm" asChild>
+              <a href={user ? homeFor(user) : '/login'}>{user ? 'Staff area' : 'Staff sign-in'}</a>
+            </Button>
+          }
+        />
       }
     >
       <Routes>
@@ -142,12 +137,16 @@ function ConductorApp() {
   return (
     <RequireRole role="conductor">
       <AppLayout
-        home="/conductor"
-        links={[
-          { to: '/conductor', label: 'My trips', icon: ClipboardList, end: true },
-          { to: '/', label: 'Arrivals board', shortLabel: 'Arrivals', icon: Bus },
-        ]}
-        right={<SignOutButton />}
+        navbar={
+          <Navbar
+            home="/conductor"
+            links={[
+              { to: '/conductor', label: 'My trips', end: true },
+              { to: '/', label: 'Arrivals board' },
+            ]}
+            right={<SignOutButton />}
+          />
+        }
       >
         <Routes>
           <Route index element={<ConductorTripsPage user={user} />} />
@@ -165,19 +164,18 @@ function AdminApp() {
   return (
     <RequireRole role="admin">
       <AppLayout
-        home="/admin"
-        links={[
-          { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
-          { to: '/admin/trips', label: 'Trips', icon: ClipboardList },
-          {
-            to: '/admin/routes',
-            label: 'Routes & checkpoints',
-            shortLabel: 'Routes',
-            icon: RouteIcon,
-          },
-          { to: '/admin/fleet', label: 'Fleet', icon: Users },
-        ]}
-        right={<SignOutButton />}
+        navbar={
+          <Navbar
+            home="/admin"
+            links={[
+              { to: '/admin', label: 'Dashboard', end: true },
+              { to: '/admin/trips', label: 'Trips' },
+              { to: '/admin/routes', label: 'Routes & checkpoints' },
+              { to: '/admin/fleet', label: 'Fleet' },
+            ]}
+            right={<SignOutButton />}
+          />
+        }
       >
         <Routes>
           <Route index element={<AdminDashboardPage />} />

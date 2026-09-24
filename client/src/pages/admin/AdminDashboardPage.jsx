@@ -7,7 +7,14 @@ import { PageHeader, LiveIndicator } from '@/components/layout/AppLayout.jsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.tsx';
 import { Alert, AlertDescription } from '@/components/ui/alert.tsx';
 import { Skeleton } from '@/components/ui/skeleton.tsx';
-import { ResponsiveTable } from '@/components/ResponsiveTable.jsx';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table.tsx';
 import { cn } from '@/lib/utils.ts';
 import { formatElapsed, formatTime, formatVariance } from '@/utils/time.js';
 
@@ -41,22 +48,15 @@ export default function AdminDashboardPage() {
       )}
 
       {loading && !data && (
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-[96px] rounded-xl sm:h-[110px]" />
+            <Skeleton key={i} className="h-[110px] rounded-xl" />
           ))}
         </div>
       )}
 
       {counts && (
-        /*
-          * Two up on a phone, not four stacked slabs.
-          *
-          * Four full-width cards pushed the trips themselves — the thing the
-          * page is for — most of a screen down. Paired, the whole census reads
-          * in one glance and the list starts above the fold.
-          */
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Stat label="Active" value={counts.active} icon={Activity} />
           <Stat label="In transit" value={counts.inTransit} icon={Activity} tone="text-success-strong" />
           <Stat label="Delayed" value={counts.delayed} icon={Clock} tone="text-warning-strong" />
@@ -85,91 +85,64 @@ export default function AdminDashboardPage() {
           )}
 
           {trips.length > 0 && (
-            <ResponsiveTable
-              rows={trips}
-              rowKey={(trip) => trip.id}
-              rowClassName={(trip) => cn(trip.isStale && 'bg-muted/60')}
-              cardClassName={(trip) => cn(trip.isStale && 'border-warning/40')}
-              columns={[
-                {
-                  key: 'route',
-                  header: 'Route',
-                  lead: true,
-                  cell: (trip) => (
-                    <>
-                      <Link
-                        to={`/admin/trips/${trip.id}`}
-                        className="text-[15px] font-bold hover:text-primary-strong hover:underline lg:text-sm lg:font-semibold"
-                      >
-                        {trip.route.name}
-                      </Link>
-                      <div className="text-xs text-muted-foreground">
-                        departs {formatTime(trip.scheduledDeparture)}
-                      </div>
-                    </>
-                  ),
-                },
-                {
-                  key: 'bus',
-                  header: 'Bus',
-                  className: 'font-mono text-xs',
-                  cell: (trip) => (
-                    <span className="font-mono text-xs">{trip.bus?.plateNumber ?? '—'}</span>
-                  ),
-                },
-                {
-                  key: 'conductor',
-                  header: 'Conductor',
-                  cell: (trip) => trip.conductor?.name ?? '—',
-                },
-                {
-                  key: 'status',
-                  header: 'Status',
-                  wide: true,
-                  cell: (trip) => (
-                    <StatusBadge
-                      status={trip.status}
-                      isStale={trip.isStale}
-                      varianceMinutes={trip.varianceMinutes}
-                      conditionsAllowanceMinutes={trip.conditionsAllowanceMinutes}
-                    />
-                  ),
-                },
-                {
-                  key: 'confirmed',
-                  header: 'Last confirmed',
-                  cell: (trip) => (
-                    <>
-                      {trip.lastConfirmedCheckpoint?.name ?? '—'}
-                      {trip.minutesSinceLastConfirm !== null && (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Route</TableHead>
+                    <TableHead>Bus</TableHead>
+                    <TableHead>Conductor</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Last confirmed</TableHead>
+                    <TableHead>Running</TableHead>
+                    <TableHead className="text-right">Arrival</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {trips.map((trip) => (
+                    <TableRow key={trip.id} className={cn(trip.isStale && 'bg-muted/60')}>
+                      <TableCell>
+                        <Link
+                          to={`/admin/trips/${trip.id}`}
+                          className="font-semibold hover:text-primary-strong hover:underline"
+                        >
+                          {trip.route.name}
+                        </Link>
                         <div className="text-xs text-muted-foreground">
-                          {formatElapsed(trip.minutesSinceLastConfirm)} ago
+                          departs {formatTime(trip.scheduledDeparture)}
                         </div>
-                      )}
-                    </>
-                  ),
-                },
-                {
-                  key: 'running',
-                  header: 'Running',
-                  cell: (trip) => formatVariance(trip.varianceMinutes),
-                },
-                {
-                  key: 'arrival',
-                  header: 'Arrival',
-                  aside: true,
-                  headClassName: 'text-right',
-                  className: 'text-right font-mono tabular',
-                  cell: (trip) => (
-                    <span className="font-mono tabular">
-                      {formatTime(
-                        trip.stops.at(-1)?.projectedArrival ?? trip.stops.at(-1)?.scheduledArrival
-                      )}
-                    </span>
-                  ),
-                },
-              ]}
-            />
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {trip.bus?.plateNumber ?? '—'}
+                      </TableCell>
+                      <TableCell>{trip.conductor?.name ?? '—'}</TableCell>
+                      <TableCell>
+                        <StatusBadge
+                          status={trip.status}
+                          isStale={trip.isStale}
+                          varianceMinutes={trip.varianceMinutes}
+                          conditionsAllowanceMinutes={trip.conditionsAllowanceMinutes}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {trip.lastConfirmedCheckpoint?.name ?? '—'}
+                        {trip.minutesSinceLastConfirm !== null && (
+                          <div className="text-xs text-muted-foreground">
+                            {formatElapsed(trip.minutesSinceLastConfirm)} ago
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>{formatVariance(trip.varianceMinutes)}</TableCell>
+                      <TableCell className="text-right font-mono tabular">
+                        {formatTime(
+                          trip.stops.at(-1)?.projectedArrival ?? trip.stops.at(-1)?.scheduledArrival
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

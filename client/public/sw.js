@@ -16,8 +16,27 @@
  * old times on a passenger board with nothing saying so.
  */
 
-const SHELL = 'checkpoint-shell-v2';
-const FONTS = 'checkpoint-fonts-v1';
+/*
+ * Bump VERSION whenever this file's behaviour changes, or when the headers it
+ * is served with do. A worker keeps the Content-Security-Policy it was
+ * installed under, and the browser only reinstalls when these bytes differ —
+ * so a CSP fix on the server reaches the worker only through a change here.
+ */
+const VERSION = 'v3';
+const SHELL = `checkpoint-shell-${VERSION}`;
+const FONTS = `checkpoint-fonts-${VERSION}`;
+const TILES = `checkpoint-tiles-${VERSION}`;
+
+/**
+ * Map tiles, kept the way OpenStreetMap asks.
+ *
+ * Their tile policy requires clients to cache for at least seven days and
+ * forbids bulk downloading. This caches only tiles the map actually drew, and
+ * trims the store to the most recent few hundred, so panning around a city
+ * costs one request per tile per week instead of one per pan.
+ */
+const TILE_HOSTS = ['tile.openstreetmap.org'];
+const MAX_TILES = 250;
 const INDEX = '/index.html';
 
 /**
@@ -75,7 +94,9 @@ self.addEventListener('activate', (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(keys.filter((k) => k !== SHELL && k !== FONTS).map((k) => caches.delete(k)))
+        Promise.all(
+          keys.filter((k) => ![SHELL, FONTS, TILES].includes(k)).map((k) => caches.delete(k))
+        )
       )
       .then(() => self.clients.claim())
   );
@@ -94,6 +115,28 @@ self.addEventListener('fetch', (event) => {
         if (hit) return hit;
         const res = await fetch(request);
         if (res.ok || res.type === 'opaque') cache.put(request, res.clone());
+        return res;
+      })
+    );
+    return;
+  }
+
+  if (TILE_HOSTS.includes(url.hostname)) {
+    event.respondWith(
+      caches.open(TILES).then(async (cache) => {
+        const hit = await cache.match(request, MATCH);
+        if (hit) return hit;
+
+        const res = await fetch(request);
+        // Opaque too, for the case where the tiles come back without CORS.
+        if (res.ok || res.type === 'opaque') {
+          await cache.put(request, res.clone());
+          // Oldest first, since a Cache's keys come back in insertion order.
+          const keys = await cache.keys();
+          if (keys.length > MAX_TILES) {
+            await Promise.all(keys.slice(0, keys.length - MAX_TILES).map((k) => cache.delete(k)));
+          }
+        }
         return res;
       })
     );

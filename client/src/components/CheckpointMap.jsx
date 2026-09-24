@@ -248,9 +248,22 @@ export function CheckpointMap({
         scrollWheelZoom={false}
         style={{ height: '100%', width: '100%' }}
       >
+        {/*
+          * One hostname, no a/b/c subdomains: those are deprecated, and the
+          * tile policy asks for this exact URL. Zoom is capped at 19, which is
+          * as far as OpenStreetMap renders, so the map cannot ask for tiles
+          * that do not exist.
+          */}
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maxZoom={19}
+          /*
+           * Asked for with CORS, which OpenStreetMap allows. Without it the
+           * browser gets an opaque response the worker cannot store, so every
+           * pan re-fetched tiles the policy expects us to have kept.
+           */
+          crossOrigin="anonymous"
         />
 
         {/* While a frame is asked for, it owns the view. When it goes away

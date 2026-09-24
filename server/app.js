@@ -42,8 +42,15 @@ const CSP = [
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
-  "img-src 'self' data: blob: https://*.tile.openstreetmap.org",
-  "connect-src 'self'",
+  // The bare host is where the tiles come from; the wildcard does not cover it.
+  "img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org",
+  /*
+   * The page only ever calls its own API — but the service worker fetches the
+   * tiles and fonts it caches, and a worker's fetches are governed by
+   * connect-src too. Leaving it at 'self' blocked the worker instead of the
+   * page, and the map went blank with every tile failing.
+   */
+  "connect-src 'self' https://tile.openstreetmap.org https://fonts.googleapis.com https://fonts.gstatic.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -52,7 +59,17 @@ const CSP = [
 
 export function securityHeaders(req, res, next) {
   res.set('X-Content-Type-Options', 'nosniff');
-  res.set('Referrer-Policy', 'no-referrer');
+  /**
+   * The origin, and only the origin, on cross-origin requests.
+   *
+   * `no-referrer` looked like the private choice and broke the map:
+   * OpenStreetMap's tile policy treats a stripped Referer as an unidentifiable
+   * client and blocks it, which it duly did. Their volunteer servers are
+   * entitled to know which application is asking. This sends
+   * "https://onroute.cloud" and never a path, so no stop anyone looked at
+   * leaves the site.
+   */
+  res.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.set('X-Frame-Options', 'DENY');
   res.set('Permissions-Policy', 'geolocation=(self), camera=(), microphone=(), payment=()');
   // Render terminates TLS in front of us, so this only ever reaches a browser

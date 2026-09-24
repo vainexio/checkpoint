@@ -34,6 +34,8 @@ export const updateRoute = (id, body) => api.put(`/admin/routes/${id}`, body, op
 export const deleteRoute = (id) => api.del(`/admin/routes/${id}`, opts);
 
 export const listBuses = () => api.get('/admin/buses', opts);
+/** One bus: its recurring schedules, the week ahead, and its trip record. */
+export const fetchBus = (id) => api.get(`/admin/buses/${id}`, opts);
 export const createBus = (body) => api.post('/admin/buses', body, opts);
 export const deleteBus = (id) => api.del(`/admin/buses/${id}`, opts);
 

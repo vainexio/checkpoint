@@ -111,6 +111,13 @@ export function applyTap(trip, entry, reportedAt) {
       break;
     }
 
+    case 'boarding': {
+      // Says where the bus is, not that it has left: the origin is not passed
+      // until the pull-out.
+      next.boardingSince = reportedAt;
+      break;
+    }
+
     case 'terminated': {
       // The run is over where it stands. Every projection ahead is withdrawn,
       // because a time on screen for a bus that is not coming is worse than

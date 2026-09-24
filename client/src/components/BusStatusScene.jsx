@@ -495,8 +495,12 @@ export function sceneFor({
   isFull,
   isHereNow,
   isDeparture,
-  // A departure from here that is not boarding yet. Only meaningful alongside
-  // isDeparture; defaults to boarding so existing callers keep their picture.
+  /**
+   * Confirmed at the terminal with the doors open. Without it a departure is
+   * drawn as an empty bay however soon it is due: nobody has said the bus is
+   * there, and drawing one would be the system inventing a position.
+   */
+  isBoarding = false,
   departsLater = false,
   notDepartedYet,
   isLate,
@@ -506,13 +510,16 @@ export function sceneFor({
     ? 'cancelled'
     : hasArrived
       ? 'done'
-    : isDeparture && departsLater
-      ? 'later'
-      : isHereNow || isDeparture
-        ? 'atStop'
-        : notDepartedYet
-          ? 'elsewhere'
-          : 'travelling';
+      : isDeparture
+        ? // Confirmed at the bay, or an empty bay until someone says so.
+          isBoarding
+          ? 'atStop'
+          : 'later'
+        : isHereNow
+          ? 'atStop'
+          : notDepartedYet
+            ? 'elsewhere'
+            : 'travelling';
 
   return {
     place,

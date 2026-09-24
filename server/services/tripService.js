@@ -211,6 +211,9 @@ export function presentTrip(trip, { logs = [], now = new Date(), audience = 'pub
     positionInferred: place.inferred,
     minutesAtStop: place.minutesStanding,
     leftLastCheckpointAt: state.leftLastCheckpointAt,
+    // Set once the conductor confirms the bus is at its starting point with
+    // the doors open. Null means nobody has said it is there yet.
+    boardingSince: state.boardingSince,
     // Always paired with where and when it was said — never presented as a
     // current fact the system measured.
     load: state.load,

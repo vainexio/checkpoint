@@ -177,6 +177,9 @@ const planIndexOf = (plan, checkpointId) => {
 // passed anything, you leave a stop after reaching it, and you pass things
 // before you arrive.
 const TYPE_RANK = {
+  // Boarding comes before departing: you cannot leave a terminal you never
+  // reached, and at the same timestamp that is the order of events.
+  boarding: -1,
   departed: 0,
   passed_checkpoint: 1,
   left_checkpoint: 2,
@@ -237,6 +240,17 @@ export function computeTripState({
   // Set when the bus cannot finish the run: a breakdown, an accident, a bus
   // pulled out of service. The trip ends where it stands.
   let terminated = null;
+  /**
+   * When the conductor confirmed the bus was at its starting point with the
+   * doors open.
+   *
+   * Before this, nobody has said where the bus is. A scheduled trip used to be
+   * drawn as a bus standing at its origin boarding passengers, which is an
+   * assumption — the bus may still be finishing its previous run, or stuck in
+   * the yard. The whole system exists to avoid asserting a position nobody
+   * confirmed, and this was the one place it did.
+   */
+  let boardingSince = null;
   // When the bus pulled out of the checkpoint it most recently reached. Null
   // while it is still standing there.
   let leftLastCheckpointAt = null;
@@ -417,6 +431,23 @@ export function computeTripState({
         break;
       }
 
+      /**
+       * At the starting point, doors open. The one thing a passenger heading
+       * for a terminal wants to know before a departure: is it actually there?
+       */
+      case 'boarding': {
+        if (actualDeparture) {
+          skip(log, 'after_departure');
+          break;
+        }
+        if (boardingSince) {
+          skip(log, 'already_boarding');
+          break;
+        }
+        boardingSince = toDate(log.reportedAt);
+        break;
+      }
+
       case 'load_report':
         // Nothing further to do — the load was picked up above, and this
         // carries no position information at all.
@@ -559,6 +590,9 @@ export function computeTripState({
     computedETAs,
     finalVarianceMinutes: actualArrival ? Math.round(exactVariance) : null,
     latestDelay,
+    // Null until a conductor says the bus is at its starting point. Until
+    // then nothing is claimed about where it is.
+    boardingSince,
     // Null unless the run was ended early, in which case: why, when, and the
     // last point it had reached.
     terminated,

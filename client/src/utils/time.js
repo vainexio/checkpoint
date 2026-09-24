@@ -45,6 +45,24 @@ export const formatDateTime = (value) => {
   return d && !Number.isNaN(d.getTime()) ? dateTimeFmt.format(d) : '—';
 };
 
+/**
+ * "Tomorrow", "Thu, Sep 25", or nothing at all when it is today.
+ *
+ * A board reaches into tomorrow — the last departures of a long evening, the
+ * first of the morning — and a bare "06:00 AM" on a row that is fourteen hours
+ * away reads as this morning's. The day is only ever shown when it is not
+ * today, so today's board stays uncluttered.
+ */
+export function dayLabel(value, now = new Date()) {
+  const d = asDate(value);
+  if (!d || Number.isNaN(d.getTime())) return null;
+
+  const day = (x) => dayFmt.format(x);
+  if (day(d) === day(now)) return null;
+  if (day(d) === day(new Date(now.getTime() + 24 * 60 * 60 * 1000))) return 'Tomorrow';
+  return day(d);
+}
+
 /** "in 42 min" / "12 min ago" — the reading a passenger actually wants. */
 export function relativeMinutes(value, now = new Date()) {
   const d = asDate(value);

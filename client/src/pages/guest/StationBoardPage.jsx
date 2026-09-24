@@ -94,9 +94,10 @@ export default function StationBoardPage() {
   // A bus you can walk up to: standing here, or starting its run from here.
   // "Leaving" described what the bus was about to do; this describes where it
   // is, which is what someone reading the board is trying to find out.
-  // A later departure from here is a time, not a bus in the bay, so it waits
-  // under "Arriving" with everything else still to come.
-  const isHere = (a) => a.isHereNow || (a.boardKind === 'departure' && !a.departsLater);
+  // A departure nobody has confirmed at the terminal is a time on the
+  // timetable, however soon it is due, so it waits under "Arriving" until a
+  // conductor says the bus is actually there.
+  const isHere = (a) => a.isHereNow || a.isBoarding;
   const serves = (a) => !going || (a.continuesTo ?? []).includes(going.name);
 
   // Everything the destination allows; the tabs then split that, so their
@@ -321,6 +322,8 @@ function ArrivalRow({ arrival, now, stationName, goingTo }) {
   const scene = sceneFor({
     hasArrived,
     isCancelled,
+    // Only a confirmed boarding draws a bus at the bay before it departs.
+    isBoarding: arrival.isBoarding,
     isFull,
     isHereNow: arrival.isHereNow,
     isDeparture,
@@ -442,9 +445,15 @@ function ArrivalRow({ arrival, now, stationName, goingTo }) {
                     <span className="font-semibold text-foreground">{arrival.destination}</span>
                     {' '}· not boarding yet
                   </span>
+                ) : arrival.isBoarding ? (
+                  <span className="font-semibold text-success-strong">
+                    Boarding here now · departs for {arrival.destination}
+                  </span>
                 ) : isDeparture ? (
-                  <span className="font-semibold text-primary-strong">
-                    Waiting here · departs for {arrival.destination}
+                  <span className="text-muted-foreground">
+                    Departs for{' '}
+                    <span className="font-semibold text-foreground">{arrival.destination}</span> ·
+                    the bus has not been confirmed at this terminal yet
                   </span>
                 ) : arrival.isHereNow ? (
                   <span className="font-semibold text-success-strong">

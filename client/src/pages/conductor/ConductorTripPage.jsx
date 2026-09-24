@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   AlertCircle,
+  Users,
   ArrowLeft,
   Check,
   ChevronDown,
@@ -297,8 +298,20 @@ export default function ConductorTripPage() {
                 * which stops the pair reading as a contradiction.
                 */}
               <span className="text-[15px] font-bold tracking-tight">
-                {formatVariance(trip.varianceMinutes)}
-                <span className="ml-1 font-medium text-muted-foreground">vs timetable</span>
+                {/* Before departure there is nothing to be early or late
+                    against: the clock this is measured from has not started. */}
+                {trip.actualDeparture ? (
+                  <>
+                    {formatVariance(trip.varianceMinutes)}
+                    <span className="ml-1 font-medium text-muted-foreground">vs timetable</span>
+                  </>
+                ) : (
+                  <span className="font-medium text-muted-foreground">
+                    {trip.boardingSince
+                      ? `boarding since ${formatTime(trip.boardingSince)}`
+                      : 'not started'}
+                  </span>
+                )}
               </span>
             </div>
           </div>
@@ -321,14 +334,31 @@ export default function ConductorTripPage() {
         <div className="mb-6">
           {/* ------------------------------------------------ the one action */}
           <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-            {notDeparted
-              ? 'When you leave the terminal'
-              : standingAt
-                ? 'You are at a stop — tap when you pull out'
-                : 'Tap when you reach this point'}
+            {notDeparted && !trip.boardingSince
+              ? 'When you reach the terminal'
+              : notDeparted
+                ? 'When you leave the terminal'
+                : standingAt
+                  ? 'You are at a stop — tap when you pull out'
+                  : 'Tap when you reach this point'}
           </p>
 
-          {notDeparted ? (
+          {notDeparted && !trip.boardingSince ? (
+            /*
+              * Until this tap, nobody knows where the bus is. The board used to
+              * draw it standing at its origin with passengers getting on, which
+              * was an assumption: it may still be finishing its last run. So
+              * this is the first tap of a trip, and until it lands the board
+              * says only that the bus is expected.
+              */
+            <TapButton
+              primary
+              icon={Users}
+              label={`We are at ${trip.stops[0]?.name}`}
+              sub="Tells everyone waiting here that the bus has arrived and is boarding"
+              onClick={() => tap({ type: 'boarding' }, 'Boarding at the terminal recorded')}
+            />
+          ) : notDeparted ? (
             <TapButton
               primary
               icon={Flag}

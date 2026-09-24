@@ -24,6 +24,7 @@ const checkpointLogSchema = new mongoose.Schema(
      * or give up — so a station gets both, and a landmark, which is genuinely
      * instantaneous, gets only the pass.
      *
+     *   boarding            — at the starting point, doors open, before leaving
      *   departed            — left the origin, trip is under way
      *   passed_checkpoint   — reached this point (a station: now boarding)
      *   left_checkpoint     — pulled out of this point, now on the road again
@@ -35,6 +36,7 @@ const checkpointLogSchema = new mongoose.Schema(
     type: {
       type: String,
       enum: [
+        'boarding',
         'departed',
         'passed_checkpoint',
         'left_checkpoint',

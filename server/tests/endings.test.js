@@ -272,3 +272,56 @@ test('a trip still reporting is never closed', async () => {
 
   assert.equal(await closeAbandonedTrips(), 0);
 });
+
+/* ------------------------------------------- nobody says the bus is there -- */
+
+test('a trip claims nothing about where the bus is until someone says', () => {
+  const scheduled = computeTripState({ plan, logs: [] });
+  assert.equal(scheduled.boardingSince, null);
+
+  const boarding = computeTripState({ plan, logs: [log('boarding', -12)] });
+  assert.equal(boarding.boardingSince.getTime(), addMinutes(DEPARTURE, -12).getTime());
+  assert.equal(boarding.status, 'scheduled', 'boarding is not departing');
+  assert.equal(boarding.actualDeparture, null);
+  assert.equal(boarding.computedETAs[0].progress, 'pending', 'the origin is not passed yet');
+});
+
+test('boarding after the bus has already left is ignored', () => {
+  const state = computeTripState({ plan, logs: [log('departed', 0), log('boarding', 10)] });
+  assert.equal(state.boardingSince, null);
+  assert.equal(state.ignoredLogs[0].reason, 'after_departure');
+});
+
+test('the seats can be reported while boarding, before departure', () => {
+  const state = computeTripState({ plan, logs: [log('boarding', -15, { load: 'seats' })] });
+  assert.equal(state.load, 'seats');
+  assert.ok(state.boardingSince);
+});
+
+test('a board only says a bus is boarding once a conductor confirms it', async () => {
+  const later = new Date(Date.now() + 25 * 60000).toISOString();
+  const trip = await w
+    .asAdmin(request(app).post('/api/admin/trips'))
+    .send({
+      routeId: (await models.Route.findOne({}).lean())._id.toString(),
+      busId: (await models.Bus.findOne({}).lean())._id.toString(),
+      conductorId: (await models.User.findOne({ role: 'conductor' }).lean())._id.toString(),
+      scheduledDeparture: later,
+    })
+    .expect(201);
+
+  const rowFor = async () => (await board(w.pitx)).find((a) => a.tripId === trip.body.trip.id);
+
+  const before = await rowFor();
+  assert.equal(before.boardKind, 'departure');
+  assert.equal(before.isBoarding, false, 'the timetable alone never puts a bus at a terminal');
+
+  await w
+    .asConductor(request(app).post(`/api/conductor/trips/${trip.body.trip.id}/checkpoint-logs`))
+    .send({ clientLogId: 'at-the-bay', type: 'boarding', reportedAt: new Date().toISOString() })
+    .expect(201);
+
+  const after = await rowFor();
+  assert.equal(after.isBoarding, true);
+  assert.ok(after.boardingSince);
+});

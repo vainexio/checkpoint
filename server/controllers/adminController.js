@@ -275,6 +275,51 @@ export const listBuses = asyncHandler(async (req, res) => {
   res.json(await Bus.find().sort({ plateNumber: 1 }).lean());
 });
 
+/**
+ * One bus: what it is booked to do, and what it has actually done.
+ *
+ * A fleet list answers "which buses exist", which is the least interesting
+ * question an operator has about one. Standing in front of a bus, or on the
+ * phone about it, the questions are: what is it supposed to be doing today and
+ * this week, and how has it been running lately. Both come from records this
+ * system already keeps.
+ */
+export const getBus = asyncHandler(async (req, res) => {
+  const bus = await Bus.findById(req.params.id).lean();
+  if (!bus) return res.status(404).json({ error: 'Bus not found.' });
+
+  const startOfToday = manilaMidnight(manilaDate());
+  const schedules = await Schedule.find({ bus: bus._id }).populate(SCHEDULE_POPULATE).lean();
+  const upcomingBy = await upcomingBySchedule(schedules.map((s) => s._id));
+
+  const [ahead, past] = await Promise.all([
+    // Today and the days the generator has filled in.
+    Trip.find({ bus: bus._id, scheduledDeparture: { $gte: startOfToday } })
+      .populate(TRIP_POPULATE)
+      .sort({ scheduledDeparture: 1 })
+      .limit(40)
+      .lean(),
+    // What it has actually been doing.
+    Trip.find({ bus: bus._id, scheduledDeparture: { $lt: startOfToday } })
+      .populate(TRIP_POPULATE)
+      .sort({ scheduledDeparture: -1 })
+      .limit(20)
+      .lean(),
+  ]);
+
+  res.json({
+    bus: {
+      id: String(bus._id),
+      plateNumber: bus.plateNumber,
+      operatorName: bus.operatorName,
+      isActive: bus.isActive,
+    },
+    schedules: schedules.map((s) => presentSchedule(s, upcomingBy.get(String(s._id)))),
+    upcoming: await presentTrips(ahead, { audience: 'admin' }),
+    history: await presentTrips(past, { audience: 'admin' }),
+  });
+});
+
 export const createBus = asyncHandler(async (req, res) => {
   const bus = await Bus.create({
     plateNumber: req.body.plateNumber,

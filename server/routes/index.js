@@ -73,6 +73,8 @@ router.put('/admin/routes/:id', ...adminOnly, admin.updateRoute);
 router.delete('/admin/routes/:id', ...adminOnly, admin.deleteRoute);
 
 router.get('/admin/buses', ...adminOnly, admin.listBuses);
+// One bus: its timetable, the week ahead, and what it has actually run.
+router.get('/admin/buses/:id', ...adminOnly, admin.getBus);
 router.post('/admin/buses', ...adminOnly, admin.createBus);
 router.put('/admin/buses/:id', ...adminOnly, admin.updateBus);
 router.delete('/admin/buses/:id', ...adminOnly, admin.deleteBus);

@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils.ts';
-import { formatDuration, formatTime, relativeMinutes } from '@/utils/time.js';
+import { dayLabel, formatDuration, formatTime, relativeMinutes } from '@/utils/time.js';
 
 /**
  * How long until the bus gets here — set as the headline, with the clock time
@@ -131,6 +131,11 @@ export function ArrivalCountdown({
           cancelled && 'line-through'
         )}
       >
+        {/* The day, when it is not today: a 06:00 on a board at eight in the
+            evening is tomorrow morning's bus, not one you can still catch. */}
+        {dayLabel(time, now) && (
+          <span className="mr-1.5 font-semibold text-foreground">{dayLabel(time, now)}</span>
+        )}
         {formatTime(time)}
       </div>
 

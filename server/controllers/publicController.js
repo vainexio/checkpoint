@@ -262,6 +262,11 @@ export const stationBoard = asyncHandler(async (req, res) => {
             ? trip.scheduledDeparture
             : (stop.actualArrival ?? stop.projectedArrival ?? stop.scheduledArrival);
 
+      // Confirmed at the starting point with the doors open. Only this makes
+      // a board say a bus is here before it has departed; the timetable alone
+      // never does.
+      const isBoarding = isDeparture && Boolean(trip.boardingSince);
+
       // Leaves from here, but not soon enough to be in the bay yet.
       const departsLater =
         isDeparture &&
@@ -274,6 +279,8 @@ export const stationBoard = asyncHandler(async (req, res) => {
         boardKind,
         boardTime,
         departsLater,
+        isBoarding,
+        boardingSince: trip.boardingSince,
         // Why it is not coming, and where it got to. Null for a trip an
         // operator cancelled before it ever left.
         terminated: trip.terminated,
@@ -358,11 +365,11 @@ export const stationBoard = asyncHandler(async (req, res) => {
         // it is news for whoever is waiting, but nothing to act on.
         if (x.boardKind === 'cancelled') return 2;
         if (x.isStale) return 2; // nobody can vouch for this time
-        // Standing here, or boarding for a run that starts here: the only buses
-        // someone at this stop can walk up to right now. They lead the board,
-        // and everything else follows in the order it will turn up — a later
-        // departure included, which is a time on the timetable, not a bus.
-        if (x.isHereNow || (x.boardKind === 'departure' && !x.departsLater)) return 0;
+        // Standing here, or confirmed boarding at this terminal: the only
+        // buses someone at this stop can walk up to right now. A departure
+        // nobody has confirmed at the terminal is a time on the timetable, not
+        // a bus, and takes its place in the order things will turn up.
+        if (x.isHereNow || x.isBoarding) return 0;
         return 1;
       };
       if (rank(a) !== rank(b)) return rank(a) - rank(b);

@@ -132,7 +132,10 @@ export default function AdminDashboardPage() {
                           </div>
                         )}
                       </TableCell>
-                      <TableCell>{formatVariance(trip.varianceMinutes)}</TableCell>
+                      <TableCell>
+                        {/* Nothing to be early or late against until it leaves. */}
+                        {trip.actualDeparture ? formatVariance(trip.varianceMinutes) : '—'}
+                      </TableCell>
                       <TableCell className="text-right font-mono tabular">
                         {formatTime(
                           trip.stops.at(-1)?.projectedArrival ?? trip.stops.at(-1)?.scheduledArrival

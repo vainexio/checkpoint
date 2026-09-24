@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { AlertCircle, Bus, LifeBuoy, ShieldCheck, Trash2, Users, X } from 'lucide-react';
 import { useList } from '@/hooks/useList.js';
 import { useAuth } from '@/hooks/useAuth.jsx';
@@ -167,7 +168,15 @@ function BusPanel({ buses, onError }) {
             <TableBody>
               {buses.items.map((bus) => (
                 <TableRow key={bus._id}>
-                  <TableCell className="font-mono font-medium">{bus.plateNumber}</TableCell>
+                  <TableCell className="font-mono font-medium">
+                    {/* Its timetable and what it has actually run. */}
+                    <Link
+                      to={`/admin/fleet/buses/${bus._id}`}
+                      className="hover:text-primary-strong hover:underline"
+                    >
+                      {bus.plateNumber}
+                    </Link>
+                  </TableCell>
                   <TableCell className="text-muted-foreground">{bus.operatorName}</TableCell>
                   <TableCell className="text-right">
                     <DeleteButton

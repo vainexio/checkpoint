@@ -18,6 +18,7 @@ import { liveWindow } from '../services/tripWindow.js';
  */
 
 const LOG_TYPES = [
+  'boarding',
   'departed',
   'passed_checkpoint',
   'left_checkpoint',

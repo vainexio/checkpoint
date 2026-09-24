@@ -5,7 +5,7 @@ import { usePolling, useNow } from '@/hooks/usePolling.js';
 import { fetchStationBoard } from '@/api/publicApi.js';
 import { loadLevel } from '@/components/SeatPicker.jsx';
 import { cn } from '@/lib/utils.ts';
-import { formatCountdown, formatElapsed, formatTime, relativeMinutes } from '@/utils/time.js';
+import { dayLabel, formatCountdown, formatElapsed, formatTime, relativeMinutes } from '@/utils/time.js';
 
 /**
  * The wall screen at a terminal.
@@ -178,6 +178,11 @@ function DisplayRow({ arrival, now }) {
         >
           {formatTime(arrival.boardTime)}
         </div>
+        {dayLabel(arrival.boardTime, now) && (
+          <div className="mt-0.5 text-[15px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+            {dayLabel(arrival.boardTime, now)}
+          </div>
+        )}
         <div className={cn('mt-1 text-[15px] font-semibold', cancelled ? 'text-destructive-strong' : 'text-muted-foreground')}>
           {cancelled
             ? 'not running'
@@ -190,7 +195,7 @@ function DisplayRow({ arrival, now }) {
                 : minutesAway > 1
                   ? formatCountdown(arrival.boardTime, now)
                   : arrival.boardKind === 'departure'
-                    ? 'boarding'
+                    ? (arrival.isBoarding ? 'boarding' : 'expected')
                     : 'arriving'}
         </div>
       </div>
@@ -215,7 +220,11 @@ function DisplayRow({ arrival, now }) {
           ) : arrival.boardKind === 'arrived' ? (
             <>Completed from {arrival.origin}</>
           ) : arrival.boardKind === 'departure' ? (
-            <>To {arrival.destination} · now boarding here</>
+            arrival.isBoarding ? (
+              <>To {arrival.destination} · now boarding here</>
+            ) : (
+              <>To {arrival.destination} · not yet at the terminal</>
+            )
           ) : arrival.isStale ? (
             <>No update in {formatElapsed(arrival.minutesSinceLastConfirm)}</>
           ) : arrival.position === 'at_stop' ? (

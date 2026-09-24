@@ -193,11 +193,13 @@ export default function ConductorTripPage() {
   const finished = trip.status === 'arrived' || trip.status === 'cancelled';
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="mx-auto max-w-2xl lg:max-w-5xl">
       {back}
 
       <div className="mb-6">
-        <h1 className="text-3xl font-black tracking-tight">{trip.route.name}</h1>
+        <h1 className="text-[28px] font-black leading-tight tracking-tight sm:text-3xl">
+          {trip.route.name}
+        </h1>
         <p className="mt-1 text-[15px] font-medium text-muted-foreground">
           {trip.bus?.plateNumber} · departs {formatTime(trip.scheduledDeparture)}
         </p>
@@ -256,6 +258,19 @@ export default function ConductorTripPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/*
+        * The controls on one side, the route on the other, once there is room.
+        *
+        * This page is built for a phone in a moving bus and stays that way —
+        * one column, big targets. But an operator checking the same trip on a
+        * desk was given a 670px ribbon down the middle of a 1440px screen, with
+        * the route they wanted to read pushed a screen and a half below the
+        * buttons. Side by side, the tap targets keep their size and the route
+        * is visible while they are used.
+        */}
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)] lg:items-start lg:gap-6">
+      <div className="min-w-0">
 
       {!finished && !notDeparted && (
         <SeatCard
@@ -526,7 +541,9 @@ export default function ConductorTripPage() {
         </Alert>
       )}
 
-      <Card>
+      </div>
+
+      <Card className="lg:sticky lg:top-[84px]">
         <CardHeader>
           <CardTitle>Route</CardTitle>
         </CardHeader>
@@ -538,6 +555,7 @@ export default function ConductorTripPage() {
           />
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

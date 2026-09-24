@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertCircle, CalendarClock, ClipboardPen, Pencil, Repeat, Trash2 } from 'lucide-react';
 import { useList } from '@/hooks/useList.js';
@@ -19,14 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.t
 import { Input } from '@/components/ui/input.tsx';
 import { Label } from '@/components/ui/label.tsx';
 import { Alert, AlertDescription } from '@/components/ui/alert.tsx';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table.tsx';
+import { ResponsiveTable } from '@/components/ResponsiveTable.jsx';
 import { cn } from '@/lib/utils.ts';
 import {
   formatDateTime,
@@ -189,152 +182,176 @@ export default function AdminTripsPage() {
           )}
 
           {trips.items.length > 0 && (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Route</TableHead>
-                    <TableHead>Departure</TableHead>
-                    <TableHead>Bus</TableHead>
-                    <TableHead>Conductor</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Last confirmed</TableHead>
-                    <TableHead>Running</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {trips.items.map((trip) => {
+            <ResponsiveTable
+              rows={trips.items}
+              rowKey={(trip) => trip.id}
+              rowClassName={(trip) => cn(trip.isStale && 'bg-muted/60')}
+              cardClassName={(trip) => cn(trip.isStale && 'border-warning/40')}
+              expanded={(trip) =>
+                editingId === trip.id ? (
+                  <TripEditor
+                    trip={trip}
+                    buses={buses.items}
+                    conductors={conductors.items}
+                    onCancel={() => setEditingId(null)}
+                    onSave={async (body) => {
+                      if (await act(() => updateTrip(trip.id, body))) setEditingId(null);
+                    }}
+                  />
+                ) : null
+              }
+              columns={[
+                {
+                  key: 'route',
+                  header: 'Route',
+                  lead: true,
+                  cell: (trip) => (
+                    <>
+                      <Link
+                        to={`/admin/trips/${trip.id}`}
+                        className="text-[15px] font-bold hover:text-primary-strong hover:underline lg:text-sm lg:font-semibold"
+                      >
+                        {trip.route.name}
+                      </Link>
+                      <SourceTag source={trip.source} />
+                    </>
+                  ),
+                },
+                {
+                  key: 'departure',
+                  header: 'Departure',
+                  aside: true,
+                  className: 'whitespace-nowrap text-xs text-muted-foreground',
+                  cell: (trip) => (
+                    <span className="whitespace-nowrap text-xs text-muted-foreground">
+                      {formatDateTime(trip.scheduledDeparture)}
+                    </span>
+                  ),
+                },
+                {
+                  key: 'bus',
+                  header: 'Bus',
+                  className: 'whitespace-nowrap font-mono text-xs font-semibold',
+                  cell: (trip) => (
+                    <span className="whitespace-nowrap font-mono text-xs font-semibold">
+                      {trip.bus?.plateNumber ?? '—'}
+                    </span>
+                  ),
+                },
+                {
+                  key: 'conductor',
+                  header: 'Conductor',
+                  className: 'whitespace-nowrap',
+                  cell: (trip) =>
+                    trip.conductor?.name ?? <span className="text-muted-foreground">Unassigned</span>,
+                },
+                {
+                  key: 'status',
+                  header: 'Status',
+                  wide: true,
+                  cell: (trip) =>
+                    trip.didNotRun ? (
+                      <span className="inline-flex rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
+                        Did not run
+                      </span>
+                    ) : trip.abandoned ? (
+                      // Departed, then silence. Nothing is claimed about where
+                      // it went, only that it stopped reporting.
+                      <span
+                        className="inline-flex rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground"
+                        title="No report for hours past its expected arrival, so it was closed. A later tap reopens it."
+                      >
+                        Stopped reporting
+                      </span>
+                    ) : (
+                      <StatusBadge
+                        status={trip.status}
+                        isStale={trip.isStale}
+                        varianceMinutes={trip.varianceMinutes}
+                        conditionsAllowanceMinutes={trip.conditionsAllowanceMinutes}
+                      />
+                    ),
+                },
+                {
+                  /* Where it actually is, which the dashboard shows and this
+                     list did not — the same question, asked from another page. */
+                  key: 'confirmed',
+                  header: 'Last confirmed',
+                  className: 'whitespace-nowrap text-xs',
+                  cell: (trip) =>
+                    trip.lastConfirmedCheckpoint ? (
+                      <>
+                        <div className="font-medium">{trip.lastConfirmedCheckpoint.name}</div>
+                        {trip.minutesSinceLastConfirm != null && (
+                          <div className="text-muted-foreground">
+                            {formatElapsed(trip.minutesSinceLastConfirm)} ago
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    ),
+                },
+                {
+                  key: 'running',
+                  header: 'Running',
+                  className: 'whitespace-nowrap',
+                  cell: (trip) =>
+                    trip.actualDeparture ? formatVariance(trip.varianceMinutes) : '—',
+                },
+                {
+                  key: 'actions',
+                  header: 'Actions',
+                  bare: true,
+                  wide: true,
+                  headClassName: 'text-right',
+                  className: 'whitespace-nowrap text-right',
+                  cell: (trip) => {
                     const canEdit = trip.status === 'scheduled' && !trip.actualDeparture;
                     return (
-                      <Fragment key={trip.id}>
-                        <TableRow className={cn(trip.isStale && 'bg-muted/60')}>
-                          <TableCell>
-                            <Link
-                              to={`/admin/trips/${trip.id}`}
-                              className="font-semibold hover:text-primary-strong hover:underline"
-                            >
-                              {trip.route.name}
-                            </Link>
-                            <SourceTag source={trip.source} />
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                            {formatDateTime(trip.scheduledDeparture)}
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap font-mono text-xs font-semibold">
-                            {trip.bus?.plateNumber ?? '—'}
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap">
-                            {trip.conductor?.name ?? (
-                              <span className="text-muted-foreground">Unassigned</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {trip.didNotRun ? (
-                              <span className="inline-flex rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
-                                Did not run
-                              </span>
-                            ) : trip.abandoned ? (
-                              // Departed, then silence. Nothing is claimed about
-                              // where it went, only that it stopped reporting.
-                              <span
-                                className="inline-flex rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground"
-                                title="No report for hours past its expected arrival, so it was closed. A later tap reopens it."
-                              >
-                                Stopped reporting
-                              </span>
-                            ) : (
-                              <StatusBadge
-                                status={trip.status}
-                                isStale={trip.isStale}
-                                varianceMinutes={trip.varianceMinutes}
-                                conditionsAllowanceMinutes={trip.conditionsAllowanceMinutes}
-                              />
-                            )}
-                          </TableCell>
-                          {/* Where it actually is, which the dashboard shows and
-                              this list did not — the same question, asked from
-                              a different page. */}
-                          <TableCell className="whitespace-nowrap text-xs">
-                            {trip.lastConfirmedCheckpoint ? (
-                              <>
-                                <div className="font-medium">{trip.lastConfirmedCheckpoint.name}</div>
-                                {trip.minutesSinceLastConfirm != null && (
-                                  <div className="text-muted-foreground">
-                                    {formatElapsed(trip.minutesSinceLastConfirm)} ago
-                                  </div>
-                                )}
-                              </>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap">
-                            {trip.actualDeparture ? formatVariance(trip.varianceMinutes) : '—'}
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap text-right">
-                            {canEdit && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="mr-2"
-                                onClick={() => setEditingId(editingId === trip.id ? null : trip.id)}
-                              >
-                                <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                                Edit
-                              </Button>
-                            )}
-                            {canEdit && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="mr-2"
-                                onClick={() => act(() => updateTrip(trip.id, { status: 'cancelled' }))}
-                              >
-                                Cancel
-                              </Button>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              aria-label="Delete trip"
-                              className="text-destructive-strong hover:bg-destructive/10 hover:text-destructive-strong"
-                              onClick={() => {
-                                const note =
-                                  trip.source?.kind === 'schedule'
-                                    ? ' Its schedule will not recreate it.'
-                                    : '';
-                                if (window.confirm(`Delete this trip and its records?${note}`)) {
-                                  act(() => deleteTrip(trip.id));
-                                }
-                              }}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-
-                        {editingId === trip.id && (
-                          <TableRow className="hover:bg-transparent">
-                            <TableCell colSpan={8} className="bg-muted/40">
-                              <TripEditor
-                                trip={trip}
-                                buses={buses.items}
-                                conductors={conductors.items}
-                                onCancel={() => setEditingId(null)}
-                                onSave={async (body) => {
-                                  if (await act(() => updateTrip(trip.id, body))) setEditingId(null);
-                                }}
-                              />
-                            </TableCell>
-                          </TableRow>
+                      <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                        {canEdit && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEditingId(editingId === trip.id ? null : trip.id)}
+                          >
+                            <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                            Edit
+                          </Button>
                         )}
-                      </Fragment>
+                        {canEdit && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => act(() => updateTrip(trip.id, { status: 'cancelled' }))}
+                          >
+                            Cancel
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label="Delete trip"
+                          className="text-destructive-strong hover:bg-destructive/10 hover:text-destructive-strong"
+                          onClick={() => {
+                            const note =
+                              trip.source?.kind === 'schedule'
+                                ? ' Its schedule will not recreate it.'
+                                : '';
+                            if (window.confirm(`Delete this trip and its records?${note}`)) {
+                              act(() => deleteTrip(trip.id));
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+                  },
+                },
+              ]}
+            />
           )}
         </CardContent>
       </Card>

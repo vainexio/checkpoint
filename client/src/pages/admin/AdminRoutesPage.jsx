@@ -717,8 +717,12 @@ export default function AdminRoutesPage() {
             );
             return (
               <div key={route._id} className="rounded-xl border border-border p-4">
-                <div className="mb-3 flex items-start justify-between gap-4">
-                  <div>
+                {/* Stacked on a phone. Side by side the three controls were
+                    marked shrink-0 against a name that also would not give
+                    way, so the row grew wider than the card and took the whole
+                    page into a sideways scroll. */}
+                <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                  <div className="min-w-0">
                     <div className="font-bold">
                       {route.name}
                       {route.isActive === false && (
@@ -733,7 +737,7 @@ export default function AdminRoutesPage() {
                         ' · rush-hour times set'}
                     </div>
                   </div>
-                  <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                  <div className="flex flex-wrap gap-2 sm:shrink-0 sm:justify-end">
                     <Button variant="outline" size="sm" onClick={() => setPreviewRouteId(route._id)}>
                       <MapPin className="mr-1.5 h-3.5 w-3.5" />
                       Show on map

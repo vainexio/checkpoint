@@ -165,11 +165,27 @@ export default function StationsPage() {
         onRequestLocation={findNearby}
       />
 
+      {/*
+        * The stops and the map, side by side once there is room for both.
+        *
+        * Stacked, the map was a 320px band the list had to be scrolled past,
+        * and on a 1440px screen the page was a tall narrow column with half the
+        * width unused. Beside each other the map stays in view while the list
+        * is read, which is the only arrangement in which a map of stops is
+        * actually useful — you look something up and see where it is without
+        * losing either.
+        *
+        * On a phone there is no room to put them side by side, so the order
+        * decides instead: search, then stops you can tap, then the map. Someone
+        * standing at a curb wants the list first.
+        */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start xl:grid-cols-[minmax(0,1fr)_440px]">
+      <div className="min-w-0">
       {/* ------------------------------------------------------------ search */}
       <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
         Or find a stop
       </h2>
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row">
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -225,53 +241,12 @@ export default function StationsPage() {
         </p>
       )}
 
-      {/*
-        * On a phone the map comes after the stops.
-        *
-        * It is 320px of ocean before anything you can tap, and someone opening
-        * this while standing somewhere wants the list first. On a wider screen
-        * it costs nothing to show both, so the order goes back.
-        */}
-      <div className="flex flex-col">
-      <Card className="order-2 mb-8 overflow-hidden sm:order-1">
-        <CardContent className="p-0">
-          <CheckpointMap
-            checkpoints={mapCheckpoints}
-            routePath={routePath}
-            you={you}
-            frame={nearFrame}
-            // Re-frame when what is being shown changes, not on every render.
-            fitKey={matches ? `search:${query}` : 'all'}
-            height={320}
-            className="rounded-none border-0"
-          />
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border px-5 py-3 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <span className="grid h-3.5 w-3.5 place-items-center rounded-full bg-[#3E7A66]">
-                <span className="h-1.5 w-1.5 rounded-full bg-white" />
-              </span>
-              Terminal — buses based here, somewhere to wait
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-[#6BA893]" /> Pick-up &amp; drop-off point
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full border-2 border-dashed border-muted-foreground" />{' '}
-              Timing point — nobody boards
-            </span>
-            <span className="ml-auto">
-              Stops only. Buses are not tracked on this map.
-            </span>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* ----------------------------------------------------------- results */}
-      <div className="order-1 sm:order-2">
+      <div className="min-w-0">
       {stations.loading && !stations.data && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-[92px] rounded-xl" />
+            <Skeleton key={i} className="h-[84px] rounded-xl" />
           ))}
         </div>
       )}
@@ -334,17 +309,57 @@ export default function StationsPage() {
       )}
       </div>
       </div>
+
+      {/*
+        * The map column. Pinned while the list scrolls past it on a desk, and
+        * last on a phone, where it is 320px of ocean in front of anything you
+        * can tap.
+        */}
+      <Card className="order-last mb-8 overflow-hidden lg:sticky lg:top-[84px] lg:mb-0">
+        <CardContent className="p-0">
+          <CheckpointMap
+            checkpoints={mapCheckpoints}
+            routePath={routePath}
+            you={you}
+            frame={nearFrame}
+            // Re-frame when what is being shown changes, not on every render.
+            fitKey={matches ? `search:${query}` : 'all'}
+            height={340}
+            className="rounded-none border-0"
+          />
+          <div className="flex flex-col gap-2 border-t border-border px-4 py-3 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <span className="grid h-3.5 w-3.5 shrink-0 place-items-center rounded-full bg-[#3E7A66]">
+                <span className="h-1.5 w-1.5 rounded-full bg-white" />
+              </span>
+              Terminal — buses based here, somewhere to wait
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#6BA893]" /> Pick-up &amp;
+              drop-off point
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full border-2 border-dashed border-muted-foreground" />{' '}
+              Timing point — nobody boards
+            </span>
+            <span className="border-t border-border pt-2">
+              Stops only. Buses are not tracked on this map.
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+      </div>
     </>
   );
 }
 
 function Section({ title, children }) {
   return (
-    <section className="mb-10">
+    <section className="mb-8">
       <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
         {title}
       </h2>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
+      <div className="grid gap-3 sm:grid-cols-2">{children}</div>
     </section>
   );
 }
@@ -356,11 +371,13 @@ function StationCard({ station, you = null, far = false }) {
   return (
     <Card className="group h-full transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
       <Link to={`/stations/${station.id}`} className="block">
-        <CardContent className="flex items-center justify-between gap-3 p-5 pb-3">
-          <span className="flex min-w-0 items-start gap-3">
-            <MapPin className="mt-1 h-4 w-4 shrink-0 text-primary-strong" />
+        <CardContent className="flex items-center justify-between gap-3 p-4 pb-2.5">
+          <span className="flex min-w-0 items-start gap-2.5">
+            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary-strong" />
             <span className="min-w-0">
-              <span className="block truncate text-[17px] font-bold">{station.name}</span>
+              <span className="block truncate text-[16px] font-bold leading-snug">
+                {station.name}
+              </span>
               {station.area && (
                 <span className="block truncate text-[13px] text-muted-foreground">
                   {station.area}
@@ -383,13 +400,16 @@ function StationCard({ station, you = null, far = false }) {
         </CardContent>
       </Link>
 
+      {/* A quiet footnote rather than a second button. Opening the stop is what
+          this card is for; walking to it is what you do once you have picked
+          one, and a full-size control for it was competing with the card. */}
       {directions && (
-        <div className="px-5 pb-4">
+        <div className="px-4 pb-3 pl-[42px]">
           <a
             href={directions}
             target="_blank"
             rel="noreferrer noopener"
-            className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary-strong"
+            className="inline-flex cursor-pointer items-center gap-1.5 text-[12.5px] font-semibold text-muted-foreground underline-offset-2 transition-colors hover:text-primary-strong hover:underline"
           >
             <Footprints className="h-3.5 w-3.5" />
             Walking directions
